@@ -81,10 +81,61 @@ When you're done, you can leave the environment with:
 deactivate
 ```
 
+## Start the backend
+
+From the `backend` folder, with the environment active, run the same command
+on Linux or Windows:
+
+```bash
+python -m uvicorn app.main:app --reload
+```
+
+The server runs at `http://127.0.0.1:8000`. Open
+`http://127.0.0.1:8000/docs` for Swagger UI or
+`http://127.0.0.1:8000/redoc` for ReDoc. The OpenAPI schema is available at
+`http://127.0.0.1:8000/openapi.json`.
+
+There are no application endpoints yet, so the documentation has no operations
+and `/` returns 404. Future endpoints will live under `/api/v1`.
+
+`--reload` restarts the server when Python files change; use it for local
+development. Stop the server with Ctrl+C. To run without automatic reload:
+
+```bash
+python -m uvicorn app.main:app
+```
+
+You can set the listening address and port with Uvicorn's `--host` and `--port`
+options. Importing the application does not start a server or contact IRSA.
+
+## Backend structure
+
+```text
+app/
+  main.py             ASGI entry point used by Uvicorn
+  application.py      Application factory and router registration
+  core/config.py      Application name, version, and API prefix
+  api/v1/router.py    Central registration of version 1 feature routers
+  api/v1/endpoints/   HTTP routes, grouped by feature
+  schemas/           Request and response models
+  services/          Data workflows and processing
+  integrations/      Access to IRSA and other external data or storage
+```
+
+The feature packages are placeholders for the next commits. Routes will validate
+requests and call services; services will handle data workflows and use
+integrations for external access. Keep FastAPI request/response handling in the
+API layer and FITS processing out of route functions. Schemas define the data
+contract shared with consumers of the API.
+
+Application defaults live in `core/config.py`. `create_app` accepts a `Settings`
+instance so tests can construct independent applications. Environment-file
+loading is not configured yet.
+
 ## Notes
 
 - The `.venv` folder won't be uploaded to GitHub: `.gitignore` already handles that.
 - The libraries come from the prototype, though the installed versions may vary
   because most don't have a fixed version in `requirements.txt`.
-- For now, this just sets up the environment. We still need to bring over the
-  backend code, so there's no server to start yet.
+- This commit provides the server scaffold. IRSA queries, FITS processing, and
+  application endpoints will be added separately.
