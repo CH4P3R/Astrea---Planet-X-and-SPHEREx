@@ -1,29 +1,29 @@
-# --- Herramientas de Datos Astronómicos ---
+# --- Astronomical Data Tools ---
 astropy
 astroquery>=0.4.11
 pyerfa
 
-# --- Herramientas Matemáticas y Científicas ---
+# --- Math and Scientific Tools ---
 numpy
 scipy
 requests
 pandas
 
-# --- Herramientas de Visualización y Laboratorio (Jupyter) ---
+# --- Visualization and Notebook Tools (Jupyter) ---
 matplotlib
 jupyterlab
 ipywidgets
 
-# --- Herramientas de Servidor / Backend ---
+# --- Server / Backend ---
 fastapi
 uvicorn
 python-multipart
 pydantic
 
-# --- Herramientas de IA y Machine Learning ---
+# --- AI and Machine Learning ---
 scikit-learn
 torch
 transformers
 
-# --- Pruebas y Calidad de Código ---
+# --- Testing and Code Quality ---
 pytest

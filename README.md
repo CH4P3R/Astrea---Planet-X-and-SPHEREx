@@ -58,7 +58,7 @@ npm run lint
 
 ### Backend
 
-Requires Python 3. Detailed steps are in [`backend/entorno.txt`](backend/entorno.txt).
+Requires Python 3. Detailed steps are in [`backend/environment.md`](backend/environment.md).
 
 ```bash
 cd backend
