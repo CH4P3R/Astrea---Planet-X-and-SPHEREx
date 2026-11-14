@@ -1,0 +1,63 @@
+# Dependencias Node y compilaciones del frontend
+node_modules/
+dist/
+dist-ssr/
+
+# Entornos virtuales y archivos generados de Python
+venv/
+.venv/
+env/
+.env/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+.ipynb_checkpoints/
+
+# Variables de entorno y claves (conservar plantillas)
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+*.local
+*.pem
+
+# Logs
+logs/
+*.log
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+.directory
+
+# Editores
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Bases de datos locales
+*.sqlite
+*.sqlite3
+*.db
+
+# Catalogos y cache de imagenes generados en el proyecto de referencia
+backend/data/bright-stars-v1.json
+backend/data/bright-stars-v1.tmp
+backend/data/hipparcos-v1.json
+backend/data/hipparcos-v1.tmp
+backend/data/image-cutouts/
+backend/data/image-composites/
