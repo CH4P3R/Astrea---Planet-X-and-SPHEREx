@@ -13,7 +13,6 @@
   width: 100%; padding: 8px; font-size: 0.78rem; border-radius: 5px;
   color: #c4d4e1; background: #162431; border: 1px solid #34485c;
 }
-.location-body button:hover:not(:disabled) { background: #203243; }
 .location-body fieldset { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0 12px; padding: 0; border: 0; }
 .location-body legend { padding: 0 0 10px; }
 .location-body input { width: 100%; margin-top: 6px; padding: 8px; border: 1px solid #34485c; border-radius: 5px; color: #d7e4ef; background: #060c18; }

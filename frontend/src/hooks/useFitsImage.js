@@ -1,54 +1,87 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { loadMetadata, loadPixels, loadProjection, observerContext, searchImages } from '../services/images.js'
+import { loadMetadata, loadPixels, loadProjection, observerContext, searchImages, searchCoordinates } from '../services/images.js'
+import { coordinateError, cutoutSizeError, DEFAULT_CUTOUT_SIZE } from '../config/search.js'
 import { decodePixels, validateImage } from '../three/core/imageDataUtils.js'
 
-export default function useFitsImage(observer) {
-  const [state, setState] = useState({ status: 'idle', images: [], error: '', active: null, observer: null })
-  const [size, setSize] = useState(6)
-  const [armed, setArmed] = useState(false)
+const emptyState = { status: 'idle', images: [], error: '', active: null, hasMore: false, query: null }
+
+export default function useFitsImage(observer, timeContext) {
+  const [state, setState] = useState(emptyState)
+  const [size, updateSize] = useState(DEFAULT_CUTOUT_SIZE)
+  const [preparing, setPreparing] = useState(false)
   const [focus, setFocus] = useState(null)
   const controller = useRef(null)
   const maxTextureSize = useRef(0)
+  const setTextureLimit = useCallback((value) => { maxTextureSize.current = value }, [])
+  const beginPreparation = useCallback(() => setPreparing(true), [])
+  const cancelPreparation = useCallback(() => setPreparing(false), [])
+  const setSize = useCallback((value) => updateSize(value), [])
+
   const reset = useCallback(() => {
     controller.current?.abort()
-    setState({ status: 'idle', images: [], error: '', active: null, observer })
-    setArmed(false)
+    setState(emptyState)
+    setPreparing(false)
     setFocus(null)
-  }, [observer])
+  }, [])
 
-  useEffect(() => {
-    return () => controller.current?.abort()
-  }, [observer])
+  useEffect(() => () => controller.current?.abort(), [])
 
-  const search = useCallback(async (direction) => {
+  useEffect(() => () => {
+    if (controller.current?.kind === 'load') controller.current.abort()
+  }, [observer, timeContext])
+
+  const runSearch = useCallback(async (request) => {
+    controller.current?.abort()
+    const job = new AbortController()
+    controller.current = job
+    setPreparing(false)
+    setFocus(null)
+    setState({ ...emptyState, status: 'searching' })
+    try {
+      const result = await request(job.signal)
+      if (!job.signal.aborted) setState({ ...emptyState, status: 'results', images: result.images,
+        hasMore: result.has_more, query: result.query })
+    } catch (error) {
+      if (!job.signal.aborted) setState({ ...emptyState, status: 'error', error: error.message })
+    }
+  }, [])
+
+  const search = useCallback((direction) => {
+    const error = cutoutSizeError(size) || (!observer ? 'Define tu ubicación para buscar al pulsar el cielo.' : '')
+    if (error) {
+      setState((previous) => ({ ...previous, error }))
+      return
+    }
+    return runSearch((signal) => searchImages(observerContext(observer, timeContext), direction, size, signal))
+  }, [observer, size, timeContext, runSearch])
+
+  const searchByCoordinates = useCallback((ra, dec) => {
+    const error = cutoutSizeError(size) || coordinateError(ra, dec)
+    if (error) {
+      setState((previous) => ({ ...previous, error }))
+      return
+    }
+    return runSearch((signal) => searchCoordinates(ra, dec, size, signal))
+  }, [size, runSearch])
+
+  const load = useCallback(async (id) => {
     if (!observer) return
     controller.current?.abort()
     const job = new AbortController()
+    job.kind = 'load'
     controller.current = job
-    setArmed(false)
-    setState({ status: 'searching', images: [], error: '', active: null, observer })
-    try {
-      const result = await searchImages(observerContext(observer), direction, size, job.signal)
-      if (!job.signal.aborted) setState({ status: 'results', images: result.images, hasMore: result.has_more, error: '', active: null, observer })
-    } catch (error) {
-      if (!job.signal.aborted) setState({ status: 'error', images: [], error: error.message, active: null, observer })
-    }
-  }, [observer, size])
-
-  const load = useCallback(async (id) => {
-    controller.current?.abort()
-    const job = new AbortController()
-    controller.current = job
-    setState((previous) => ({ ...previous, status: 'loading', error: '', active: null }))
+    setPreparing(false)
+    setState((previous) => ({ ...previous, status: 'loading', error: '', active: null,
+      loadObserver: observer, loadTime: timeContext }))
     try {
       const metadata = await loadMetadata(id, job.signal)
       validateImage(metadata.image, maxTextureSize.current)
       const [buffer, projection] = await Promise.all([
-        loadPixels(id, job.signal), loadProjection(id, observerContext(observer), job.signal),
+        loadPixels(id, job.signal), loadProjection(id, observerContext(observer, timeContext), job.signal),
       ])
       if (job.signal.aborted) return
       const pixels = decodePixels(buffer, metadata.image)
-      setState((previous) => ({ ...previous, status: 'ready', active: { metadata, pixels, projection, observer } }))
+      setState((previous) => ({ ...previous, status: 'ready', active: { metadata, pixels, projection, observer, timeContext } }))
       setFocus({ direction: projection.center_directions[0], size: metadata.requested.size_deg ?? size / 60 })
     } catch (error) {
       if (!job.signal.aborted) {
@@ -56,13 +89,15 @@ export default function useFitsImage(observer) {
         setState((previous) => ({ ...previous, status: 'error', error: error.message, active: null }))
       }
     }
-  }, [observer, size])
+  }, [observer, size, timeContext])
 
   const projectionError = useCallback((error) => {
     setState((previous) => ({ ...previous, error: `No se pudo actualizar la proyección: ${error.message}` }))
   }, [])
 
-  const visible = state.observer === observer ? state : { status: 'idle', images: [], error: '', active: null }
-  return { ...visible,
-    size, setSize, armed, setArmed, search, load, reset, focus: visible.active ? focus : null, maxTextureSize, projectionError }
+  const currentContext = state.loadObserver === observer && state.loadTime === timeContext
+  const visible = !currentContext && ['loading', 'ready'].includes(state.status)
+    ? { ...state, status: 'results', active: null } : state
+  return { ...visible, size, setSize, preparing, beginPreparation, cancelPreparation,
+    search, searchByCoordinates, load, reset, focus: visible.active ? focus : null, setTextureLimit, projectionError }
 }
