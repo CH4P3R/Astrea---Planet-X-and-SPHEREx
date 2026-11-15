@@ -282,10 +282,10 @@ The response sent to the browser is always `width * height * 4` bytes
 
 | Status | Meaning |
 | --- | --- |
-| 422 | Invalid coordinates, dates, limits, size, detector, or malformed ID. |
+| 422 | Invalid coordinates, dates, limits, size, detector, or malformed ID; or an image whose WCS cannot be projected accurately (projection endpoint). |
 | 404 | Unknown ID; run a search to register it on this backend. |
 | 502 | IRSA request failed or the returned FITS could not be decoded. |
-| 504 | IRSA timed out. |
+| 504 | IRSA timed out, or one download used up its time budget (120 s by default). |
 | 503 | The local cache is unavailable. |
 
 Errors include `detail`; request-validation details are FastAPI's structured
@@ -298,6 +298,12 @@ a few seconds. The backend retries those failures twice, after 1 s and 2.5 s
 (honouring a short `Retry-After`), before reporting 502. Timeouts are not
 retried. A 502 therefore means IRSA stayed unavailable for several seconds:
 the frontend should offer the user a retry rather than retry in a loop.
+
+Each download (an image, or one plane) has a single time budget,
+`Settings.archive_budget_seconds` (120 s by default). The budget covers every
+ranged request, every retry wait and the cutout-service fallback. No retry
+wait starts if it would end after the budget. When the budget runs out the
+response is 504, so a request never hangs for minutes.
 
 The cache lives in `backend/data/image-cutouts/`, already excluded by the
 repository's `.gitignore`. It contains small search selections, metadata JSON,
@@ -326,6 +332,14 @@ is never downloaded.
 The window is computed from the exposure's WCS and may differ from the cutout
 service's by one pixel along an edge. As before, `width` and `height` in the
 metadata are the authority, not the requested size.
+
+Planes are always read on the **loaded image's grid**. The grid is identified
+by the image's reference pixel (`CRPIX1`, `CRPIX2` in `wcs_header`) and its
+`width × height`. A plane window is therefore identical to the image's
+whichever way the image was obtained. When a plane has to come from the
+cutout service, its plane is cut out or padded to that grid. Samples the
+service did not cover are NaN for `zodi` and `variance`, and carry the file's
+`MISSING_DATA` bit for `flags`.
 
 If a file cannot be read by ranges (the server ignores `Range`, or the file's
 layout is not the expected one), the backend falls back to the cutout

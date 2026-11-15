@@ -7,11 +7,6 @@ the same "leave transparent" convention the raw pixels already use.
 import numpy as np
 
 
-# Flags that mark a sample as unusable for display or comparison. Names, not
-# bit numbers, are the contract: each file states its own bit assignments.
-DEFAULT_BAD_FLAGS = (
-    "TRANSIENT", "OVERFLOW", "SUR_ERROR", "NONFUNC", "MISSING_DATA", "HOT", "COLD", "PERSIST",
-)
 # SOURCE marks pixels on known sources. Masking it would hide the stars.
 NEVER_MASKED = frozenset({"SOURCE"})
 

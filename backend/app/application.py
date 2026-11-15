@@ -22,7 +22,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(GZipMiddleware, minimum_size=1000)
     app.state.star_service = StarService(settings.star_cache_path)
     app.state.image_service = ImageService(
-        archive=IrsaClient(), store=CutoutStore(settings.cutout_cache_dir),
+        archive=IrsaClient(budget_seconds=settings.archive_budget_seconds),
+        store=CutoutStore(settings.cutout_cache_dir),
         api_prefix=settings.api_prefix, bad_flags=settings.bad_flags,
     )
     register_exception_handlers(app)

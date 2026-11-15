@@ -1,7 +1,7 @@
 """Byte-range reads must reproduce the exposure's pixels without reading all of it."""
 
 from io import BytesIO
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from astropy.io import fits
 from astropy.table import Table
@@ -11,8 +11,8 @@ import pytest
 import requests
 
 from app.integrations import irsa_ranges
-from app.integrations.http_retry import with_retries
-from app.integrations.irsa import ArchiveError, ArchiveTimeout, IrsaClient
+from app.integrations.http_retry import timeout_until, with_retries
+from app.integrations.irsa import ArchiveError, ArchiveTimeout, IrsaClient, align_plane
 
 
 URL = "https://irsa.ipac.caltech.edu/ibe/data/spherex/qr3/level2/week/run/3/image.fits"
@@ -45,12 +45,12 @@ def exposure_bytes():
 
 
 class RangeServer:
-    """Stands in for irsa_ranges._request and records the bytes it served."""
+    """Stands in for RangeReader._request and records the bytes it served."""
 
     def __init__(self, content):
         self.content, self.requests = content, []
 
-    def __call__(self, url, spec, limit):
+    def __call__(self, url, spec, limit, deadline=None):
         total, parts = len(self.content), []
         for item in spec.split(","):
             first, last = item.split("-")
@@ -67,11 +67,23 @@ def exposure():
 @pytest.fixture
 def server(exposure, monkeypatch):
     server = RangeServer(exposure[0])
-    monkeypatch.setattr(irsa_ranges, "_request", server)
-    monkeypatch.setattr(irsa_ranges, "_layouts", type(irsa_ranges._layouts)())
+    monkeypatch.setattr(irsa_ranges.RangeReader, "_request",
+                        lambda reader, url, spec, limit, deadline=None: server(url, spec, limit, deadline))
     # A small guess forces the header walk to be exercised.
     monkeypatch.setattr(irsa_ranges, "HEADER_GUESS", 2 * irsa_ranges.BLOCK)
     return server
+
+
+@pytest.fixture
+def reader(server):
+    return irsa_ranges.RangeReader()
+
+
+def grid_of(content):
+    """The (crpix1, crpix2, width, height) grid of a cutout, as ImageService passes it."""
+    with fits.open(BytesIO(content)) as hdus:
+        header = hdus["IMAGE"].header
+        return float(header["CRPIX1"]), float(header["CRPIX2"]), header["NAXIS1"], header["NAXIS2"]
 
 
 def window_of(content):
@@ -81,9 +93,9 @@ def window_of(content):
         return round(25.5 - header["CRPIX1"]), round(20.5 - header["CRPIX2"]), header["NAXIS1"], header["NAXIS2"]
 
 
-def test_cutout_holds_only_the_image_window(exposure, server):
+def test_cutout_holds_only_the_image_window(exposure, server, reader):
     content, image, _ = exposure
-    cutout = irsa_ranges.read_cutout(URL, 150.0, 20.0, SIZE_DEG)
+    cutout = reader.read_cutout(URL, 150.0, 20.0, SIZE_DEG)
     x0, y0, width, height = window_of(cutout)
     with fits.open(BytesIO(cutout)) as hdus, fits.open(BytesIO(content)) as source:
         assert [hdu.name for hdu in hdus] == ["PRIMARY", "IMAGE"]
@@ -98,14 +110,14 @@ def test_cutout_holds_only_the_image_window(exposure, server):
     assert sum(server.requests) < len(content) / 4
 
 
-def test_planes_share_the_cutout_window(exposure, server):
+def test_planes_share_the_cutout_window(exposure, reader):
     _, image, flags = exposure
-    x0, y0, width, height = window_of(irsa_ranges.read_cutout(URL, 150.0, 20.0, SIZE_DEG))
+    cutout = reader.read_cutout(URL, 150.0, 20.0, SIZE_DEG)
+    x0, y0, width, height = window_of(cutout)
     rows, columns = slice(y0, y0 + height), slice(x0, x0 + width)
     expected = {"FLAGS": flags, "ZODI": image * 0.5, "VARIANCE": np.abs(image) + 1}
     for extension, full in expected.items():
-        content, plane_width, plane_height = irsa_ranges.read_plane(URL, 150.0, 20.0, SIZE_DEG, extension)
-        assert (plane_width, plane_height) == (width, height)
+        content = reader.read_plane(URL, extension, grid_of(cutout))
         with fits.open(BytesIO(content)) as hdus:
             np.testing.assert_array_equal(hdus[extension].data, full[rows, columns])
             if extension == "FLAGS":
@@ -113,26 +125,49 @@ def test_planes_share_the_cutout_window(exposure, server):
                 assert hdus[extension].header["MSKN0021"] == "SOURCE"
 
 
-def test_layout_is_remembered_between_reads(server):
-    irsa_ranges.read_cutout(URL, 150.0, 20.0, SIZE_DEG)
+def test_layout_is_remembered_between_reads(server, reader):
+    reader.read_cutout(URL, 150.0, 20.0, SIZE_DEG)
     first = len(server.requests)
-    irsa_ranges.read_cutout(URL, 150.0, 20.0, SIZE_DEG)
+    reader.read_cutout(URL, 150.0, 20.0, SIZE_DEG)
     assert sum(server.requests[first:]) < sum(server.requests[:first]) / 2
 
 
-def test_window_is_clipped_at_the_edge_and_rejected_outside(exposure, server):
+def test_window_is_clipped_at_the_edge_and_rejected_outside(exposure, server, reader):
     content, image, _ = exposure
     with fits.open(BytesIO(content)) as source:
         ra, dec = (float(value) for value in WCS(source["IMAGE"].header).pixel_to_world_values(1, 1))
-    x0, y0, width, height = window_of(irsa_ranges.read_cutout(URL, ra, dec, SIZE_DEG))
+    x0, y0, width, height = window_of(reader.read_cutout(URL, ra, dec, SIZE_DEG))
     assert (x0, y0) == (0, 0) and width < 20 and height < 20
     with pytest.raises(irsa_ranges.PartialReadError):
-        irsa_ranges.read_cutout(URL, 151.0, 20.0, SIZE_DEG)
+        reader.read_cutout(URL, 151.0, 20.0, SIZE_DEG)
 
 
-def test_missing_plane_is_reported_as_unreadable(server):
+def test_missing_plane_is_reported_as_unreadable(reader):
+    grid = grid_of(reader.read_cutout(URL, 150.0, 20.0, SIZE_DEG))
     with pytest.raises(irsa_ranges.PartialReadError):
-        irsa_ranges.read_plane(URL, 150.0, 20.0, SIZE_DEG, "WCS-WAVE")
+        reader.read_plane(URL, "WCS-WAVE", grid)
+
+
+def test_plane_follows_the_given_grid_not_the_requested_size(exposure, reader):
+    """A grid shifted by one pixel (an image from the cutout service) is read exactly."""
+    _, image, _ = exposure
+    crpix1, crpix2, width, height = grid_of(reader.read_cutout(URL, 150.0, 20.0, SIZE_DEG))
+    x0, y0 = round(25.5 - (crpix1 - 1)), round(20.5 - crpix2)
+    with fits.open(BytesIO(reader.read_plane(URL, "ZODI", (crpix1 - 1, crpix2, width, height)))) as hdus:
+        np.testing.assert_array_equal(hdus["ZODI"].data, image[y0:y0 + height, x0:x0 + width] * 0.5)
+
+
+@pytest.mark.parametrize("grid", [(10.25, 10.5, 5, 5), (-22.5, 20.5, 5, 5), (30.5, 20.5, 5, 5)])
+def test_plane_grids_that_do_not_fit_the_exposure_are_unreadable(reader, grid):
+    """Fractional offsets and windows outside the detector cannot be read by ranges."""
+    with pytest.raises(irsa_ranges.PartialReadError):
+        reader.read_plane(URL, "ZODI", grid)
+
+
+def test_readers_do_not_share_layouts(server):
+    first, second = irsa_ranges.RangeReader(), irsa_ranges.RangeReader()
+    first.read_cutout(URL, 150.0, 20.0, SIZE_DEG)
+    assert URL in first._layouts and URL not in second._layouts
 
 
 class FakeResponse:
@@ -152,10 +187,11 @@ class FakeResponse:
         raise requests.HTTPError(f"{self.status_code} Server Error", response=self)
 
 
-def ask(responses, spec="0-3,10-13"):
-    with patch.object(irsa_ranges._session, "get", side_effect=responses) as get, \
-            patch("app.integrations.http_retry.time.sleep"):
-        return irsa_ranges._request(URL, spec, 1000), get
+def ask(responses, spec="0-3,10-13", deadline=None):
+    session = MagicMock()
+    session.get.side_effect = responses
+    with patch("app.integrations.http_retry.time.sleep"):
+        return irsa_ranges.RangeReader(session)._request(URL, spec, 1000, deadline), session.get
 
 
 def test_multipart_response_is_split_by_length_not_by_boundary_text():
@@ -235,7 +271,7 @@ def test_client_prefers_the_partial_read(exposure, server):
 
 def test_client_falls_back_to_the_cutout_service_when_ranges_are_unsupported():
     unsupported = irsa_ranges.PartialReadError("no ranges")
-    with patch.object(irsa_ranges, "read_cutout", side_effect=unsupported), \
+    with patch.object(irsa_ranges.RangeReader, "read_cutout", side_effect=unsupported), \
             patch("app.integrations.irsa.requests.get", return_value=service_response()) as service:
         assert IrsaClient().download_cutout(URL, 150.0, 20.0, SIZE_DEG) == SERVICE
     assert service.call_args.kwargs["params"]["size"] == str(SIZE_DEG)
@@ -245,23 +281,110 @@ def test_client_falls_back_to_the_cutout_service_when_ranges_are_unsupported():
     (requests.Timeout(), ArchiveTimeout), (requests.ConnectionError(), ArchiveError),
 ])
 def test_client_does_not_fall_back_when_the_archive_is_unreachable(error, expected):
-    with patch.object(irsa_ranges, "read_cutout", side_effect=error), \
+    with patch.object(irsa_ranges.RangeReader, "read_cutout", side_effect=error), \
             patch("app.integrations.irsa.requests.get") as service:
         with pytest.raises(expected):
             IrsaClient().download_cutout(URL, 150.0, 20.0, SIZE_DEG)
     service.assert_not_called()
 
 
-def test_plane_uses_the_partial_read_only_when_it_matches_the_loaded_grid(exposure, server):
-    width, height = window_of(irsa_ranges.read_cutout(URL, 150.0, 20.0, SIZE_DEG))[2:]
-    with patch("app.integrations.irsa.requests.get", return_value=service_response()) as service:
-        client = IrsaClient()
-        matching = client.download_plane(URL, 150.0, 20.0, SIZE_DEG, "ZODI", width, height)
+def test_plane_is_read_by_ranges_over_the_loaded_grid(exposure, server):
+    reader = irsa_ranges.RangeReader()
+    grid = grid_of(reader.read_cutout(URL, 150.0, 20.0, SIZE_DEG))
+    with patch("app.integrations.irsa.requests.get") as service:
+        client = IrsaClient(ranges=reader)
+        content = client.download_plane(URL, 150.0, 20.0, SIZE_DEG, "ZODI", grid)
         service.assert_not_called()
-        with fits.open(BytesIO(matching)) as hdus:
-            assert hdus["ZODI"].data.shape == (height, width)
-        # An image loaded through the cutout service may differ by a pixel.
-        assert client.download_plane(URL, 150.0, 20.0, SIZE_DEG, "ZODI", width - 1, height) == SERVICE
-        service.assert_called_once()
+        with fits.open(BytesIO(content)) as hdus:
+            assert hdus["ZODI"].data.shape == (grid[3], grid[2])
         with pytest.raises(ValueError):
-            client.download_plane(URL, 150.0, 20.0, SIZE_DEG, "EPSF", width, height)
+            client.download_plane(URL, 150.0, 20.0, SIZE_DEG, "EPSF", grid)
+
+
+def service_cutout(image_crpix, planes):
+    """A cutout-service response: IMAGE plus planes, all on the service's own grid."""
+    header = fits.Header({"CRPIX1": image_crpix[0], "CRPIX2": image_crpix[1]})
+    names = fits.Header({"MSKN0009": "MISSING_DATA", "MSKN0021": "SOURCE"})
+    hdus = [fits.PrimaryHDU(), fits.ImageHDU(planes["ZODI"], header=header, name="IMAGE")]
+    hdus += [fits.ImageHDU(data, header=names if name == "FLAGS" else None, name=name) for name, data in planes.items()]
+    stream = BytesIO()
+    fits.HDUList(hdus).writeto(stream)
+    return stream.getvalue()
+
+
+def test_fallback_plane_one_pixel_smaller_is_padded_onto_the_image_grid():
+    zodi = np.arange(12, dtype=np.float32).reshape(3, 4)
+    flags = np.arange(12, dtype=np.int32).reshape(3, 4)
+    # The service window starts one column later than the image: CRPIX is one smaller.
+    content = service_cutout((9.0, 5.0), {"ZODI": zodi, "FLAGS": flags})
+    grid = (10.0, 5.0, 5, 3)
+    with fits.open(BytesIO(align_plane(content, "ZODI", grid))) as hdus:
+        aligned = hdus["ZODI"].data
+    assert aligned.shape == (3, 5)
+    assert np.isnan(aligned[:, 0]).all()
+    np.testing.assert_array_equal(aligned[:, 1:], zodi)
+    with fits.open(BytesIO(align_plane(content, "FLAGS", grid))) as hdus:
+        aligned = hdus["FLAGS"].data
+        assert hdus["FLAGS"].header["MSKN0021"] == "SOURCE"
+    assert (aligned[:, 0] == 1 << 9).all()
+    np.testing.assert_array_equal(aligned[:, 1:], flags)
+
+
+def test_fallback_plane_one_pixel_larger_is_cropped_onto_the_image_grid():
+    zodi = np.arange(20, dtype=np.float32).reshape(4, 5)
+    content = service_cutout((10.0, 6.0), {"ZODI": zodi})
+    with fits.open(BytesIO(align_plane(content, "ZODI", (9.0, 5.0, 4, 3)))) as hdus:
+        np.testing.assert_array_equal(hdus["ZODI"].data, zodi[1:, 1:])
+
+
+def test_fallback_plane_with_a_fractional_offset_is_an_archive_error():
+    content = service_cutout((9.5, 5.0), {"ZODI": np.zeros((3, 4), dtype=np.float32)})
+    with pytest.raises(ArchiveError):
+        align_plane(content, "ZODI", (10.0, 5.0, 4, 3))
+
+
+def test_client_aligns_the_service_plane_when_ranges_are_unsupported():
+    zodi = np.arange(12, dtype=np.float32).reshape(3, 4)
+    response = FakeResponse(200, body=service_cutout((9.0, 5.0), {"ZODI": zodi}))
+    response.raise_for_status = lambda: None
+    with patch.object(irsa_ranges.RangeReader, "read_plane", side_effect=irsa_ranges.PartialReadError("no")), \
+            patch("app.integrations.irsa.requests.get", return_value=response):
+        content = IrsaClient().download_plane(URL, 150.0, 20.0, SIZE_DEG, "ZODI", (10.0, 5.0, 5, 3))
+    with fits.open(BytesIO(content)) as hdus:
+        assert hdus["ZODI"].data.shape == (3, 5)
+
+
+# ---- Download budget ----
+
+def test_an_exhausted_budget_is_a_timeout_before_any_request():
+    with pytest.raises(requests.Timeout):
+        timeout_until(0.0)
+    session = MagicMock()
+    with pytest.raises(requests.Timeout):
+        irsa_ranges.RangeReader(session)._request(URL, "0-3", 1000, deadline=0.0)
+    session.get.assert_not_called()
+
+
+def test_timeouts_shrink_to_the_remaining_budget():
+    with patch("app.integrations.http_retry.time.monotonic", return_value=100.0):
+        assert timeout_until(None) == (10.0, 40.0)
+        assert timeout_until(103.0) == (3.0, 3.0)
+
+
+def test_no_retry_wait_runs_past_the_deadline():
+    waits, calls = [], []
+
+    def action():
+        calls.append(1)
+        raise requests.ConnectionError("dropped")
+    with patch("app.integrations.http_retry.time.monotonic", return_value=100.0):
+        with pytest.raises(requests.ConnectionError):
+            with_retries(action, sleep=waits.append, deadline=101.5)
+    assert len(calls) == 2 and waits == [1.0]
+
+
+def test_client_budget_maps_to_archive_timeout():
+    with patch("app.integrations.irsa.requests.get") as service:
+        with pytest.raises(ArchiveTimeout):
+            IrsaClient(budget_seconds=0).download_cutout(URL, 150.0, 20.0, SIZE_DEG)
+    service.assert_not_called()

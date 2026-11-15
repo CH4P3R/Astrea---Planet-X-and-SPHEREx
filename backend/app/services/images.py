@@ -15,7 +15,8 @@ from app.schemas.images import (
     ImageMetadata, ImageSearchQuery, ImageSearchResponse, ImageSummary, PlaneMetadata,
 )
 from app.services.fits_image import PLANES, decode_cutout, decode_plane
-from app.services.quality import DEFAULT_BAD_FLAGS, bad_bits, corrected
+from app.core.config import DEFAULT_BAD_FLAGS
+from app.services.quality import bad_bits, corrected
 
 
 def _utc(mjd: float | None) -> str | None:
@@ -99,10 +100,12 @@ class ImageService:
             metadata = self.store.plane_metadata(identifier, plane)
             if metadata is None:
                 request = selection["requested"]
+                crpix = {card.keyword: card.value for card in image.wcs_header}
                 content = self.archive.download_plane(
                     source_url=selection["archive"]["source_url"],
                     ra_deg=request["ra_deg"], dec_deg=request["dec_deg"], size_deg=request["size_deg"],
-                    extension=PLANES[plane][0], width=image.width, height=image.height,
+                    extension=PLANES[plane][0],
+                    grid=(float(crpix["CRPIX1"]), float(crpix["CRPIX2"]), image.width, image.height),
                 )
                 decoded = decode_plane(content, plane, image.width, image.height)
                 metadata = decoded.metadata

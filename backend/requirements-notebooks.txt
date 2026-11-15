@@ -1,0 +1,16 @@
+# Notebooks, visualization and ML experiments. Includes the API requirements.
+-r requirements.txt
+
+# --- Math and Scientific Tools ---
+scipy
+pandas
+
+# --- Visualization and Notebook Tools (Jupyter) ---
+matplotlib
+jupyterlab
+ipywidgets
+
+# --- AI and Machine Learning ---
+scikit-learn
+torch
+transformers

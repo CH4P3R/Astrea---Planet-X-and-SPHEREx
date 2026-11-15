@@ -1,30 +1,20 @@
+# API runtime and tests. Notebook and ML tools: requirements-notebooks.txt.
+
 # --- Astronomical Data Tools ---
-astropy
+astropy>=6.0
 astroquery>=0.4.11
-pyerfa
+pyvo>=1.5
+pyerfa>=2.0.1
 
-# --- Math and Scientific Tools ---
-numpy
-scipy
-requests
-pandas
-
-# --- Visualization and Notebook Tools (Jupyter) ---
-matplotlib
-jupyterlab
-ipywidgets
+# --- Math and HTTP ---
+numpy>=1.26
+requests>=2.31
 
 # --- Server / Backend ---
-fastapi
-uvicorn
-python-multipart
-pydantic
-
-# --- AI and Machine Learning ---
-scikit-learn
-torch
-transformers
+fastapi>=0.115
+uvicorn>=0.29
+pydantic>=2.7
 
 # --- Testing and Code Quality ---
-pytest
-httpx
+pytest>=8.0
+httpx>=0.27

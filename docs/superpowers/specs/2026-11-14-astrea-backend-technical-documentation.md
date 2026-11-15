@@ -2,7 +2,8 @@
 
 **Component:** `backend/` (FastAPI service)
 
-**Code reviewed:** branch `Charly`, commit `ef4f862` ("Add sky catalog and FITS API")
+**Code reviewed:** branch `KC-Rama`: commit `5b74092` ("commit 2.0.1") plus the hardening in
+[`docs/sdd/backend/spec.md`](../../sdd/backend/spec.md) (first written at `ef4f862`)
 
 **Review date:** 2026-11-14
 
@@ -52,9 +53,11 @@ time. The backend is the only component that talks to external archives. It:
 The backend prepares data; it does not decide how the data looks. Contrast,
 colour maps, opacity and drawing belong to the frontend (§5).
 
-What it does **not** do yet: quality masking (`FLAGS`), background (`ZODI`)
-subtraction, reprojection, comparisons between epochs, spectra, or any
-photometric measurement. The stars it serves come from a catalog. They are not
+On request it also applies three corrections: quality masking (`FLAGS`),
+background subtraction (`IMAGE − ZODI`) and signal-to-noise (`VARIANCE`). It
+also serves those planes on their own. What it does **not** do yet:
+reprojection, comparisons between epochs, spectra, or any photometric
+measurement. The stars it serves come from a catalog. They are not
 sources detected in the FITS image, and a catalog magnitude is not a flux
 measured by SPHEREx.
 
@@ -95,7 +98,9 @@ A SPHEREx Level 2 spectral image has, *verified*:
 | 5 | `EPSF` | PSF table for 441 detector regions |
 | 6 | `WCS-WAVE` | lookup table for wavelength per pixel |
 
-The backend currently reads **only `IMAGE`** and its spatial WCS.
+The backend reads `IMAGE` and its spatial WCS when an image is loaded.
+`FLAGS`, `ZODI` and `VARIANCE` are read on demand, on the same pixel grid.
+`EPSF` and `WCS-WAVE` are never downloaded.
 
 **WCS** maps pixel coordinates to sky coordinates and back. SPHEREx uses
 `RA---TAN-SIP`: a tangent projection plus SIP distortion polynomials. Each
@@ -188,13 +193,16 @@ backend/
 │   │   └── sky.py             # Observer, projection, sky and click requests
 │   ├── services/
 │   │   ├── images.py          # ImageService: search, register, lazy decode
-│   │   ├── fits_image.py      # decode_cutout(): IMAGE + WCS → bytes + metadata
+│   │   ├── fits_image.py      # decode_cutout(), decode_plane(): FITS → bytes + metadata
+│   │   ├── quality.py         # bad_bits(), corrected(): masking, zodi, signal-to-noise
 │   │   ├── image_geometry.py  # click → ICRS, WCS mesh, image projection
 │   │   ├── stars.py           # StarService: catalog load, cache, selection
 │   │   ├── sky.py             # ICRS → AltAz with proper motion and IERS checks
 │   │   └── sky_transport.py   # SKY1 binary encoding
 │   └── integrations/
-│       ├── irsa.py            # IrsaClient: SIA search, cutout download
+│       ├── irsa.py            # IrsaClient: SIA search, downloads, align_plane()
+│       ├── irsa_ranges.py     # RangeReader: HTTP byte-range reads of single planes
+│       ├── http_retry.py      # with_retries(), timeout_until(): retries and time budget
 │       ├── cutout_store.py    # CutoutStore: selection/metadata/pixels on disk
 │       └── catalog.py         # Hipparcos via VizieR
 ├── tests/                     # Offline pytest suite (§15)
@@ -220,8 +228,11 @@ backend/
 | `services/sky.py` | `observation_context`, `calculate_sky`, `horizon_vectors` | Time samples, IERS coverage check, AltAz transform. |
 | `services/sky_transport.py` | `encode_sky` | SKY1 packet. |
 | `services/stars.py` | `StarService` | Loads Hipparcos once (disk, then VizieR), computes `catalog_version`. |
-| `integrations/irsa.py` | `IrsaClient.search`, `IrsaClient.download_cutout`, `ArchiveImage` | SIA via astroquery, URL allowlist, bounded downloads. |
-| `integrations/cutout_store.py` | `CutoutStore` | Atomic files keyed by image ID. |
+| `integrations/irsa.py` | `IrsaClient.search/download_cutout/download_plane`, `align_plane`, `ArchiveImage` | SIA via astroquery, URL allowlist, one time budget per download, byte ranges first, cutout service as fallback. |
+| `integrations/irsa_ranges.py` | `RangeReader`, `RemoteExposure`, `pixel_window`, `grid_origin` | Reads headers, then only the rows of one plane; owns its HTTP session and layout cache. |
+| `integrations/http_retry.py` | `with_retries`, `timeout_until`, `is_transient` | Two spaced retries for 429/5xx and dropped connections; never past the deadline. |
+| `integrations/cutout_store.py` | `CutoutStore` | Atomic files keyed by image ID: selection, image and extra planes. |
+| `services/quality.py` | `bad_bits`, `corrected` | Pure corrections: flag names → bitmask (never `SOURCE`), zodi subtraction, signal-to-noise. |
 | `integrations/catalog.py` | `fetch_catalog`, `parse_hipparcos_catalog` | VizieR query and row validation. |
 
 ## 4. Request flows
@@ -333,10 +344,11 @@ bytes = width × height × 4  (float32)  or  × 8  (float64)
 - **Row 0 is the lower FITS row** (`pixel_origin: "lower-left"`). A canvas
   draws top to bottom, so 2D drawing needs a vertical flip. The WebGL path
   uses `flipY = false` together with the mesh UVs.
-- **No processing:** negative values, NaN and ±∞ are preserved. No stretch,
-  colour map, reprojection, downsampling, background subtraction or FLAGS
-  filtering is applied. Non-finite samples should be drawn transparent. They
-  are not a quality mask.
+- **No processing by default:** negative values, NaN and ±∞ are preserved. No
+  stretch, colour map, reprojection or downsampling is ever applied.
+  Background subtraction, FLAGS masking and signal-to-noise happen only when
+  requested (`subtract_zodi`, `mask_flags`, `signal_to_noise`; see `API.md`
+  §4). Non-finite samples should be drawn transparent.
 - **Size:** a 0.1° cutout is about 59×59 px, ~14 KB. A 0.2° cutout is
   117×117, ~55 KB (*verified* dimensions at 6.15″/px).
 
@@ -449,24 +461,43 @@ The header carries everything in the JSON snapshot except `directions`, plus
 | Transport guard | A custom adapter allows only `https://irsa.ipac.caltech.edu/SIA[/capabilities]` and adds a `(10 s, 60 s)` timeout, which astroquery would otherwise omit |
 | URL allowlist | `access_url` must match `https://irsa.ipac.caltech.edu/ibe/data/spherex/(dr1\|qr3)/level2/…\.fits`, with no query string and no `.`/`..` segments. Deep collections use the same pattern (*verified*) |
 
-### 7.2 Cutout download (`IrsaClient.download_cutout`)
+### 7.2 Downloads (`IrsaClient.download_cutout`, `download_plane`)
+
+**Primary path: HTTP byte ranges** (`RangeReader`). The reader fetches the
+file's headers first (16 FITS blocks), then only the rows of the requested
+window, one plane at a time. A 10′ image costs about 85 kB and 2 s, against
+about 4.1 MB and 6–10 s from the cutout service (measured in `API.md`). FLAGS
+is tile-compressed, one tile per detector row, so it costs whole rows. A
+response other than 206 is never read, so the 60 MB file is never downloaded.
+
+**Planes follow the image's grid.** `download_plane` receives the loaded
+image's `(CRPIX1, CRPIX2, width, height)`. The window origin is
+`CRPIX_detector − CRPIX_image`, so a plane always lines up with the image's
+pixels, however the image was obtained.
+
+**Fallback: the IBE cutout service**, used when ranges are not honoured or
+the layout is unexpected:
 
 ```text
 GET {access_url}?center={ra:.12f},{dec:.12f}d&size={size_deg}&gzip=false
 ```
 
+A plane taken from the service is cut out or padded onto the image grid by
+`align_plane`. Samples the service did not cover are NaN for float planes and
+carry the `MISSING_DATA` bit for FLAGS. Network errors do not trigger the
+fallback, because the service would hit the same outage.
+
 | Limit | Value |
 | --- | --- |
-| Timeouts | connect 10 s, read 40 s, whole download 90 s |
-| Max size | 80 MiB |
+| Time budget | 120 s per download (image or plane), covering every request, retry wait and fallback (`Settings.archive_budget_seconds`) |
+| Per request | connect 10 s, read 40 s (shortened to the remaining budget), 90 s per request |
+| Max size | 80 MiB (cutout service) |
 | Redirects | Rejected |
-| Content check | Body must start with `SIMPLE  =` |
-| Retries | **None** (§16) |
+| Content check | The service body must start with `SIMPLE  =` |
+| Retries | Two, after 1 s and 2.5 s (a `Retry-After` up to 5 s is honoured), for 429/5xx and dropped connections. Timeouts are not retried. No wait starts past the budget |
 
-A 0.2° cutout downloads in about **4.4 s** and is **4.2 MB** (*verified*).
-Most of those bytes are the `EPSF` table, which the backend discards. Full
-files are about 64 MB (`access_estsize` ≈ 65 000 KB). The backend never
-downloads them.
+Full files are about 64 MB (`access_estsize` ≈ 65 000 KB). The backend never
+downloads them, nor the `EPSF` table.
 
 ## 8. Cache, storage and concurrency
 
@@ -479,6 +510,8 @@ downloads them.
 | `backend/data/image-cutouts/{id}.selection.json` | Archive row + requested geometry | Written at search time. Required by every other image endpoint. |
 | `…/{id}.pixels.bin` | Decoded raw floats | Written first. |
 | `…/{id}.metadata.json` | Validated `ImageMetadata` | Written **last**. It is the completion marker, so a reader never uses partial pixels. |
+| `…/{id}.{flags,zodi,variance}.bin` + `.json` | One extra plane on the image grid + its description | Written on first use of that plane, binary first. |
+| `IrsaClient.ranges` memory | Layouts of up to 256 remote files (headers + spare bytes) | Per app instance; evicted least-recently-used. |
 
 The full FITS is **not** persisted. IDs survive a restart while the directory
 exists. A cleared ID returns 404 until a new search registers it again. There
@@ -518,7 +551,8 @@ concurrently. The result stays consistent because publication is atomic.
 | `InvalidFitsError` | 502 | IRSA returned an unsupported or invalid FITS image. |
 | `CatalogError` | 502 | The star catalog could not be retrieved. |
 | `CacheError` | 503 | The local image cache is unavailable. |
-| `ArchiveTimeout` | 504 | IRSA timed out. |
+| `MeshError` | 422 | This image's WCS cannot be projected accurately. Try a smaller size. |
+| `ArchiveTimeout` | 504 | IRSA timed out (also when the 120 s download budget runs out). |
 
 The handler picks the most specific class through the exception's MRO, so
 `ArchiveTimeout` (a subclass of `ArchiveError`) maps to 504. Tracebacks of 5xx
@@ -531,10 +565,10 @@ accept both `detail` shapes: a string, or the 422 validation list.
 | --- | --- | --- |
 | `404` on `/images/{id}` | ID not registered on this backend (cache cleared or never searched) | Search again |
 | `502` on load | IRSA error, or a FITS without `IMAGE`/celestial WCS | Read the log; try another exposure |
-| `504` on load | Download over 90 s or a read timeout | Retry. There is no automatic retry yet |
+| `504` on load or plane | A read timeout, or the 120 s download budget ran out | Offer a manual retry. Brief 5xx/429 failures were already retried twice |
 | `422` "Too many archive matches" | Over 10 000 SIA rows | Add `start_time`/`end_time` |
 | `422` on `/sky` or `/projection` | Time not covered by IERS data | Use a recent time or refresh IERS |
-| `500` on `/projection` | Mesh refinement failed (`ValueError` from `build_mesh` is not mapped) | Known gap (§16) |
+| `422` on `/projection` "cannot be projected accurately" | The WCS distortion needs a finer mesh than 128 segments (`MeshError`) | Try a smaller size |
 | `502` on `/star-catalog` | VizieR failure or incomplete catalog. Not IRSA | Check connectivity to VizieR |
 | `OPTIONS → 200` | CORS preflight succeeded | Says nothing about the request that follows |
 
@@ -551,6 +585,8 @@ loading yet.** Tests pass a custom `Settings` to `create_app`.
 | `cutout_cache_dir` | `backend/data/image-cutouts` |
 | `star_cache_path` | `backend/data/hipparcos-v1.json` |
 | `cors_origins` | `http://localhost:5173`, `http://127.0.0.1:5173` |
+| `bad_flags` | `DEFAULT_BAD_FLAGS`: TRANSIENT, OVERFLOW, SUR_ERROR, NONFUNC, MISSING_DATA, HOT, COLD, PERSIST (`SOURCE` is never masked) |
+| `archive_budget_seconds` | `120.0` |
 
 Constants that behave like configuration but live in modules:
 
@@ -559,6 +595,8 @@ Constants that behave like configuration but live in modules:
 | `SIA_COLLECTIONS` | `integrations/irsa.py` | the four collections above |
 | `MAX_SEARCH_ROWS` | `integrations/irsa.py` | 10 000 |
 | `MAX_DOWNLOAD_BYTES` / `DOWNLOAD_SECONDS` | `integrations/irsa.py` | 80 MiB / 90 s |
+| `HEADER_GUESS` / `MAX_RANGES` / `MERGE_GAP` / `REQUEST_SECONDS` / `MAX_LAYOUTS` | `integrations/irsa_ranges.py` | 16 blocks / 96 / 256 B / 90 s / 256 |
+| `RETRY_STATUS` / `RETRY_DELAYS` / `MAX_RETRY_AFTER` | `integrations/http_retry.py` | 429, 500, 502, 503, 504 / 1 s, 2.5 s / 5 s |
 | `MAX_IMAGE_PIXELS` | `services/fits_image.py` | 4096² |
 | `SAMPLE_INTERVAL_SECONDS` / `LIVE_WINDOW_SECONDS` | `services/sky.py` | 10 / 120 |
 | `CATALOG_ROWS` / `MAX_MAGNITUDE` | `integrations/catalog.py` | 118 218 / 15 |
@@ -578,7 +616,7 @@ Constants that behave like configuration but live in modules:
 | `observer.elevation_m` | −500 to 10 000 |
 | Search cone | 1″ |
 | SIA rows | < 10 000 |
-| Download | ≤ 80 MiB, ≤ 90 s |
+| Download | ≤ 120 s per image or plane (budget); ≤ 90 s per request; ≤ 80 MiB from the cutout service |
 | Decoded image | 2D, ≤ 4096×4096 px |
 | Mesh | ≤ 128 segments per side, error ≤ 0.15 px |
 | Response compression | GZip for bodies ≥ 1000 B |
@@ -662,7 +700,9 @@ All paths are prefixed with `/api/v1`.
 | POST | `/images/search` | `direction`, `observer`, `at`, `mode`, `size_arcmin`, `detector?`, `limit?`, dates | Same response, from a sky click |
 | GET | `/images/{id}` | — | `ImageMetadata`; downloads and decodes on first access |
 | POST | `/images/load/{id}` | empty body | Same as `GET /images/{id}` |
-| GET | `/images/{id}/pixels` | — | `application/octet-stream`, raw floats |
+| GET | `/images/{id}/pixels` | `subtract_zodi?`, `mask_flags?`, `signal_to_noise?` (default false) | `application/octet-stream`, raw floats unless corrections are requested |
+| GET | `/images/{id}/planes/{plane}` | `plane` = `flags`\|`zodi`\|`variance` | `PlaneMetadata`: layout, unit, `flag_bits`, `masked_flags`, `masked_bits` |
+| GET | `/images/{id}/planes/{plane}/pixels` | — | `application/octet-stream` on the image grid: int32 flags, float32 zodi/variance |
 | POST | `/images/{id}/projection` | `observer`, `at`, `mode` | Mesh UVs, indices and directions per time sample |
 | GET | `/stars` | `magnitude_limit?` | Hipparcos stars (JSON) |
 | GET | `/star-catalog` | — | Catalog version and static render metadata |
@@ -686,9 +726,11 @@ Test suite (all offline; IRSA and VizieR are replaced by fakes or mocks):
 
 | File | Covers |
 | --- | --- |
-| `test_irsa.py` | Search filtering/order/extra row, invalid input never reaches the network, timeout mapping, URL allowlist, cutout params, redirect/size/non-FITS rejection, truncation |
+| `test_irsa.py` | Search filtering/order/extra row, invalid input never reaches the network, timeout mapping, URL allowlist, cutout params, redirect/size/non-FITS rejection, truncation, service retry |
+| `test_irsa_ranges.py` | Window reads reproduce the exposure's pixels, compressed FLAGS, planes on the given grid (also shifted), layouts per reader, multipart parsing, refusing non-206, retries, fallback and no fallback on outages, `align_plane` padding/cropping, time budget |
+| `test_planes_api.py` | Plane metadata and flag bits, plane pixels downloaded once, corrections and their combinations, masking policy (`SOURCE` never), error mapping |
 | `test_fits_image.py` | Pixel order and values incl. NaN/∞, WCS with rotation and SIP, outer-edge footprint, provenance and `DATE` semantics, float64 not downcast, rejection of corrupt/missing/non-celestial/cube/oversized images |
-| `test_images_api.py` | Search without download, single download per ID, pixels-first and restart survival, ID stability, truncation, empty results, timezone dates, validation, 404, upstream status mapping, invalid FITS not cached, OpenAPI, click→load→pixels→projection, star routes |
+| `test_images_api.py` | Search without download, single download per ID, pixels-first and restart survival, ID stability, truncation, empty results, timezone dates, validation, 404, upstream status mapping, invalid FITS not cached, OpenAPI, click→load→pixels→projection, unprojectable WCS → 422, star routes |
 | `test_sky.py` | Hipparcos epoch/units/missing data, catalog cache across restart, click inverts a rendered star direction, JSON and SKY1 agree, invalid clicks |
 
 Passing tests do not prove that IRSA or VizieR are available live, or that a
@@ -701,9 +743,9 @@ follows the recipe in §13 and leaves existing endpoints unchanged.
 
 | Step | Feature | Notes |
 | --- | --- | --- |
-| 1 | **Download resilience** | Retries with backoff on connect errors, timeouts, 429/5xx, honouring `Retry-After`. Map `build_mesh` `ValueError` to 422 instead of 500. |
+| 1 | **Download resilience** — *done* | Retries for 429/5xx and dropped connections, honouring `Retry-After`; one time budget per download; `MeshError` → 422. |
 | 2 | **Configuration from environment** | `ASTREA_*` env vars for cache dirs, CORS, limits. Move module constants into `Settings`. |
-| 3 | **Quality and background variants** | Optional `FLAGS` mask (by flag *name*, never `SOURCE`) and `IMAGE − ZODI`, as new endpoints or query options. Raw `/pixels` stays unchanged. |
+| 3 | **Quality and background variants** — *done* | `mask_flags` (by flag *name*, never `SOURCE`), `subtract_zodi` and `signal_to_noise` on `/pixels`; plane endpoints for flags, zodi and variance. Raw `/pixels` is unchanged. |
 | 4 | **Blink (epoch comparison)** | One detector, frames spread over the time baseline, reprojected onto a common north-up grid, returned as float32. The frontend applies one shared stretch. Design: [`2026-11-14-spherex-backend-fastapi-design.md`](2026-11-14-spherex-backend-fastapi-design.md). |
 | 5 | **Pre-warm command** | CLI that fills the cache for the acceptance targets (Barnard's Star, ε Indi B, WISE 0855, RW Aur, R Dra), with proper-motion propagation. Needed for an offline demo. |
 | 6 | **Spectra** | Wavelength at the target from `WCS-WAVE` (requires keeping that extension). |
@@ -741,14 +783,15 @@ follows the recipe in §13 and leaves existing endpoints unchanged.
 
 ### 18.1 Code
 
-Paths relative to the repository root, branch `Charly`:
+Paths relative to the repository root, branch `KC-Rama`:
 
 - `backend/app/application.py` — app factory
 - `backend/app/api/v1/endpoints/images.py`, `stars.py` — routes
 - `backend/app/api/errors.py` — error mapping
 - `backend/app/services/images.py`, `fits_image.py`, `image_geometry.py` — image workflow
 - `backend/app/services/stars.py`, `sky.py`, `sky_transport.py` — sky workflow
-- `backend/app/integrations/irsa.py`, `cutout_store.py`, `catalog.py` — external I/O
+- `backend/app/services/quality.py` — corrections
+- `backend/app/integrations/irsa.py`, `irsa_ranges.py`, `http_retry.py`, `cutout_store.py`, `catalog.py` — external I/O
 - `backend/API.md` — public image contract
 - `backend/environment.md` — setup and run
 - `notebooks/01…06` — IRSA tutorials the pipeline follows
