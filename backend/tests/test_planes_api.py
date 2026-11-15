@@ -85,7 +85,8 @@ def test_plane_metadata_describes_decoding_and_flag_bits(backend):
     assert plane["masked_flags"] == ["TRANSIENT", "HOT"]
     assert plane["masked_bits"] == 1 | HOT_BIT
     request = archive.plane_requests[0]
-    assert (request["extension"], request["width"], request["height"]) == ("FLAGS", 3, 2)
+    # The plane is requested on the loaded image's grid: its reference pixel and size.
+    assert (request["extension"], request["grid"]) == ("FLAGS", (2.0, 1.5, 3, 2))
     assert request["size_deg"] == item["requested"]["size_deg"]
 
 

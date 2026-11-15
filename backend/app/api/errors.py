@@ -10,6 +10,7 @@ from app.integrations.irsa import ArchiveError, ArchiveTimeout, SearchTooBroad
 from app.integrations.catalog import CatalogError
 from app.services.sky import EarthOrientationUnavailable
 from app.services.fits_image import InvalidFitsError
+from app.services.image_geometry import MeshError
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         ArchiveTimeout: (504, "IRSA timed out. Please retry."),
         ArchiveError: (502, "IRSA data could not be retrieved. Please retry."),
         InvalidFitsError: (502, "IRSA returned an unsupported or invalid FITS image."),
+        MeshError: (422, "This image's WCS cannot be projected accurately. Try a smaller size."),
         CacheError: (503, "The local image cache is unavailable."),
     }
 

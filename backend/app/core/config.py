@@ -3,7 +3,12 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from app.services.quality import DEFAULT_BAD_FLAGS
+
+# Flags that mark a sample as unusable for display or comparison. Names, not
+# bit numbers, are the contract: each file states its own bit assignments.
+DEFAULT_BAD_FLAGS = (
+    "TRANSIENT", "OVERFLOW", "SUR_ERROR", "NONFUNC", "MISSING_DATA", "HOT", "COLD", "PERSIST",
+)
 
 
 @dataclass(frozen=True)
@@ -16,3 +21,4 @@ class Settings:
     cors_origins: tuple[str, ...] = ("http://localhost:5173", "http://127.0.0.1:5173")
     # FLAGS names rejected by mask_flags=true. SOURCE is never masked.
     bad_flags: tuple[str, ...] = DEFAULT_BAD_FLAGS
+    archive_budget_seconds: float = 120.0

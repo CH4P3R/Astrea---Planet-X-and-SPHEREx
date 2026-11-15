@@ -9,6 +9,7 @@ be read that way. Brief archive failures are retried (see http_retry).
 """
 
 from dataclasses import dataclass
+from io import BytesIO
 import logging
 import math
 import re
@@ -16,13 +17,14 @@ import time
 import warnings
 from urllib.parse import urlsplit
 
+from astropy.io import fits
 from astroquery.ipac.irsa import Irsa
 import numpy as np
 from pyvo.dal.exceptions import DALAccessError, DALOverflowWarning
 import requests
 
 from app.integrations import irsa_ranges
-from app.integrations.http_retry import is_transient, with_retries
+from app.integrations.http_retry import is_transient, timeout_until, with_retries
 
 
 logger = logging.getLogger(__name__)
@@ -115,7 +117,49 @@ class _SiaAdapter(requests.adapters.HTTPAdapter):
         return super().send(request, **kwargs)
 
 
+def align_plane(content: bytes, extension: str, grid) -> bytes:
+    """FITS holding `extension` on the loaded image's grid, cut from a cutout-service response.
+
+    The service may clip its window one pixel differently from the loaded
+    image. Samples of the image grid that the service did not return are NaN
+    for float planes and the file's MISSING_DATA bit (or 0) for FLAGS.
+    """
+    width, height = int(grid[2]), int(grid[3])
+    try:
+        with fits.open(BytesIO(content), memmap=False) as hdus:
+            dx, dy = irsa_ranges.grid_origin(hdus["IMAGE"].header, grid)
+            hdu = hdus[extension]
+            data, source = hdu.data, hdu.header
+            if data is None or data.ndim != 2:
+                raise ValueError(f"{extension} is not a two-dimensional image.")
+            if data.dtype.kind == "f":
+                fill = np.nan
+            else:
+                bit = next((int(key[4:]) for key in source if key.startswith("MSKN") and key[4:].isdigit()
+                            and str(source[key]).strip().upper() == "MISSING_DATA"), None)
+                fill = 0 if bit is None else 1 << bit
+            aligned = np.full((height, width), fill, dtype=data.dtype.newbyteorder("="))
+            x0, y0 = max(dx, 0), max(dy, 0)
+            x1, y1 = min(dx + width, data.shape[1]), min(dy + height, data.shape[0])
+            if x1 > x0 and y1 > y0:
+                aligned[y0 - dy:y1 - dy, x0 - dx:x1 - dx] = data[y0:y1, x0:x1]
+            header = fits.Header([card for card in source.cards
+                                  if card.keyword.startswith(irsa_ranges.PLANE_CARDS)])
+        output = BytesIO()
+        fits.HDUList([fits.PrimaryHDU(), fits.ImageHDU(aligned, header=header, name=extension)]).writeto(output)
+        return output.getvalue()
+    except (irsa_ranges.PartialReadError, OSError, ValueError, TypeError, KeyError, IndexError) as exc:
+        raise ArchiveError("IRSA returned a cutout that does not match the loaded image.") from exc
+
+
 class IrsaClient:
+    def __init__(self, ranges: irsa_ranges.RangeReader | None = None, budget_seconds: float = 120.0):
+        self.ranges = ranges if ranges is not None else irsa_ranges.RangeReader()
+        self.budget_seconds = budget_seconds
+
+    def _deadline(self) -> float:
+        return time.monotonic() + self.budget_seconds
+
     def search(
         self,
         *,
@@ -206,21 +250,22 @@ class IrsaClient:
         _coordinates(ra_deg, dec_deg)
         if not math.isfinite(size_deg) or size_deg <= 0:
             raise ValueError("size_deg must be positive and finite.")
+        deadline = self._deadline()
         content = self._partial(
-            lambda: irsa_ranges.read_cutout(source_url, ra_deg, dec_deg, size_deg))
+            lambda: self.ranges.read_cutout(source_url, ra_deg, dec_deg, size_deg, deadline))
         if content is not None:
             return content
-        return self._service_cutout(source_url, ra_deg, dec_deg, size_deg)
+        return self._service_cutout(source_url, ra_deg, dec_deg, size_deg, deadline)
 
     def download_plane(
         self, source_url: str, ra_deg: float, dec_deg: float, size_deg: float,
-        extension: str, width: int, height: int,
+        extension: str, grid: tuple[float, float, int, int],
     ) -> bytes:
-        """FITS bytes containing `extension` on the grid of an already loaded cutout.
+        """FITS bytes holding `extension` on exactly the grid of an already loaded image.
 
-        Reads only that plane when its window matches the loaded image
-        (width x height). Otherwise the cutout service's response is returned:
-        it holds every plane on the grid that service produced.
+        `grid` is (crpix1, crpix2, width, height) of that image. The plane is
+        read by byte ranges over that window; otherwise the cutout service's
+        plane is aligned to it (see align_plane).
         """
         source_url, _ = _image_url(source_url)
         _coordinates(ra_deg, dec_deg)
@@ -228,14 +273,14 @@ class IrsaClient:
             raise ValueError("size_deg must be positive and finite.")
         if extension not in PLANE_EXTENSIONS:
             raise ValueError("Unknown image plane.")
-        result = self._partial(
-            lambda: irsa_ranges.read_plane(source_url, ra_deg, dec_deg, size_deg, extension))
-        if result is not None:
-            content, plane_width, plane_height = result
-            if (plane_width, plane_height) == (width, height):
-                return content
-            logger.info("Partial %s window differs from the loaded cutout; using the cutout service.", extension)
-        return self._service_cutout(source_url, ra_deg, dec_deg, size_deg)
+        crpix1, crpix2, width, height = grid
+        if not (math.isfinite(crpix1) and math.isfinite(crpix2) and int(width) > 0 and int(height) > 0):
+            raise ValueError("grid must hold a finite reference pixel and a positive size.")
+        deadline = self._deadline()
+        content = self._partial(lambda: self.ranges.read_plane(source_url, extension, grid, deadline))
+        if content is not None:
+            return content
+        return align_plane(self._service_cutout(source_url, ra_deg, dec_deg, size_deg, deadline), extension, grid)
 
     @staticmethod
     def _partial(read):
@@ -251,23 +296,24 @@ class IrsaClient:
             return None
 
     def _service_cutout(
-        self, source_url: str, ra_deg: float, dec_deg: float, size_deg: float
+        self, source_url: str, ra_deg: float, dec_deg: float, size_deg: float, deadline: float | None = None,
     ) -> bytes:
         """Download a cutout from the IBE service, rejecting redirects and oversized data."""
         params = {"center": f"{ra_deg:.12f},{dec_deg:.12f}d", "size": str(size_deg), "gzip": "false"}
 
         def fetch() -> bytes:
             started = time.monotonic()
+            stop = started + DOWNLOAD_SECONDS if deadline is None else min(started + DOWNLOAD_SECONDS, deadline)
             with requests.get(
                 source_url, params=params, stream=True,
-                timeout=(10, 40), allow_redirects=False,
+                timeout=timeout_until(deadline), allow_redirects=False,
             ) as response:
                 if 300 <= response.status_code < 400:
                     raise ArchiveError("IRSA returned an unexpected image redirect.")
                 response.raise_for_status()
                 chunks, total = [], 0
                 for chunk in response.iter_content(chunk_size=65536):
-                    if time.monotonic() - started > DOWNLOAD_SECONDS:
+                    if time.monotonic() > stop:
                         raise ArchiveTimeout("IRSA cutout download timed out.")
                     total += len(chunk)
                     if total > MAX_DOWNLOAD_BYTES:
@@ -276,7 +322,7 @@ class IrsaClient:
                 return b"".join(chunks)
 
         try:
-            content = with_retries(fetch)
+            content = with_retries(fetch, deadline=deadline)
         except requests.Timeout as exc:
             raise ArchiveTimeout("IRSA cutout download timed out. Please try again.") from exc
         except requests.RequestException as exc:

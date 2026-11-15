@@ -33,12 +33,28 @@ def _delay(error: BaseException, default: float) -> float:
         return default
 
 
-def with_retries(action, *, transient=is_transient, sleep=None):
-    """Run action(); repeat it after a transient failure, then re-raise the last one."""
+def timeout_until(deadline, connect=10.0, read=40.0):
+    """(connect, read) timeouts that end by the deadline; Timeout once it has passed."""
+    if deadline is None:
+        return connect, read
+    left = deadline - time.monotonic()
+    if left <= 0:
+        raise requests.Timeout("The archive download budget is exhausted.")
+    return min(connect, left), min(read, left)
+
+
+def with_retries(action, *, transient=is_transient, sleep=None, deadline=None):
+    """Run action(); repeat it after a transient failure, then re-raise the last one.
+
+    No wait starts that would end after `deadline` (a time.monotonic() value).
+    """
     for delay in (*RETRY_DELAYS, None):
         try:
             return action()
         except Exception as error:
             if delay is None or not transient(error):
                 raise
-            (sleep or time.sleep)(_delay(error, delay))
+            wait = _delay(error, delay)
+            if deadline is not None and time.monotonic() + wait >= deadline:
+                raise
+            (sleep or time.sleep)(wait)

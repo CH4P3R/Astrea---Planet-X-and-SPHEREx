@@ -21,8 +21,8 @@ def cutout_service_only():
     Partial reads have their own tests in test_irsa_ranges.py.
     """
     unsupported = irsa_ranges.PartialReadError("disabled in this test")
-    with patch.object(irsa_ranges, "read_cutout", side_effect=unsupported), \
-            patch.object(irsa_ranges, "read_plane", side_effect=unsupported), \
+    with patch.object(irsa_ranges.RangeReader, "read_cutout", side_effect=unsupported), \
+            patch.object(irsa_ranges.RangeReader, "read_plane", side_effect=unsupported), \
             patch("app.integrations.http_retry.time.sleep"):
         yield
 

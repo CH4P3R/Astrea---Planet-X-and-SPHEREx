@@ -62,6 +62,13 @@ With the environment active, install the project's libraries:
 python -m pip install -r requirements.txt
 ```
 
+That installs what the API and its tests need. For the notebooks and the ML
+experiments, install the larger set instead (it includes the API one):
+
+```bash
+python -m pip install -r requirements-notebooks.txt
+```
+
 To check that you're using Python from the environment:
 
 ```bash
@@ -73,7 +80,8 @@ On Windows, it should end in `backend\.venv\Scripts\python.exe`.
 
 Whenever you open a new terminal, just head into the backend folder and
 activate the environment. No need to create it or install everything again.
-Rerun the install command if we add or change libraries in `requirements.txt`.
+Rerun the install command if we add or change libraries in `requirements.txt`
+or `requirements-notebooks.txt`.
 
 When you're done, you can leave the environment with:
 
@@ -145,8 +153,8 @@ python -m pytest tests -q
 ## Notes
 
 - The `.venv` folder won't be uploaded to GitHub: `.gitignore` already handles that.
-- The libraries come from the prototype, though the installed versions may vary
-  because most don't have a fixed version in `requirements.txt`.
+- `requirements.txt` sets minimum versions for the API's libraries; newer
+  versions are accepted. The notebook and ML libraries are unpinned.
 - The image API reads IMAGE and spatial metadata, and applies quality masking,
   zodiacal-background subtraction and signal-to-noise only on request (see
   API.md, sections 4 to 6). Spectral extensions and comparisons are not
