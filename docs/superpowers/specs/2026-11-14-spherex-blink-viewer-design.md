@@ -1,8 +1,19 @@
 # Astrea — SPHEREx blink viewer: design
 
 - **Date:** 2026-11-14
-- **Status:** draft for approval
+- **Status:** historical proposal; superseded for the current blink approach
 - **Scope:** hackathon deliverable — a credible public demo on real SPHEREx data
+
+> **Current decision (2026-11-14):** follow the prototype: frontend A/B
+> playback using each observation's own WCS mesh and the existing `/api/v1/images`
+> endpoints. Future frontend playback may include more than two observations.
+> The active contract and acceptance criteria are in
+> [`spherex-backend-fastapi-design`](2026-11-14-spherex-backend-fastapi-design.md).
+> The sections below are preserved as historical context, not an implementation
+> checklist: `/api/frames`, backend PNG rendering, mandatory common-grid
+> processing and the old milestones are superseded. Other proposed additions
+> are not automatically approved requirements. The repository description below
+> also predates the implemented backend.
 
 ## 1. Intent and why
 

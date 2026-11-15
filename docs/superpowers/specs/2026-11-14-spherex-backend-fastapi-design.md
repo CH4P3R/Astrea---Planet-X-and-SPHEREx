@@ -1,306 +1,209 @@
-# Astrea — Blink feature (backend): design
+# Astrea — Blink through the existing image API: design
 
 - **Date:** 2026-11-14
-- **Status:** draft, **future step** (roadmap step 4 in the backend technical
-  documentation). Not implemented.
-- **Parent:** [`2026-11-14-spherex-blink-viewer-design.md`](2026-11-14-spherex-blink-viewer-design.md)
-- **Builds on:** the existing backend described in
-  [`2026-11-14-astrea-backend-technical-documentation.md`](2026-11-14-astrea-backend-technical-documentation.md)
-  (branch `Charly`, commit `ef4f862`)
-- **Prerequisites:** roadmap step 1 (download retries) and step 3 (quality and
-  background processing). This feature reuses both.
+- **Status:** prototype approach selected; frontend integration remains future work.
+  Existing image endpoints are implemented. This document does not implement a viewer.
+- **Scope:** backend data contract and frontend responsibilities. No frontend
+  implementation is included in this specification change.
+- **Historical proposal:** [`2026-11-14-spherex-blink-viewer-design.md`](2026-11-14-spherex-blink-viewer-design.md).
+  This document supersedes its blink architecture, endpoints, rendering pipeline,
+  milestones and acceptance requirements where they conflict.
+- **Current backend:** [`2026-11-14-astrea-backend-technical-documentation.md`](2026-11-14-astrea-backend-technical-documentation.md)
+  and [`backend/API.md`](../../../backend/API.md).
 
-## 1. Summary
+## 1. Decision and rationale
 
-Blink shows the same sky patch at several epochs so that moving or variable
-objects stand out. The current `/api/v1/images` API was designed for viewing
-one image at a time: newest first, all detectors, raw pixels in each
-exposure's own orientation. Blink needs four things that API does not give:
+Follow the prototype: load two observations, position each through its own WCS
+mesh on the same observer sky, and alternate their visibility in the frontend.
+The backend supplies pixels, metadata and observer-relative geometry. It does
+not run playback, select a comparison partner, render PNGs or resample the
+images onto a shared pixel grid for this initial feature.
 
-1. **One detector array** for every frame, because arrays differ in bandpass,
-   pixel scale and PSF.
-2. **Frames spread across the time baseline**, not the newest N, which tend
-   to cluster in a few nights.
-3. **A common pixel grid**: every frame reprojected north-up, at the same
-   scale, centred on the target. Otherwise rotation reads as motion.
-4. **Comparable values**: `IMAGE − ZODI` and bad pixels masked. Otherwise
-   background changes and hot pixels flicker.
+This reuses working endpoints and keeps the first integration small. WCS meshes
+place corresponding sky directions together despite different exposure rotations;
+putting two unpositioned rectangular textures at the same screen coordinates
+would not provide that alignment.
 
-The feature is a **new module** that follows the existing pattern
-(schema → service → routes) and reuses `IrsaClient`, `CutoutStore` and
-`decode_cutout`. It returns **float32 grids**, like `/pixels`. The frontend
-applies one shared stretch and does all drawing. Existing endpoints and
-`API.md` stay unchanged.
+This is a visual comparison, not proof of motion or variability. Different
+wavelengths, PSFs, backgrounds, coverage and detector artifacts can change the
+appearance. A common pixel grid and additional calibration become useful for
+pixel subtraction or quantitative analysis, but are not prerequisites for this
+visual blink.
 
-## 2. What changes compared with the parent spec
+The initial interaction is A/B, **not a permanent two-observation limit**.
+Future playback may sequence three or more selected observations. That sequence
+and its controls will also remain in the frontend; each observation continues
+to use the same independent backend data contract.
 
-The parent spec predates the backend code. This design replaces the following
-parts of it:
+## 2. Responsibilities
 
-| Parent spec | This design | Why |
-| --- | --- | --- |
-| `/api/frames`, `/api/frames/{id}/image` (PNG) | `/api/v1/blink`, `/api/v1/blink/frames/{id}/pixels` (float32) | The codebase uses `/api/v1`. The team chose to render in the frontend (raw floats, as in `API.md`). |
-| Backend computes the stretch | Backend returns `suggested_stretch`; the frontend applies it to all frames | Rendering belongs to the frontend. One shared suggestion keeps frames comparable. |
-| New modules `sia.py`, `cutout.py`, `cache.py` | Reuse `integrations/irsa.py` and `integrations/cutout_store.py` | They already exist and are tested. |
-| Dedupe by `obs_id` | Dedupe by archive URL (already done in `IrsaClient`) | One `obs_id` covers all six arrays (*verified*) |
-| Detector from filename | Detector from SIA `energy_bandpassname` (already done) | *Verified* |
-| Epoch from `t_min`/`DATE` | `t_min` / header `MJD-AVG`; never `DATE` | `DATE` is the processing date (*verified*) |
-| Mask "bad flag bits" | Mask by flag **name**, never `SOURCE` | Bit 21 `SOURCE` marks known stars (*verified*) |
-| Fixed acceptance coordinates | Propagate proper motion to the SPHEREx epoch | Barnard's Star moves ~4.4′ between 2000 and 2025.6 |
-
-## 3. Module layout
-
-Additions only. Existing files are touched solely for wiring.
-
-```text
-backend/app/
-  schemas/blink.py              BlinkQuery, BlinkFrame, BlinkResponse, SuggestedStretch
-  services/blink.py             BlinkService: orchestration
-  services/frame_selection.py   pure: choose detector, spread over time
-  services/reprojection.py      pure: target WCS, reproject_interp, footprint
-  services/quality.py           pure: FLAGS name → mask, zodi subtraction (roadmap step 3)
-  api/v1/endpoints/blink.py     routes
-  warm.py                       CLI: python -m app.warm targets.yaml (roadmap step 5)
-backend/targets.yaml
-backend/tests/test_frame_selection.py, test_reprojection.py, test_quality.py, test_blink_api.py
-
-wiring:
-  application.py      app.state.blink_service = BlinkService(archive, store, settings)
-  api/dependencies.py get_blink_service
-  api/v1/router.py    include blink router
-  api/errors.py       no new exceptions expected (reuses Archive*/Cache*/Unknown*)
-  core/config.py      blink_cache_dir, blink_grid_arcsec, blink_bad_flags, …
-```
-
-### 3.1 Changes needed in existing integrations
-
-- `IrsaClient.search` caps results at `limit ≤ 100` and returns them newest
-  first. Blink needs **every** row for the position, to choose a detector and
-  spread frames over time. Add a method
-  `IrsaClient.search_all(ra_deg, dec_deg, detector=None) -> list[ArchiveImage]`.
-  It shares the current query code, returns all rows (up to `MAX_SEARCH_ROWS`),
-  and adds no limit.
-- `ArchiveImage` gains `band_min_um` / `band_max_um` (SIA `em_min`/`em_max` × 1e6).
-  Both get default values, so existing callers keep working.
-- `decode_cutout` reads only `IMAGE`. Add `decode_cutout_planes(content)`,
-  which also returns `FLAGS` (with its `MSKN*` names) and `ZODI`. This belongs
-  to roadmap step 3 and is shared with blink.
-
-## 4. API
-
-### 4.1 `GET /api/v1/blink`
-
-| Param | Type | Default | Validation |
-| --- | --- | --- | --- |
-| `ra_deg` | float | required | `0 ≤ ra < 360` |
-| `dec_deg` | float | required | `−90 ≤ dec ≤ 90` |
-| `fov_deg` | float | `0.1` | `0.02 ≤ fov ≤ 0.5` |
-| `detector` | int 1–6 | array with the most frames | |
-| `max_frames` | int | `12` | `2 ≤ n ≤ 24` |
-| `start_time`, `end_time` | ISO 8601 with tz | none | Same rules as `/images` |
-
-Models use `ConfigDict(extra="forbid", allow_inf_nan=False)`, like
-`ImageSearchQuery`.
-
-Response `BlinkResponse`:
-
-```json
-{
-  "query": {"ra_deg": 133.7928, "dec_deg": -7.2395, "fov_deg": 0.1, "detector": 6,
-            "max_frames": 12, "fetch_size_deg": 0.2},
-  "detectors": {"1": 36, "2": 48, "3": 45, "4": 36, "5": 48, "6": 45},
-  "total_matches": 258,
-  "grid": {"width": 118, "height": 118, "pixel_scale_arcsec": 6.15,
-           "center": {"ra_deg": 133.7928, "dec_deg": -7.2395, "frame": "ICRS"},
-           "orientation": "north-up-east-left", "pixel_origin": "lower-left",
-           "dtype": "float32", "byte_order": "little", "unit": "MJy/sr"},
-  "processing": {"zodi_subtracted": true,
-                 "masked_flags": ["OVERFLOW", "SUR_ERROR", "NONFUNC", "MISSING_DATA", "HOT", "COLD", "TRANSIENT", "PERSIST"]},
-  "suggested_stretch": null,
-  "frames": [
-    {"id": "<64 hex>", "image_id": "<64 hex of the /images cutout>",
-     "observation_id": "2025W19_1B_0116_1", "detector": 6, "collection": "dr1",
-     "observation": {"start_mjd": 60800.70003, "end_mjd": 60800.70136,
-                     "start_utc": "2025-05-05T16:48:02.459Z", "end_utc": "..."},
-     "band_min_um": 4.4115, "band_max_um": 5.0096,
-     "pixels_url": "/api/v1/blink/frames/<id>/pixels",
-     "ready": false}
-  ],
-  "warnings": []
-}
-```
-
-Rules:
-
-- Frames are sorted by observation start, **ascending**. This differs from
-  `/images`, which sorts descending, because blink plays forward in time.
-- The response does not download anything. Frames whose grid is not cached
-  have `ready: false`. The frontend requests each `pixels_url` (cold requests
-  are synchronous, §4.2).
-- `suggested_stretch` is `{"vmin", "vmax", "percentiles": [1, 99.5],
-  "reference_id"}` once the **reference frame** (closest to the median epoch)
-  is cached, and `null` before that. It is computed on the reference grid,
-  within the central `fov_deg` box. The frontend applies one stretch to
-  **every** frame and never autoscales per frame. Otherwise variable stars
-  would look constant.
-- Empty result: 200 with `frames: []` and a warning. One frame: 200 with the
-  warning `"one epoch available"`.
-- After the response, uncached frames are prefetched with FastAPI
-  `BackgroundTasks`: at most 3 at a time, best effort.
-
-### 4.2 `GET /api/v1/blink/frames/{id}/pixels`
-
-- Returns `application/octet-stream`: `width × height` little-endian float32,
-  row 0 = south edge (lower-left origin, as in `/images/{id}/pixels`).
-- NaN means no data: masked flag, outside the exposure footprint, or
-  non-finite in the source.
-- Header `X-Astrea-Coverage: 0.97` gives the fraction of the grid with data.
-- Cold path: fetch the cutout at `fetch_size_deg` (via `CutoutStore`/
-  `IrsaClient`), decode the planes, subtract zodi, mask, reproject, then save.
-  A hard budget of 45 s applies → 504.
-- Unknown ID → 404, using the same message style as `/images`.
-
-### 4.3 `GET /api/v1/blink/frames/{id}`
-
-JSON for one frame: the `BlinkFrame` fields plus header data once cached:
-`psf_fwhm_arcsec`, `processing_version`, `coverage`, `flags_summary`
-(counts per flag name in the native cutout). The frontend fetches this lazily
-for its metadata panel.
-
-## 5. Pipeline (`services/blink.py`)
-
-1. **Search:** `IrsaClient.search_all(ra, dec, detector=None)`, keeping the
-   1″ cone. The SIA result depends only on the position, so it can be cached
-   (24 h) under `blink_cache_dir/sia/`.
-2. **Select** (`frame_selection.py`, pure):
-   - Count frames per detector.
-   - With no `detector`, take the array with the most frames. **Ties go to
-     the higher-numbered array**, which is redder and suits brown dwarfs.
-   - Subsample to `max_frames`: build that many evenly spaced target times
-     from the first to the last MJD, then take the nearest unused frame for
-     each.
-3. **Frame ID:** `sha256({"format_version": 1, "source_url", "center", "fetch_size_deg",
-   "grid_arcsec", "bad_flags", "zodi"})`, following the `/images` convention.
-   The cutout ID `image_id` is the existing `/images` ID for
-   `(source_url, center, fetch_size_deg)`, so both features share one
-   downloaded cutout.
-4. **Fetch size:** `fetch_size_deg = clamp(fov_deg, 0.2, 0.5)`. One cached grid
-   then serves every smaller FOV; the frontend crops.
-5. **Quality** (`quality.py`): `data = IMAGE − ZODI`. Build the bad mask from
-   `FLAGS` using the file's `MSKNnnnn` names. A configured name that the file
-   lacks is skipped and logged once. If `SOURCE` appears in the configuration,
-   the app refuses to start. Set masked pixels to NaN.
-6. **Reproject** (`reprojection.py`): build a target TAN WCS centred on
-   `(ra, dec)` with `CDELT = (−s, +s)`, `s = 6.15″`, and
-   `n = ceil(fetch_size·3600 / 6.15)` (0.2° → 118). Resample with
-   `reproject.reproject_interp(order="bilinear")`. Pixels where the footprint
-   is 0 become NaN.
-7. **Save** the grid as raw float32 plus a metadata JSON, using the
-   `CutoutStore` pattern: write pixels first, metadata last as the completion
-   marker, atomic replace.
-
-## 6. Cache
-
-```text
-backend/data/blink/
-  sia/<sha256(ra4|dec4|collections)>.json   TTL 24 h; serve stale with a warning if IRSA is down
-  frames/<id>.selection.json                written by /blink (registration, like /images)
-  frames/<id>.pixels.bin                    reprojected float32
-  frames/<id>.metadata.json                 completion marker + header data
-```
-
-Raw cutouts are not stored twice. Blink goes through the existing
-`image-cutouts/` entry for `image_id`. That store does not persist the FITS,
-so roadmap step 3 must decide whether `FLAGS`/`ZODI` are cached as extra
-planes next to `pixels.bin`. **Recommended:** add `{id}.flags.bin` and
-`{id}.zodi.bin` to `CutoutStore`.
-
-Locks: reuse the `ImageService` lock-pool pattern keyed by frame ID, so a
-browser request and a prefetch hit IRSA once. Add `backend/data/blink/` to
-`.gitignore`.
-
-## 7. Dependencies
-
-| Package | Why |
+| Backend | Frontend |
 | --- | --- |
-| `reproject>=0.13` | Common-grid resampling |
-| `pyyaml` | `targets.yaml` for the warm command |
+| Discover observations with Astroquery SIA; return dates, detector and IDs | Select A and B from the available results |
+| Download a selected FITS cutout from IRSA on demand | Keep loaded observations available during playback |
+| Decode IMAGE into raw pixels and metadata, retaining native precision | Decode float32/float64 according to metadata and create textures |
+| Build each image's WCS mesh and project it for the observer/time | Draw each image with its own mesh and texture coordinates |
+| Cache decoded data independently by observation and requested cutout | Alternate visibility, show dates, play/pause and control interval |
+| Supply documented errors and limits | Apply one shared display scale and handle loading/errors |
 
-`httpx` is already present.
+There is no new `/blink` or `/frames` API in the initial scope. Retries,
+quality processing, background subtraction and offline pre-warming are separate
+improvements, not mandatory dependencies of A/B playback.
 
-## 8. Targets and warm (roadmap step 5, used by blink)
+## 3. Existing API to reuse
 
-`backend/targets.yaml`. Values are approximate and **must be checked against
-SIMBAD**:
+All routes below have the `/api/v1` prefix.
 
-```yaml
-epoch: 2025.6
-fov_deg: 0.1
-targets:
-  - {name: "Barnard's Star", ra: 269.452075, dec: 4.693391, pmra: -801.551, pmdec: 10362.394, expected: motion}
-  - {name: "Epsilon Indi B", ra: 330.840, dec: -56.786, pmra: 3982, pmdec: -2470, expected: motion}
-  - {name: "WISE 0855-0714", ra: 133.795129, dec: -7.245147, pmra: -8118, pmdec: 680, expected: motion}
-  - {name: "RW Aurigae", ra: 76.956, dec: 30.401, expected: variability}
-  - {name: "R Draconis", ra: 248.168, dec: 66.755, expected: variability}
-```
-
-`python -m app.warm targets.yaml [--only NAME] [--offline]` propagates proper
-motion with `SkyCoord.apply_space_motion` (angles only), runs
-`BlinkService.query` + every frame's pixels, and prints a line per target:
-
-```
-WISE 0855-0714  ra=133.79283 dec=-7.23954  D6  12/45 frames  span 370.4 d  fetched 12  cached 0  failed 0
-```
-
-The exit code is 1 if any target has fewer than 2 ready frames. `--offline`
-makes the archive client raise on any network use, which proves the cache
-alone can serve the demo. A `GET /api/v1/blink/targets` route returns the
-propagated coordinates, so the frontend's examples and the warm command use
-the same values.
-
-## 9. Testing
-
-Same style as `test_images_api.py`: `create_app(Settings(tmp dirs))`, with a
-fake archive swapped on `app.state`, and no network.
-
-| Test | Checks |
+| Method and path | Role |
 | --- | --- |
-| `test_frame_selection.py` | Detector with most frames; tie → higher; time spread keeps first and last and is never "newest N"; fewer candidates than `max_frames` |
-| `test_quality.py` | Bits by name → NaN; `SOURCE` rejected; missing names skipped; zodi subtracted |
-| `test_reprojection.py` | Two synthetic frames, one rotated 30° and one at 5.8″/px, put a point source at the same grid pixel ±0.5; outside footprint → NaN; grid 118×118 at 0.2° |
-| `test_blink_api.py` | Ascending order; no download in `/blink`; pixels round-trip `118·118·4` bytes; `suggested_stretch` null before the reference frame is cached and set after; 404 unknown; 502/504 mapping; empty and one-frame warnings; shared stretch: a 2× brighter source in frame B gives larger values than in frame A |
-| `test_warm.py` | Barnard's Star moves ~4.4′ by 2025.6; exit code 1 with one frame; `--offline` raises on network use |
+| `POST /images/search` | Convert the clicked local direction to ICRS and discover observations |
+| `GET /images?ra_deg=...&dec_deg=...&size_deg=...` | Alternative search with known ICRS coordinates |
+| `POST /images/load/{id}` | Download/decode the selected cutout and return metadata |
+| `GET /images/{id}` | Equivalent metadata/load alternative; do not call both unnecessarily |
+| `GET /images/{id}/pixels` | Raw image values as little-endian float32 or float64 |
+| `POST /images/{id}/projection` | Per-image mesh UVs, indices and local directions at requested times |
 
-Fixtures: a dated SIA VOTable for WISE 0855 and one real cutout, with `EPSF`
-and `WCS-WAVE` stripped to stay small.
+Search returns `images`, `query`, `has_more` and `order`. Results are newest
+first. The frontend filters/sorts candidate dates for selection; it must not
+interpret this limited result as the complete observation history. Use date
+bounds or a new search when necessary. Pagination is future work.
 
-## 10. Frontend contract (summary)
+Search does not download FITS files. Loading an ID downloads its cutout once
+when cold; subsequent metadata/pixel requests use the cache. Pixel or projection
+requests can also trigger a cold load. No archive request is needed at each
+A/B visibility switch.
 
-- Call `/api/v1/blink`, then fetch every `pixels_url` in parallel. Show a
-  spinner per frame and a retry button on failure.
-- Re-poll `/api/v1/blink` (cheap once cached) until `suggested_stretch` is
-  present, or compute one from the first decoded frame. Use it for **all**
-  frames.
-- Crop to `fov_deg` and zoom 1–4× on the client. A difference mode subtracts
-  two float grids before stretching. That is only possible because the
-  backend sends floats.
-- Always show the epoch label (`observation.start_utc`) and the frame counter.
+Each observation keeps its own dimensions, dtype, pixels and WCS. Preserve the
+existing opaque IDs: they identify source URL and requested cutout geometry,
+not the pair or playback state. Search the same center and cutout size for the
+observations being compared.
 
-## 11. Build order
+## 4. Frontend integration flow
 
-1. `search_all` + `frame_selection` + `/blink` returning frames (no pixels).
-2. Roadmap step 3: `decode_cutout_planes`, `quality.py`, extra planes in
-   `CutoutStore`.
-3. `reprojection.py` + `/blink/frames/{id}/pixels`.
-4. `suggested_stretch` + prefetch.
-5. `targets.yaml`, `warm`, `--offline` acceptance run (parent spec §13).
+1. Prepare the observer sky using `/star-catalog` and `/sky` as documented in
+   `backend/API.md`. Preserve the observer and displayed time.
+2. Search from a click, or use known RA/Dec. Display an empty state if no
+   observations are returned.
+3. Select observation A, load its metadata and fetch its pixels.
+4. Select B from observations with a different ID and observation time.
+   Load B's metadata and pixels independently; show loading/retry for B while
+   keeping A visible.
+5. Request `/images/{id}/projection` for both using the **same** `observer`,
+   `at` and `mode`. Image exposure dates are labels describing the source data;
+   `at` is the displayed observer-sky time, not a filter on exposure dates.
+6. Construct each texture with its own `image.width`, `image.height` and dtype,
+   and use that image's returned `uv`, `indices` and `directions`. Do not reuse
+   A's mesh for B or assume equal image dimensions.
+7. Once both images and their projections are usable for the displayed time,
+   enable Show A / Show B / Blink. Alternate visibility every 1 s by default,
+   adjustable from 0.5 to 3 s, as in the prototype. Always show the current
+   observation date and label.
+8. When observer or displayed time changes, refresh projections and sky samples.
+   Reuse pixels. In live mode, refresh before the 120-second sample window
+   expires; use the same time basis for stars and all image projections.
+9. Changing the selected observations invalidates playback readiness. Ignore
+   stale responses and stop playback until the new selection is ready.
 
-## 12. Open questions
+The frontend owns the timer. Both observations stay loaded while blinking;
+there is no repeated FITS download or backend animation job.
 
-- **Detector tie-break for the variable stars.** RW Aur and R Dra may look
-  better in D1–D3. A per-target `detector` in `targets.yaml` may be the answer.
-- **TRANSIENT/PERSIST in the default mask.** Confirm on the five targets that
-  they never cover the target itself.
-- **QR3 coverage.** QR3 rows start at week `2026W30`. Check per target whether
-  QR3 adds epochs beyond DR1.
-- **Where FLAGS/ZODI are cached** (§6). Decided in roadmap step 3.
+## 5. Selection and spectral interpretation
+
+Mirror the prototype's progressive comparison choices:
+
+- **Dates only:** a different observation time; other detectors may be included.
+  Clearly label detector differences rather than treating this as a controlled
+  variability measurement.
+- **Same detector:** additionally require matching detector numbers. This is a
+  useful first comparison, but does not guarantee identical wavelengths because
+  SPHEREx wavelength varies across a detector.
+- **Similar wavelength at the target:** future capability in Astrea. The
+  prototype has a heuristic based on target wavelength and bandwidth. Our
+  current API does not provide `target_spectrum`; do not expose this choice as
+  supported until the corresponding FITS wavelength processing is implemented.
+
+These filters operate on the available search results. Do not silently broaden
+an explicitly chosen detector or imply that more search results were loaded.
+
+## 6. Shared display scale and missing pixels
+
+The frontend applies the same brightness bounds, stretch, exposure adjustment
+and color mapping to both images. Require compatible physical units; if units
+are missing or different, disable comparison or explicitly resolve that case.
+Do not autoscale each image independently while switching.
+
+The prototype combines its two backend-provided `stretch_min`/`stretch_max`
+ranges. Astrea currently returns raw pixels and finite min/max statistics,
+not percentile stretch suggestions. The frontend must derive one shared range
+from the loaded finite values (for example, a percentile range from their
+combined values), then keep it fixed during playback. Min/max are statistics,
+not guaranteed useful display contrast. Handle constant or entirely nonfinite
+images explicitly.
+
+Pixels keep lower-left origin and little-endian encoding. Nonfinite values
+must be made transparent by the renderer. This is not a FLAGS quality mask.
+Compare the overlapping footprint: boundaries and missing coverage may differ.
+The prototype's optional quality masking is not implemented in Astrea yet.
+
+## 7. Differences from the prototype contract
+
+The interaction is similar, but the old frontend cannot be pointed at the new
+backend without adapting its data mapping:
+
+| Prototype | Current Astrea |
+| --- | --- |
+| `/api/...` | `/api/v1/...` |
+| Search `results` | Search `images` |
+| Flat image dimensions and display metadata | Dimensions, dtype and WCS under `image` |
+| Mesh UVs/indices returned at load | Mesh UVs/indices returned by `/projection` |
+| Always float32 preview | Preserve float32 or float64, without preview downsampling |
+| `stretch_min`, `stretch_max` | Raw values and finite statistics; shared display range computed by frontend |
+| Optional mask endpoint and quality toggle | Not yet available; raw IMAGE only |
+| Wavelength comparison using `target_spectrum` | Future wavelength metadata processing |
+| Larger selectable fields | Current cutout maximum 0.5 degrees / 30 arcminutes |
+
+## 8. Acceptance for the initial integration
+
+- Two observations of the same region can be loaded via the existing endpoints.
+- Both use their own WCS geometry with the same observer/time; overlapping
+  stationary sky positions coincide within the geometry's documented tolerance.
+- Playback waits for pixels and usable projections for both observations.
+- Show A / Show B / Blink work without additional archive downloads per switch.
+- One shared display scale is applied, and the visible observation's date and
+  detector are always identifiable.
+- Empty results, one observation, incompatible units, unavailable projections
+  and failed B loads produce a clear state without discarding a usable A.
+- An invalid/outdated selection cannot start or continue playback.
+- A visible difference is labelled as visual comparison, not a confirmed change.
+
+Backend verification uses the existing search→load→pixels→projection tests.
+Frontend playback/rendering tests belong to the frontend team's implementation.
+These acceptance criteria do not claim that the current frontend implements blink.
+
+## 9. Optional future work
+
+The following items require their own implementation and validation; they are
+not implicitly included by adopting this specification:
+
+1. **More than two observations:** a frontend-managed ordered collection of
+   observation IDs, individual readiness/error states, and a playback index.
+   Support stepping, play/pause and epoch labels across the selected sequence.
+   Keep one shared display scale across the sequence, or recompute it explicitly
+   when the selection changes. Use bounded loading and browser-memory limits;
+   avoid relying on a permanent A/B-shaped data model. The backend continues
+   serving each observation independently. Full-history search or pagination
+   may be needed for broader time coverage.
+2. **Quality and background variants:** optional FLAGS masking and IMAGE − ZODI,
+   with processing provenance; preserve the existing raw-pixel contract.
+3. **Target wavelength metadata:** enable the prototype's optional spectral
+   comparison once supported by the backend.
+4. **Download retries and pre-warming:** improve availability; an offline demo
+   additionally needs cached discovery, not just cached decoded images.
+5. **Common-grid reprojection and difference analysis:** a separate opt-in
+   processing feature for pixel subtraction or measurements. WCS positioning
+   alone does not make array indices comparable; subtracting A[i] − B[i] is
+   invalid unless the grids are aligned. Further PSF/background/spectral
+   treatment may also be required for scientific interpretation.
+
+Even if common-grid processing is introduced later, playback and rendering
+remain frontend responsibilities.

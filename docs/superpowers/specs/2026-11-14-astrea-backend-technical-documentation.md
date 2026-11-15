@@ -696,15 +696,17 @@ scientific comparison is accurate.
 
 ## 16. Roadmap
 
-This is a list of planned steps, **not** implemented features. Each step
-follows the recipe in §13 and leaves existing endpoints unchanged.
+This is a list of future work, **not** implemented features. Backend additions
+follow the recipe in §13 and preserve existing endpoints. Step numbers identify
+work items, not mandatory dependencies: initial frontend blink can reuse the
+current API without waiting for quality/background processing.
 
 | Step | Feature | Notes |
 | --- | --- | --- |
 | 1 | **Download resilience** | Retries with backoff on connect errors, timeouts, 429/5xx, honouring `Retry-After`. Map `build_mesh` `ValueError` to 422 instead of 500. |
 | 2 | **Configuration from environment** | `ASTREA_*` env vars for cache dirs, CORS, limits. Move module constants into `Settings`. |
 | 3 | **Quality and background variants** | Optional `FLAGS` mask (by flag *name*, never `SOURCE`) and `IMAGE − ZODI`, as new endpoints or query options. Raw `/pixels` stays unchanged. |
-| 4 | **Blink (epoch comparison)** | One detector, frames spread over the time baseline, reprojected onto a common north-up grid, returned as float32. The frontend applies one shared stretch. Design: [`2026-11-14-spherex-backend-fastapi-design.md`](2026-11-14-spherex-backend-fastapi-design.md). |
+| 4 | **Blink (epoch comparison)** | Prototype-style A/B selection and playback in the frontend, using each image's existing pixels and WCS projection with one shared display scale. Future frontend sequences may include more than two observations. No new blink endpoints or common-grid resampling required initially; quality/background variants and quantitative reprojection remain separate future work. Design: [`2026-11-14-spherex-backend-fastapi-design.md`](2026-11-14-spherex-backend-fastapi-design.md). |
 | 5 | **Pre-warm command** | CLI that fills the cache for the acceptance targets (Barnard's Star, ε Indi B, WISE 0855, RW Aur, R Dra), with proper-motion propagation. Needed for an offline demo. |
 | 6 | **Spectra** | Wavelength at the target from `WCS-WAVE` (requires keeping that extension). |
 | 7 | **Pagination and full history** | Search beyond `limit`; date-window paging. |
