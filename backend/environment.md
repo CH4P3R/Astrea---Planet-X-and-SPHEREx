@@ -95,8 +95,8 @@ The server runs at `http://127.0.0.1:8000`. Open
 `http://127.0.0.1:8000/redoc` for ReDoc. The OpenAPI schema is available at
 `http://127.0.0.1:8000/openapi.json`.
 
-There are no application endpoints yet, so the documentation has no operations
-and `/` returns 404. Future endpoints will live under `/api/v1`.
+Image endpoints live under `/api/v1/images`. See [the image API contract](API.md)
+for search parameters and binary decoding. `/` still returns 404.
 
 `--reload` restarts the server when Python files change; use it for local
 development. Stop the server with Ctrl+C. To run without automatic reload:
@@ -122,20 +122,27 @@ app/
   integrations/      Access to IRSA and other external data or storage
 ```
 
-The feature packages are placeholders for the next commits. Routes will validate
-requests and call services; services will handle data workflows and use
-integrations for external access. Keep FastAPI request/response handling in the
-API layer and FITS processing out of route functions. Schemas define the data
-contract shared with consumers of the API.
+Routes validate requests and call services. `services/images.py` orchestrates
+search and caching; `services/fits_image.py` decodes the IMAGE data and spatial
+WCS. `integrations/irsa.py` queries the archive and downloads selected cutouts;
+`integrations/cutout_store.py` stores selections and decoded images locally.
+Schemas define the data contract shared with consumers of the API.
 
 Application defaults live in `core/config.py`. `create_app` accepts a `Settings`
-instance so tests can construct independent applications. Environment-file
-loading is not configured yet.
+instance so tests can construct independent applications. This includes the
+cache directory and allowed browser origins (localhost and 127.0.0.1 on port
+5173 by default). Environment-file loading is not configured yet.
+
+Run the backend's offline tests from this folder:
+
+```bash
+python -m pytest tests -q
+```
 
 ## Notes
 
 - The `.venv` folder won't be uploaded to GitHub: `.gitignore` already handles that.
 - The libraries come from the prototype, though the installed versions may vary
   because most don't have a fixed version in `requirements.txt`.
-- This commit provides the server scaffold. IRSA queries, FITS processing, and
-  application endpoints will be added separately.
+- The image API reads IMAGE and spatial metadata only. Quality masks, spectral
+  extensions, comparisons, and scientific corrections are not applied yet.
