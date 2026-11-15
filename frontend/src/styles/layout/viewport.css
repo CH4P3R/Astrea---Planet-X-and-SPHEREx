@@ -2,6 +2,7 @@
   --ui-edge-x: clamp(16px, 3.34vw, 48px);
   --ui-edge-y: clamp(16px, 3.7dvh, 32px);
   --ui-gap: clamp(8px, 1.5dvh, 16px);
+  --utility-controls-height: 96px;
   position: relative;
   width: 100vw;
   height: 100dvh;

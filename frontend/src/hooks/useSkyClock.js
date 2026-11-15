@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 
-export default function useSkyClock() {
+export default function useSkyClock(initialAt = null) {
   const [now, setNow] = useState(() => Date.now())
-  const [pausedAt, setPausedAt] = useState(null)
+  const [pausedAt, setPausedAt] = useState(initialAt)
   useEffect(() => {
     if (pausedAt !== null) return
     const timer = window.setInterval(() => setNow(Date.now()), 1000)

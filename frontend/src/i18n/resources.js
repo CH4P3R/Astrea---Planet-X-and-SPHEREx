@@ -12,6 +12,8 @@ import enSearch from './locales/en/search.json' with { type: 'json' }
 import enSky from './locales/en/sky.json' with { type: 'json' }
 import enErrors from './locales/en/errors.json' with { type: 'json' }
 import enInspector from './locales/en/inspector.json' with { type: 'json' }
+import esOnboarding from './locales/es/onboarding.json' with { type: 'json' }
+import enOnboarding from './locales/en/onboarding.json' with { type: 'json' }
 
 export const languages = [
   { value: 'es', label: 'Español', shortLabel: 'ES', lang: 'es' },
@@ -20,6 +22,6 @@ export const languages = [
 
 export const fallbackLanguage = 'en'
 export const resources = {
-  es: { common: esCommon, time: esTime, location: esLocation, search: esSearch, sky: esSky, errors: esErrors, inspector: esInspector },
-  en: { common: enCommon, time: enTime, location: enLocation, search: enSearch, sky: enSky, errors: enErrors, inspector: enInspector },
+  es: { common: esCommon, time: esTime, location: esLocation, search: esSearch, sky: esSky, errors: esErrors, inspector: esInspector, onboarding: esOnboarding },
+  en: { common: enCommon, time: enTime, location: enLocation, search: enSearch, sky: enSky, errors: enErrors, inspector: enInspector, onboarding: enOnboarding },
 }

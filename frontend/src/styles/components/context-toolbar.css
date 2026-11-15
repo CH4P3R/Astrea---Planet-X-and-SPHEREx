@@ -33,7 +33,7 @@
   gap: 12px;
   padding: 16px 12px;
   width: var(--rail-width);
-  max-height: max(44px, calc(100dvh - var(--toolbar-top) - var(--ui-edge-y) - 44px - var(--ui-gap) - env(safe-area-inset-bottom)));
+  max-height: max(44px, calc(100dvh - var(--toolbar-top) - var(--ui-edge-y) - var(--utility-controls-height) - var(--ui-gap) - env(safe-area-inset-bottom)));
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) transparent;

@@ -15,6 +15,7 @@ Aspecto del cielo muestra el estado del catálogo estelar y permite ocultar la s
 - Cada opción se representa con un icono; su nombre aparece en un tooltip. El panel asociado se abre a la derecha de la barra.
 - La hora y la fecha local permanecen visibles arriba a la izquierda, independientemente del panel abierto.
 - El selector de idioma permanece abajo a la izquierda con el icono `GlobalLine` y el código ES/EN. La barra conserva espacio inferior para este control y permite scroll cuando la altura es reducida.
+- Encima del idioma, el botón `Question2Fill` permite volver a ver el tutorial. La barra reserva espacio para ambos controles con `--utility-controls-height`.
 - Los avisos de actividad aparecen arriba a la derecha, independientes del panel abierto. En ventanas estrechas se sitúan debajo de la franja del reloj para evitar superposiciones.
 - Los iconos principales proceden de [Flujo 1/svg.md](Flujo%201/svg.md), adaptados a React y con `currentColor`.
 - La capa general utiliza `pointer-events: none`; solo los controles interactivos recuperan `pointer-events: auto`. El espacio libre permite operar la escena.
@@ -394,3 +395,13 @@ Ambas imágenes usan sus propias mallas WCS y un intervalo de intensidad compart
 | `useImageViewport`, `imageFrameUtils` | Medición del espacio libre y cálculo del encuadre |
 
 Los hooks usan React; el cálculo geométrico usa Three.js y la animación usa GSAP. Los servicios siguen utilizando `fetch` y `AbortController`. Los textos, ayudas y estados proceden de los catálogos ES/EN. Se añade únicamente la dependencia `gsap`.
+
+## 14. Tutorial con la interfaz real
+
+- `AppViewport` controla la apertura automática y el botón de ayuda. Conserva montada la sesión habitual y abre otra instancia de `AppWorkspace` para practicar, con el mismo inspector y los mismos controles reales. La sesión anterior queda oculta e `inert`, con el renderizado detenido, y se recupera al salir.
+- `OnboardingTour` se monta mediante un portal de React DOM. El spotlight utiliza `box-shadow` y solo apunta a controles del HUD o al inspector, nunca a objetos de la escena. El panel destacado y sus selectores siguen siendo interactivos; el resto queda bloqueado. Los pasos no desplazan automáticamente la ventana (`scrollTo: false` y foco con `preventScroll`).
+- La práctica utiliza los FITS de Barnard incluidos en `backend/data/onboarding/`. Consulta el catálogo local y después las rutas habituales de metadatos, píxeles, procesamiento y proyección. El backend es necesario; no sustituir fallos por una simulación. Los archivos incluyen IMAGE, FLAGS, VARIANCE y ZODI y se verifican mediante SHA-256 antes de decodificarlos.
+- La colección incluye dos fechas de agosto de 2025, detector D3, y recortes de 7 minutos de arco. Otra región, tamaño, detector o año devuelve resultados vacíos. La separación de 6,6 horas enseña el funcionamiento de Comparar sin prometer movimiento visible de Barnard.
+- El observador de referencia es Greenwich y el reloj comienza pausado el 17 de agosto de 2025 a las 21:00 UTC. No se atribuye esa ubicación al usuario. Los cambios de la práctica no sustituyen la sesión habitual.
+- Anterior, Siguiente y Saltar todo permanecen disponibles. Escape cierra primero un selector abierto y, en otro caso, salta el recorrido. Finalizar guarda `completed`; saltar guarda `skipped` en `localStorage`, clave `astrea.onboarding.v1`. Ambos estados evitan la apertura automática, pero nunca deshabilitan el botón de ayuda. Si el almacenamiento está bloqueado, la guía puede cerrarse igualmente.
+- Textos y etiquetas en `src/i18n/locales/{es,en}/onboarding.json`. No se añaden dependencias: hooks de React, portal de React DOM y API del navegador para almacenamiento, medición, foco y temporizadores.

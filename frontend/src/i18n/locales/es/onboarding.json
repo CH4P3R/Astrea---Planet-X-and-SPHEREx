@@ -1,0 +1,23 @@
+{
+  "title": "Guía de Astrea",
+  "progress": "Paso {{current}} de {{total}}",
+  "skip": "Saltar todo",
+  "previous": "Anterior",
+  "next": "Siguiente",
+  "finish": "Finalizar",
+  "restart": "Ver tutorial",
+  "realData": "Tutorial · Campo de la estrella de Barnard · FITS reales de SPHEREx",
+  "download": "Descargar FITS local",
+  "load": "Cargar FITS de Barnard",
+  "loading": "Cargando la observación local y su proyección…",
+  "found": "Observación local de Barnard encontrada",
+  "empty": "No hay FITS locales para estas coordenadas, tamaño o detector. Usa el campo de Barnard, 7 minutos de arco y D3.",
+  "welcome": { "title": "Explora Astrea", "body": "Esta es la interfaz real de Astrea. La guía abre una sesión de práctica con FITS reales de Barnard guardados en el proyecto; tu trabajo permanece separado. Usa Siguiente para avanzar o Saltar todo para salir. El icono de interrogación sobre el idioma permite repetirla." },
+  "time": { "title": "Tiempo del cielo", "body": "Puedes utilizar estos controles reales para pausar el reloj, volver al tiempo actual o aplicar una fecha UTC. La práctica comienza el 17 de agosto de 2025 a las 21:00 UTC. Este reloj orienta el cielo: no modifica las fechas de adquisición de los FITS." },
+  "location": { "title": "Ubicación del observador", "body": "La práctica usa Greenwich como ubicación de referencia, no como tu ubicación real. Puedes probar los campos de latitud y longitud o solicitar tu ubicación. Estos cambios solo afectan a esta sesión del tutorial. El observador permite proyectar el FITS sobre el cielo local." },
+  "search": { "title": "Busca el campo de Barnard", "body": "Las coordenadas de Barnard están preparadas en el formulario real. Mantén el recorte de 7 minutos de arco y pulsa Buscar coordenadas para cargar el FITS local. La colección del tutorial contiene solo dos observaciones D3 de esta región; no consulta IRSA. Si avanzas sin buscar, la guía cargará la observación automáticamente." },
+  "sky": { "title": "Aspecto del cielo", "body": "Este panel real muestra el estado de las estrellas y permite ocultar la superficie central. En el siguiente paso se abre el inspector derecho con los píxeles y la geometría WCS del FITS de Barnard, no con una imagen generada." },
+  "data": { "title": "Inspector real: Datos", "body": "Aquí están los datos del FITS real: fecha, detector D3, dimensiones, coordenadas y cabecera WCS. Prueba Datos y Centrar imagen; también puedes descargar el FITS guardado. Los otros detectores no tienen archivos incluidos y devolverán un resultado vacío sin sustituir la imagen. Si cierras el inspector, Cargar FITS de Barnard permite continuar." },
+  "appearance": { "title": "Inspector real: Apariencia", "body": "Prueba la paleta, el brillo y la opacidad: modifican la imagen real del cielo. También puedes aplicar flags, restar el fondo zodiacal o mostrar señal/ruido; los planos proceden del FITS local. Restaurar apariencia restablece los ajustes visuales. No hay controles ni datos simulados." },
+  "compare": { "title": "Inspector real: Comparar", "body": "En 2025 y con el mismo detector D3, añade la otra observación disponible. Usa la secuencia, Mostrar, Reproducir y el tiempo por imagen para comparar los dos FITS reales. Sus fechas están separadas unas 6,6 horas: este ejemplo enseña el manejo del blink, no garantiza movimiento visible de Barnard. Al finalizar se recupera tu sesión anterior." }
+}

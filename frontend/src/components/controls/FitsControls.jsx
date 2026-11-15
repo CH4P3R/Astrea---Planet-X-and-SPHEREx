@@ -5,11 +5,11 @@ import InputField from '../common/InputField.jsx'
 import { coordinateError, cutoutSizeError } from '../../config/search.js'
 import useTranslation from '../../i18n/useTranslation.js'
 
-export default function FitsControls({ fits, observer }) {
+export default function FitsControls({ fits, observer, initialCoordinates }) {
   const { t } = useTranslation()
   const formId = useId()
-  const [ra, setRa] = useState('')
-  const [dec, setDec] = useState('')
+  const [ra, setRa] = useState(initialCoordinates ? String(initialCoordinates.ra_deg) : '')
+  const [dec, setDec] = useState(initialCoordinates ? String(initialCoordinates.dec_deg) : '')
   const [validation, setValidation] = useState('')
   const busy = fits.status === 'searching' || fits.status === 'loading'
   const hasResults = fits.images.length > 0
