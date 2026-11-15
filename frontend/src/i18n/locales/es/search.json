@@ -21,6 +21,7 @@
     }
   },
   "actions": {
+    "loadLatest": "Cargar observación más reciente",
     "search": "Buscar coordenadas", "cancel": "Cancelar operación",
     "cancelPreparation": "Cancelar preparación", "clear": "Limpiar imagen y resultados"
   },
@@ -43,6 +44,10 @@
   },
   "notices": {
     "searching": "Buscando observaciones…", "loading": "Cargando imagen…", "loaded": "Imagen cargada",
+    "searchFailed": "No se pudieron buscar observaciones en IRSA.",
+    "loadFailed": "No se pudo cargar la imagen.",
+    "cancelled": "Operación cancelada",
+    "empty": "No se encontraron observaciones en IRSA.",
     "found": { "one": "{{count}} imagen encontrada en IRSA", "other": "{{count}} imágenes encontradas en IRSA" },
     "foundMore": { "one": "Más de {{count}} imagen encontrada en IRSA", "other": "Más de {{count}} imágenes encontradas en IRSA" }
   }

@@ -6,7 +6,7 @@ import { languages } from '../../i18n/resources.js'
 export default function LanguageSelect() {
   const { t, language, setLanguage } = useTranslation()
   const current = languages.find((option) => option.value === language)
-  return <div className="language-region">
+  return <div className="language-region" data-image-obstacle>
     <Select id="language-select" className="language-select" label={t('common.language.label')}
       ariaLabel={t('common.language.current', { language: current.label })}
       value={language} onChange={setLanguage} options={languages} icon={<GlobalLine />}

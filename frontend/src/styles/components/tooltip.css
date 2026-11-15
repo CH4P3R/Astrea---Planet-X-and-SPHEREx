@@ -1,4 +1,5 @@
 .tooltip-anchor { position: relative; display: block; width: 100%; }
+.tooltip-anchor-inline { display: inline-flex; align-items: center; width: max-content; flex: 0 0 auto; vertical-align: middle; }
 
 .tooltip-bubble {
   --tooltip-background: #29364a;

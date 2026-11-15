@@ -2,28 +2,20 @@ import { useId, useState } from 'react'
 import Tooltip from '../common/Tooltip.jsx'
 import PanelContent from '../common/PanelContent.jsx'
 import InputField from '../common/InputField.jsx'
-import Select from '../common/Select.jsx'
-import { ANY_DETECTOR, coordinateError, cutoutSizeError, DETECTORS } from '../../config/search.js'
-import useScrollHint from '../../hooks/useScrollHint.js'
+import { coordinateError, cutoutSizeError } from '../../config/search.js'
 import useTranslation from '../../i18n/useTranslation.js'
 
-export default function FitsControls({ fits, observer, visible }) {
-  const { t, date } = useTranslation()
+export default function FitsControls({ fits, observer }) {
+  const { t } = useTranslation()
   const formId = useId()
-  const detectorId = useId()
   const [ra, setRa] = useState('')
   const [dec, setDec] = useState('')
   const [validation, setValidation] = useState('')
   const busy = fits.status === 'searching' || fits.status === 'loading'
   const hasResults = fits.images.length > 0
-  const scrollRef = useScrollHint(fits.images, visible && !busy && !fits.preparing)
   const sizeError = t(cutoutSizeError(fits.size))
   const projectionReason = !observer
     ? t('search.projectionRequired') : ''
-  const detectors = [
-    { value: ANY_DETECTOR, label: t('search.fields.detector.any') },
-    ...DETECTORS.map(({ value, range }) => ({ value, label: t('search.fields.detector.option', { detector: value, range }) })),
-  ]
 
   function submit(event) {
     event.preventDefault()
@@ -40,37 +32,20 @@ export default function FitsControls({ fits, observer, visible }) {
     fits.beginPreparation()
   }
 
-  function observationDate(value) {
-    if (!value) return t('search.results.noDate')
-    const utc = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value) ? value : `${value}Z`
-    return Number.isFinite(Date.parse(utc))
-      ? t('search.results.date', { date: date(utc, { dateStyle: 'medium', timeStyle: 'medium', timeZone: 'UTC' }) })
-      : t('search.results.noDate')
-  }
-
-  return <PanelContent title={t('search.title')} scrollRef={scrollRef}
+  return <PanelContent title={t('search.title')}
     header={<>
       <InputField label={t('search.fields.size.label')} type="number" min="0.1" max="30" step="0.1"
         value={fits.size}
         help={t('search.fields.size.help')}
         onChange={(event) => fits.setSize(event.target.value === '' ? '' : Number(event.target.value))} />
-      <div className="input-field">
-        <label htmlFor={detectorId}>{t('search.fields.detector.label')}</label>
-        <Select id={detectorId} className="detector-select" label={t('search.fields.detector.label')}
-          value={fits.detector} onChange={fits.setDetector} options={detectors} disabled={busy} />
-      </div>
-      {!busy && !hasResults && <p>{t('search.intro')}</p>}
+      {!busy && !hasResults && !fits.active && <p>{t('search.intro')}</p>}
     </>}
     footer={<>
-      {fits.active && <p className="context-note" role="status">
-        {t('search.imageSummary', { width: fits.active.metadata.image.width,
-          height: fits.active.metadata.image.height, unit: fits.active.metadata.image.unit ?? t('search.noUnit') })}
-      </p>}
       {!busy && <Tooltip message={sizeError} tone="error">
         <button type="submit" form={formId} aria-disabled={Boolean(sizeError)}
           onClick={(event) => { if (sizeError) event.preventDefault() }}>{t('search.actions.search')}</button>
       </Tooltip>}
-      {busy ? <button type="button" onClick={fits.reset}>{t('search.actions.cancel')}</button>
+      {busy ? <button type="button" onClick={fits.cancel}>{t('search.actions.cancel')}</button>
         : fits.preparing ? <button type="button" onClick={() => { fits.cancelPreparation(); setValidation('') }}>
           {t('search.actions.cancelPreparation')}
         </button>
@@ -89,23 +64,11 @@ export default function FitsControls({ fits, observer, visible }) {
         onChange={(event) => edit(setDec, event.target.value)} />
       {validation && <p role="alert">{t(validation)}</p>}
     </form>
-    {fits.error && <p role="alert">{t(fits.error)}</p>}
-    {!busy && !fits.preparing && fits.status === 'results' && !hasResults && <p role="status">{t('search.results.empty')}</p>}
-    {!busy && !fits.preparing && hasResults && <>
-      {!fits.active && <p>{t('search.results.choose')}</p>}
-      <ul className="fits-results">
-        {fits.images.map((image) => <li key={image.id}>
-          <Tooltip message={projectionReason} tone="error">
-            <button type="button" aria-disabled={Boolean(projectionReason)}
-              onClick={() => { if (!projectionReason) fits.load(image.id) }}>
-              {t('search.results.observation', { id: image.observation_id || image.id.slice(0, 12),
-                detector: image.detector ?? '—', collection: image.collection })}
-              <br />{observationDate(image.observation?.start_utc)}
-            </button>
-          </Tooltip>
-        </li>)}
-      </ul>
-      {fits.hasMore && <p>{t('search.results.limit')}</p>}
-    </>}
+    {!fits.active && fits.error && <p role="alert">{t(fits.error)}</p>}
+    {!busy && !fits.preparing && !fits.active && fits.status === 'results' && !hasResults && <p role="status">{t('search.results.empty')}</p>}
+    {!busy && !fits.preparing && hasResults && !fits.active && <Tooltip message={projectionReason} tone="error">
+      <button type="button" aria-disabled={Boolean(projectionReason)}
+        onClick={() => { if (!projectionReason) fits.load(fits.images[0].id) }}>{t('search.actions.loadLatest')}</button>
+    </Tooltip>}
   </PanelContent>
 }

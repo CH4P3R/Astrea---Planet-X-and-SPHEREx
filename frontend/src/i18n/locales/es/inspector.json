@@ -1,0 +1,75 @@
+{
+  "title": "Inspector de imágenes",
+  "tabs": { "data": "Datos", "appearance": "Apariencia", "compare": "Comparar" },
+  "observation": "Fecha de observación",
+  "detector": "Detector D{{detector}}",
+  "release": "Publicación {{release}}",
+  "releaseLabel": "Publicación de datos",
+  "actions": {
+    "open": "Abrir inspector", "close": "Cerrar inspector", "center": "Centrar imagen",
+    "back": "Volver a los datos", "retry": "Reintentar", "retryProjection": "Actualizar posición", "newRegion": "Buscar otra región"
+  },
+  "detectors": {
+    "title": "Explorar detectores",
+    "help": "Cada segmento carga la observación más reciente de esta región con ese detector; la fecha puede cambiar. Los colores pastel identifican opciones, no colores reales ni intensidades. Los rangos son nominales: la longitud de onda concreta varía dentro de cada detector.",
+    "range": "D{{detector}}: {{range}} µm",
+    "latest": "Más reciente de cualquier detector",
+    "empty": "No se encontró una observación con el detector solicitado. Se conserva la imagen anterior."
+  },
+  "data": {
+    "basic": "Datos básicos", "technical": "Datos técnicos", "dimensions": "Dimensiones de la imagen",
+    "size": "Tamaño solicitado", "coverage": "Píxeles con datos", "requested": "Posición consultada · RA / Dec",
+    "center": "Centro real · RA / Dec", "unit": "Unidad original", "dtype": "Precisión numérica",
+    "range": "Valor mínimo / máximo", "observation": "Identificador de observación", "headers": "Cabecera WCS", "source": "Abrir FITS original"
+  },
+  "appearance": {
+    "dimensionless": "Señal/ruido · valores sin unidad", "processed": "Visualización con procesamiento aplicado",
+    "visual": "Visualización", "palette": "Paleta", "gray": "Escala de grises", "color": "Falso color de intensidad",
+    "exposure": "Brillo", "opacity": "Opacidad", "restore": "Restaurar apariencia", "processing": "Procesamiento",
+    "mask_flags": "Aplicar flags de calidad", "subtract_zodi": "Restar fondo zodiacal", "signal_to_noise": "Mostrar señal/ruido",
+    "loading": "Aplicando procesamiento a las imágenes…", "failed": "No se aplicó el procesamiento solicitado. Se muestran los datos originales.",
+    "legend": "Escala de intensidad: de débil a brillante", "faint": "Débil", "bright": "Brillante"
+  },
+  "compare": {
+    "noData": "Alguna imagen no tiene píxeles válidos para visualizar. Revisa el procesamiento o elige otra observación.",
+    "separation": "Separación temporal: {{days}} días",
+    "reference": "Referencia A", "criteria": "Criterio", "same": "Otra fecha · mismo detector", "any": "Otra fecha · cualquier detector",
+    "select": "Elegir observación B", "partner": "Observación B", "searching": "Buscando otras fechas…", "loading": "Cargando B…",
+    "empty": "No hay otras fechas entre los resultados recibidos. Prueba con cualquier detector o actualiza la consulta.",
+    "limited": "Se consultaron hasta 50 observaciones recientes. Hay resultados anteriores fuera de esta lista.",
+    "refresh": "Actualizar candidatas", "clear": "Retirar B", "show": "Mostrar {{frame}}", "play": "Reproducir", "pause": "Pausar",
+    "interval": "Intervalo de alternancia", "needPartner": "Elige y carga una observación B.",
+    "units": "Las unidades faltan o son diferentes. La comparación necesita unidades compatibles.",
+    "position": "Las dos imágenes deben tener una posición vigente antes de comparar.",
+    "processing": "Espera a que termine el procesamiento de ambas imágenes.", "busy": "Espera a que termine la operación en curso."
+  },
+  "projection": { "waiting": "Actualizando la posición de la imagen…" },
+  "help": {
+    "observationDate": "Fecha en que el satélite obtuvo esta observación, expresada en UTC. Es independiente del reloj del cielo. Durante la comparación corresponde a la imagen visible.",
+    "release": "Versión de publicación del archivo en IRSA, por ejemplo DR1 o QR3. Se muestra la procedencia real de la observación cargada.",
+    "basic": "Información para entender el tamaño y la disponibilidad de la imagen sin conocimientos técnicos.",
+    "technical": "Coordenadas, unidades y referencias del archivo para una inspección más detallada. Las estadísticas corresponden a los datos originales.",
+    "dimensions": "Columnas y filas del recorte a resolución nativa. Cerca del borde de una exposición puede ser rectangular; se conserva completo al encuadrarlo.",
+    "size": "Lado angular solicitado para el recorte, en minutos de arco. El archivo disponible puede cubrir solo parte de ese tamaño.",
+    "coverage": "Porcentaje de píxeles con valores numéricos finitos en el archivo original. No es una medida de calidad ni incluye el filtro de flags.",
+    "requested": "Ascensión recta y declinación del punto buscado, en grados ICRS. Describen una posición celeste, no la ubicación terrestre del observador.",
+    "center": "Centro del recorte realmente obtenido. Puede diferir del punto solicitado cuando hay un borde de exposición.",
+    "unit": "Unidad de intensidad del archivo original, normalmente MJy/sr. El modo señal/ruido produce valores sin unidad.",
+    "dtype": "Tipo numérico original: float32 o float64. La copia para visualizar conserva las dimensiones y se normaliza para la GPU.",
+    "range": "Valores finitos mínimo y máximo de la imagen original. El contraste visual usa percentiles, por lo que estos extremos no determinan por sí solos su apariencia.",
+    "observation": "Identificador de la exposición proporcionado por el archivo. Permite distinguir y rastrear su procedencia.",
+    "headers": "WCS describe cómo se relaciona cada píxel con las coordenadas del cielo. Estas tarjetas se reciben del archivo original, incluidas sus distorsiones.",
+    "visual": "Estos ajustes cambian la representación visual. En una comparación se aplican por igual a A y B, con una escala compartida.",
+    "palette": "Asigna tonos a la intensidad medida. El falso color no representa una fotografía RGB ni permite deducir composición directamente.",
+    "exposure": "Ajuste visual en pasos EV: +1 aumenta el brillo y −1 lo reduce. Los datos científicos originales se conservan.",
+    "opacity": "Transparencia de la imagen sobre el cielo. El 100 % muestra su intensidad completa; valores menores dejan ver el fondo.",
+    "processing": "Estas opciones solicitan valores procesados a la API y se aplican de forma consistente a A y B. La primera petición puede descargar planos adicionales.",
+    "mask_flags": "Oculta píxeles rechazados por los flags de calidad del archivo. Los píxeles sin datos siempre son transparentes, incluso con esta opción desactivada.",
+    "subtract_zodi": "Resta el modelo de luz zodiacal del archivo. Puede reducir diferencias de fondo entre observaciones.",
+    "signal_to_noise": "Divide los valores por la desviación estimada del ruido. El resultado es adimensional y no debe interpretarse como intensidad en MJy/sr.",
+    "comparison": "Alterna dos observaciones de la misma región, alineadas por sus coordenadas celestes. La cámara toma A como referencia de orientación y B conserva su geometría. Una diferencia visual no confirma por sí sola movimiento o variabilidad.",
+    "criteria": "Un mismo detector facilita una primera comparación, pero no garantiza la misma longitud de onda en cada píxel. Cada candidata tiene una fecha distinta de A.",
+    "candidates": "Se consulta el archivo para obtener hasta 50 observaciones recientes de esta región. Solo se descarga B cuando la seleccionas. A permanece disponible.",
+    "interval": "Tiempo que permanece visible cada imagen. La alternancia usa las imágenes cargadas y no vuelve a descargarlas."
+  }
+}

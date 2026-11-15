@@ -1,15 +1,23 @@
 import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { Euler, MathUtils, Vector2, Vector3 } from 'three'
+import { Euler, MathUtils, Quaternion, Vector2, Vector3 } from 'three'
+import { gsap } from 'gsap'
 import { SKY } from '../../config/sky.js'
 import { baseOrthographicZoom } from './skyViewUtils.js'
 import { dampSkyRotation, skyDirectionAtPointer, skyDragRotation, skyRotationForDirection } from './skyDragUtils.js'
+import { imageFrame } from './imageFrameUtils.js'
 
-export default function SkyCameraRig({ onSkyClick, focus }) {
+export default function SkyCameraRig({ onSkyClick, images = [], viewport, focusVersion = 0, focusRequest, timestamp }) {
   const { get, gl, invalidate, size } = useThree()
   const rotation = useRef(new Euler(0, 0, 0, 'YXZ'))
   const targetRotation = useRef(new Euler(0, 0, 0, 'YXZ'))
   const zoomScale = useRef(SKY.initialZoom)
+  const following = useRef(false)
+  const tween = useRef(null)
+  const frameCache = useRef(null)
+  const transition = useRef({ progress: 1, quaternion: new Quaternion(), zoom: 1, offsetX: 0, offsetY: 0 })
+  const imageId = images[0]?.metadata.id
+  const partnerId = images[1]?.metadata.id
 
   useEffect(() => {
     const { camera } = get()
@@ -21,29 +29,79 @@ export default function SkyCameraRig({ onSkyClick, focus }) {
   }, [get])
 
   useFrame(({ camera }, delta) => {
+    if (following.current && images.length && viewport) {
+      const at = images[0].timeContext.mode === 'live' ? Date.now() : timestamp
+      const bucket = images[0].timeContext.mode === 'live' ? Math.floor(at / 1000) * 1000 : at
+      let cache = frameCache.current
+      if (!cache || cache.bucket !== bucket || cache.images !== images || cache.viewport !== viewport
+        || cache.width !== size.width || cache.height !== size.height) {
+        const first = Math.max(...images.map((image) => image.projection.sample_times_ms[0]))
+        const last = Math.min(...images.map((image) => image.projection.sample_times_ms.at(-1)))
+        const start = Math.min(last, Math.max(first, bucket))
+        const end = Math.min(last, Math.max(first, bucket + 1000))
+        cache = { bucket, images, viewport, width: size.width, height: size.height, start, end,
+          from: imageFrame(images, start, viewport, size.width, size.height),
+          to: imageFrame(images, end, viewport, size.width, size.height) }
+        frameCache.current = cache
+      }
+      // Interpolate cached bounds instead of scanning the WCS mesh at every frame
+      const blend = cache.end > cache.start ? MathUtils.clamp((at - cache.start) / (cache.end - cache.start), 0, 1) : 0
+      const target = cache.from && cache.to ? {
+        quaternion: cache.from.quaternion.clone().slerp(cache.to.quaternion, blend),
+        zoom: Math.min(cache.from.zoom, cache.to.zoom),
+        offsetX: MathUtils.lerp(cache.from.offsetX, cache.to.offsetX, blend),
+        offsetY: MathUtils.lerp(cache.from.offsetY, cache.to.offsetY, blend),
+      } : null
+      if (!target) return
+      const motion = transition.current
+      const progress = motion.progress
+      camera.quaternion.slerpQuaternions(motion.quaternion, target.quaternion, progress)
+      camera.zoom = Math.exp(MathUtils.lerp(Math.log(motion.zoom), Math.log(target.zoom), progress))
+      camera.setViewOffset(size.width, size.height,
+        MathUtils.lerp(motion.offsetX, target.offsetX, progress), MathUtils.lerp(motion.offsetY, target.offsetY, progress),
+        size.width, size.height)
+      zoomScale.current = camera.zoom / baseZoom
+      camera.updateMatrixWorld()
+      return
+    }
     if (rotation.current.x === targetRotation.current.x && rotation.current.y === targetRotation.current.y) return
+    const roll = rotation.current.z
     dampSkyRotation(rotation.current, targetRotation.current, delta)
+    rotation.current.z = roll
     camera.quaternion.setFromEuler(rotation.current)
     camera.updateMatrixWorld()
     invalidate()
   }, -1)
 
-  // R3F sizes the orthographic frustum in CSS pixels. Fit its diagonal inside
-  // the sphere, including at minimum zoom, without stretching the projection.
+  // Fit the initial orthographic frustum inside the sky sphere
   const baseZoom = baseOrthographicZoom(size.width, size.height)
 
   useEffect(() => {
-    if (!focus) return
     const { camera } = get()
-    skyRotationForDirection(new Vector3(...focus.direction), rotation.current.y, targetRotation.current)
-    zoomScale.current = MathUtils.clamp(SKY.visibleDiameter / (SKY.radius * MathUtils.degToRad(focus.size) * 1.5), SKY.minZoom, SKY.maxZoom)
-    camera.zoom = baseZoom * zoomScale.current
-    camera.updateProjectionMatrix()
-    invalidate()
-  }, [focus, get, baseZoom, invalidate])
+    tween.current?.kill()
+    if (!imageId || !viewport) {
+      frameCache.current = null
+      following.current = false
+      camera.clearViewOffset()
+      rotation.current.setFromQuaternion(camera.quaternion, 'YXZ')
+      targetRotation.current.copy(rotation.current)
+      return
+    }
+    following.current = true
+    const motion = transition.current
+    motion.quaternion.copy(camera.quaternion)
+    motion.zoom = camera.zoom
+    motion.offsetX = camera.view?.enabled ? camera.view.offsetX : 0
+    motion.offsetY = camera.view?.enabled ? camera.view.offsetY : 0
+    motion.progress = 0
+    tween.current = gsap.to(motion, { progress: 1, duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1.8,
+      ease: 'power2.inOut', onUpdate: invalidate })
+    return () => tween.current?.kill()
+  }, [imageId, partnerId, viewport, focusVersion, focusRequest, get, invalidate, size.width, size.height])
 
   useEffect(() => {
     const { camera } = get()
+    if (following.current) return
     camera.zoom = baseZoom * zoomScale.current
     camera.updateProjectionMatrix()
     invalidate()
@@ -58,6 +116,16 @@ export default function SkyCameraRig({ onSkyClick, focus }) {
     let startY = 0
     let moved = false
 
+    const stopFollowing = () => {
+      if (!following.current) return
+      tween.current?.kill()
+      following.current = false
+      const { camera } = get()
+      rotation.current.setFromQuaternion(camera.quaternion, 'YXZ')
+      targetRotation.current.copy(rotation.current)
+      zoomScale.current = camera.zoom / baseZoom
+    }
+
     const readPointer = (event) => {
       const bounds = element.getBoundingClientRect()
       if (!bounds.width || !bounds.height) return false
@@ -71,6 +139,7 @@ export default function SkyCameraRig({ onSkyClick, focus }) {
     const startDrag = (event) => {
       if (pointerId !== null || !event.isPrimary || event.button !== 0 || !readPointer(event)) return
       event.preventDefault()
+      stopFollowing()
       previousPointer.copy(pointer)
       targetRotation.current.copy(rotation.current)
       pointerId = event.pointerId
@@ -84,8 +153,10 @@ export default function SkyCameraRig({ onSkyClick, focus }) {
       if (event.pointerId !== pointerId || !readPointer(event)) return
       event.preventDefault()
       if (Math.hypot(event.clientX - startX, event.clientY - startY) > 5) moved = true
+      const roll = targetRotation.current.z
       skyDragRotation(get().camera, pointer.x - previousPointer.x, pointer.y - previousPointer.y,
         targetRotation.current, targetRotation.current)
+      targetRotation.current.z = roll
       previousPointer.copy(pointer)
       invalidate()
     }
@@ -103,6 +174,7 @@ export default function SkyCameraRig({ onSkyClick, focus }) {
     }
 
     const zoom = (event) => {
+      stopFollowing()
       const { camera } = get()
       event.preventDefault()
       const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? element.clientHeight : 1)

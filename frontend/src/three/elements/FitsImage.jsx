@@ -2,11 +2,10 @@ import { useEffect, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { BufferAttribute, BufferGeometry, DataTexture, DoubleSide, FloatType, NearestFilter, RedFormat, ShaderMaterial } from 'three'
 import { SKY } from '../../config/sky.js'
-import { loadProjection, observerContext } from '../../services/images.js'
 import { sampleWindow } from '../core/imageDataUtils.js'
 
-function createResources(active) {
-  const { metadata, pixels, projection } = active
+function createResources(active, pixels) {
+  const { metadata, projection } = active
   const texture = new DataTexture(pixels.values, metadata.image.width, metadata.image.height, RedFormat, FloatType)
   texture.minFilter = NearestFilter
   texture.magFilter = NearestFilter
@@ -18,16 +17,23 @@ function createResources(active) {
   geometry.setAttribute('uv', new BufferAttribute(new Float32Array(projection.uv), 2))
   geometry.setIndex(projection.indices)
   const material = new ShaderMaterial({
-    uniforms: { pixels: { value: texture } },
+    uniforms: { pixels: { value: texture }, exposure: { value: 0 }, opacity: { value: 1 }, palette: { value: 0 } },
     vertexShader: `varying vec2 imageUv;
       void main() { imageUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-    fragmentShader: `uniform sampler2D pixels; varying vec2 imageUv;
+    fragmentShader: `uniform sampler2D pixels; uniform float exposure; uniform float opacity; uniform float palette; varying vec2 imageUv;
       void main() {
         float value = texture2D(pixels, imageUv).r;
         if (value < 0.0) discard;
-        float scaled = value * 10.0;
-        float intensity = log(scaled + sqrt(scaled * scaled + 1.0)) / 2.99822295;
-        gl_FragColor = vec4(vec3(intensity), 1.0);
+        float scaled = value * 10.0 * exp2(exposure);
+        float intensity = clamp(log(scaled + sqrt(scaled * scaled + 1.0)) / 2.99822295, 0.0, 1.0);
+        vec3 color = vec3(intensity);
+        if (palette > 0.5) {
+          color = mix(vec3(0.015, 0.02, 0.08), vec3(0.15, 0.35, 0.7), smoothstep(0.0, 0.3, intensity));
+          color = mix(color, vec3(0.45, 0.85, 0.8), smoothstep(0.25, 0.55, intensity));
+          color = mix(color, vec3(0.98, 0.76, 0.45), smoothstep(0.5, 0.8, intensity));
+          color = mix(color, vec3(1.0), smoothstep(0.8, 1.0, intensity));
+        }
+        gl_FragColor = vec4(color, opacity);
         #include <colorspace_fragment>
       }`,
     side: DoubleSide,
@@ -39,13 +45,12 @@ function createResources(active) {
   return { texture, geometry, material }
 }
 
-export default function FitsImage({ active, timestamp, onError }) {
+export default function FitsImage({ active, pixels = active.pixels, settings, timestamp, visible = true }) {
   const resources = useRef(null)
   const mesh = useRef(null)
-  const projection = useRef(active.projection)
 
   useEffect(() => {
-    const next = createResources(active)
+    const next = createResources(active, pixels)
     resources.current = next
     mesh.current.geometry = next.geometry
     mesh.current.material = next.material
@@ -55,31 +60,17 @@ export default function FitsImage({ active, timestamp, onError }) {
       next.material.dispose()
       resources.current = null
     }
-  }, [active])
-
-  useEffect(() => {
-    if (active.timeContext?.mode === 'paused') return
-    const controller = new AbortController()
-    let timer
-    const refresh = async () => {
-      try {
-        const next = await loadProjection(active.metadata.id, observerContext(active.observer), controller.signal)
-        if (!controller.signal.aborted) projection.current = next
-      } catch (error) {
-        if (!controller.signal.aborted) onError(error)
-      }
-      if (!controller.signal.aborted) timer = window.setTimeout(refresh, 90000)
-    }
-    timer = window.setTimeout(refresh, 90000)
-    return () => { controller.abort(); window.clearTimeout(timer) }
-  }, [active, onError])
+  }, [active, pixels])
 
   useFrame(() => {
     const currentResources = resources.current
     if (!currentResources) return
-    const current = projection.current
+    const current = active.projection
     const now = active.timeContext?.mode === 'paused' ? timestamp : Date.now()
-    currentResources.material.visible = now <= current.sample_times_ms.at(-1)
+    currentResources.material.visible = visible && now >= current.sample_times_ms[0] && now <= current.sample_times_ms.at(-1)
+    currentResources.material.uniforms.exposure.value = settings?.exposure ?? 0
+    currentResources.material.uniforms.opacity.value = settings?.opacity ?? 1
+    currentResources.material.uniforms.palette.value = settings?.palette === 'color' ? 1 : 0
     const [a, b, fraction] = sampleWindow(current.sample_times_ms, now)
     const positions = currentResources.geometry.attributes.position
     const first = current.directions[a]

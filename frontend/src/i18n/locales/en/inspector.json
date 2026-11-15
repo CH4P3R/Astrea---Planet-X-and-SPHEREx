@@ -1,0 +1,75 @@
+{
+  "title": "Image inspector",
+  "tabs": { "data": "Data", "appearance": "Appearance", "compare": "Compare" },
+  "observation": "Observation date",
+  "detector": "Detector D{{detector}}",
+  "release": "Release {{release}}",
+  "releaseLabel": "Data release",
+  "actions": {
+    "open": "Open inspector", "close": "Close inspector", "center": "Center image",
+    "back": "Back to data", "retry": "Retry", "retryProjection": "Update position", "newRegion": "Search another region"
+  },
+  "detectors": {
+    "title": "Explore detectors",
+    "help": "Each segment loads the latest observation of this region from that detector; its date may change. Pastel colors identify options, not real colors or intensities. Ranges are nominal: the actual wavelength varies across each detector.",
+    "range": "D{{detector}}: {{range}} µm",
+    "latest": "Latest from any detector",
+    "empty": "No observation was found for the requested detector. The previous image is retained."
+  },
+  "data": {
+    "basic": "Basic data", "technical": "Technical data", "dimensions": "Image dimensions",
+    "size": "Requested size", "coverage": "Pixels with data", "requested": "Requested position · RA / Dec",
+    "center": "Actual center · RA / Dec", "unit": "Original unit", "dtype": "Numeric precision",
+    "range": "Minimum / maximum", "observation": "Observation identifier", "headers": "WCS header", "source": "Open original FITS"
+  },
+  "appearance": {
+    "dimensionless": "Signal-to-noise · unitless values", "processed": "Display with processing applied",
+    "visual": "Display", "palette": "Palette", "gray": "Grayscale", "color": "Intensity false color",
+    "exposure": "Brightness", "opacity": "Opacity", "restore": "Reset appearance", "processing": "Processing",
+    "mask_flags": "Apply quality flags", "subtract_zodi": "Subtract zodiacal background", "signal_to_noise": "Show signal-to-noise",
+    "loading": "Applying processing to the images…", "failed": "The requested processing was not applied. Original data are displayed.",
+    "legend": "Intensity scale: faint to bright", "faint": "Faint", "bright": "Bright"
+  },
+  "compare": {
+    "noData": "An image has no valid pixels to display. Review processing or choose another observation.",
+    "separation": "Time separation: {{days}} days",
+    "reference": "Reference A", "criteria": "Criterion", "same": "Another date · same detector", "any": "Another date · any detector",
+    "select": "Choose observation B", "partner": "Observation B", "searching": "Searching other dates…", "loading": "Loading B…",
+    "empty": "There are no other dates in the returned results. Try any detector or refresh the search.",
+    "limited": "Up to 50 recent observations were requested. Older results exist outside this list.",
+    "refresh": "Refresh candidates", "clear": "Remove B", "show": "Show {{frame}}", "play": "Play", "pause": "Pause",
+    "interval": "Blink interval", "needPartner": "Choose and load observation B.",
+    "units": "Units are missing or different. Comparison requires compatible units.",
+    "position": "Both images need a current position before comparison.",
+    "processing": "Wait for processing of both images to finish.", "busy": "Wait for the current operation to finish."
+  },
+  "projection": { "waiting": "Updating the image position…" },
+  "help": {
+    "observationDate": "When the satellite acquired this observation, in UTC. This is independent of the sky clock. During comparison it identifies the visible image.",
+    "release": "The archive data release in IRSA, such as DR1 or QR3. This is the actual provenance of the loaded observation.",
+    "basic": "Information about image size and data availability that does not require technical knowledge.",
+    "technical": "Coordinates, units and file references for closer inspection. Statistics describe the original data.",
+    "dimensions": "Columns and rows in the native-resolution cutout. It may be rectangular near an exposure edge; framing preserves the complete image.",
+    "size": "Requested angular side of the cutout, in arcminutes. The available file may cover only part of that size.",
+    "coverage": "Percentage of pixels with finite numeric values in the original file. This is not a quality measure and does not include flag filtering.",
+    "requested": "Right ascension and declination of the requested point, in ICRS degrees. These describe a sky position, not the observer's terrestrial location.",
+    "center": "Center of the actual cutout. It may differ from the requested point near an exposure edge.",
+    "unit": "Intensity unit in the original file, usually MJy/sr. Signal-to-noise mode produces unitless values.",
+    "dtype": "Original numeric type: float32 or float64. The display copy retains the dimensions and is normalized for the GPU.",
+    "range": "Minimum and maximum finite values in the original image. Display contrast uses percentiles, so these extremes alone do not determine appearance.",
+    "observation": "Archive-provided exposure identifier, used to distinguish observations and trace their origin.",
+    "headers": "WCS relates image pixels to sky coordinates. These cards come from the original file and include its distortions.",
+    "visual": "These settings adjust the display. During comparison they apply equally to A and B, with one shared scale.",
+    "palette": "Maps measured intensity to tones. False color is not an RGB photograph and cannot directly determine composition.",
+    "exposure": "Visual adjustment in EV steps: +1 increases brightness and −1 reduces it. Original scientific data are preserved.",
+    "opacity": "Image transparency over the sky. At 100% its full intensity is shown; lower values reveal the background.",
+    "processing": "These options request processed values from the API and apply consistently to A and B. The first request may download extra planes.",
+    "mask_flags": "Hides pixels rejected by the file's quality flags. Missing data remain transparent even when this option is off.",
+    "subtract_zodi": "Subtracts the file's zodiacal-light model, which may reduce background differences between observations.",
+    "signal_to_noise": "Divides values by the estimated noise deviation. The result is dimensionless and should not be interpreted as MJy/sr intensity.",
+    "comparison": "Alternates two observations of the same region, aligned by their sky coordinates. The camera uses A as its orientation reference and B retains its geometry. A visual difference alone does not confirm motion or variability.",
+    "criteria": "A shared detector helps with an initial comparison but does not guarantee the same wavelength at each pixel. Each candidate has a different date from A.",
+    "candidates": "The archive is queried for up to 50 recent observations of this region. B is only downloaded when selected. A remains available.",
+    "interval": "How long each image stays visible. Playback uses loaded images without downloading them again."
+  }
+}

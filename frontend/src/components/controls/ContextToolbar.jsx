@@ -14,7 +14,7 @@ export default function ContextToolbar({ clock, location, fits, menu, stars, sur
   const { active, hint, keepOpen, preview, leave } = menu
 
   return <>
-    <div className="sky-clock" aria-label={t('common.localTime')} data-select-obstacle>
+    <div className="sky-clock" aria-label={t('common.localTime')} data-select-obstacle data-image-obstacle>
       <time dateTime={new Date(clock.timestamp).toISOString()}>
         <strong>{date(clock.timestamp, { hour: 'numeric', minute: '2-digit', second: '2-digit' })}</strong>
         <span>{date(clock.timestamp, { day: 'numeric', month: 'short', year: 'numeric' })}</span>
@@ -24,7 +24,7 @@ export default function ContextToolbar({ clock, location, fits, menu, stars, sur
       onFocus={keepOpen} onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) leave()
       }}>
-      <nav className="context-rail" aria-label={t('common.navigation')} data-select-obstacle>
+      <nav className="context-rail" aria-label={t('common.navigation')} data-select-obstacle data-image-obstacle>
         {options.map(({ id, label }) => <div className="context-tool" key={id}>
           <Tooltip message={label} open={hint === id} compact>
           <button id={`context-trigger-${id}`} type="button" className={`context-trigger${active === id ? ' is-active' : ''}`}
@@ -43,7 +43,7 @@ export default function ContextToolbar({ clock, location, fits, menu, stars, sur
           label={label} visible={active === id}>
           {id === 'time' && <TimeControls clock={clock} />}
           {id === 'location' && <LocationControls {...location} />}
-          {id === 'search' && <FitsControls fits={fits} observer={location.observer} visible={active === id} />}
+          {id === 'search' && <FitsControls fits={fits} observer={location.observer} />}
           {id === 'sky' && <SkyControls stars={stars} surfaceVisible={surfaceVisible} setSurfaceVisible={setSurfaceVisible} />}
         </ContextPanel>)}
       </div>

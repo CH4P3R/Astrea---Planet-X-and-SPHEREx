@@ -18,3 +18,23 @@ export function Loading2Line(props) {
     <path fill="currentColor" d="M11 3v3a1 1 0 1 0 2 0V3a1 1 0 1 0-2 0" />
   </svg>
 }
+
+export function NoResultsOutlineBold(props) {
+  return <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"
+    aria-hidden="true" focusable="false" {...props}>
+    <g fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5">
+      <path d="M4 10a5 5 0 1 0 10 0 5 5 0 1 0 -10 0" />
+      <path d="m5.5 13.5 -3 3" />
+      <path d="m17 12 5 5" />
+      <path d="m22 12 -5 5" />
+    </g>
+  </svg>
+}
+
+export function Cancel(props) {
+  return <svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"
+    aria-hidden="true" focusable="false" {...props}>
+    <path fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"
+      d="m5 19l7-7m0 0l7-7m-7 7L5 5m7 7l7 7" />
+  </svg>
+}

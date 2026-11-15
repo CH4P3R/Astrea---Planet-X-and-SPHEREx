@@ -2,7 +2,8 @@ import { cloneElement, useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import useTooltipPosition from '../../hooks/useTooltipPosition.js'
 
-export default function Tooltip({ children, message, tone = 'info', open, compact = false, placement = 'top', id, point }) {
+export default function Tooltip({ children, message, tone = 'info', open, compact = false, inline = false,
+  placement = 'top', id, point }) {
   const generatedId = useId()
   const tooltipId = id ?? generatedId
   const anchorRef = useRef(null)
@@ -33,7 +34,7 @@ export default function Tooltip({ children, message, tone = 'info', open, compac
   </span>, document.body)
   if (point) return bubble
   const describedBy = [children.props['aria-describedby'], tooltipId].filter(Boolean).join(' ')
-  return <span ref={anchorRef} className="tooltip-anchor"
+  return <span ref={anchorRef} className={`tooltip-anchor${inline ? ' tooltip-anchor-inline' : ''}`}
     onPointerEnter={(event) => {
       if (event.pointerType !== 'touch') { setHovered(true); setDismissed(false) }
     }}

@@ -242,7 +242,7 @@
 .context-panel input:disabled { opacity: 0.5; }
 .context-panel button:disabled,
 .context-panel button[aria-disabled='true'] { opacity: 0.5; cursor: not-allowed; }
-.context-panel [role='alert'], .context-panel .location-error { color: #ffb4a9; }
+.context-panel [role='alert'], .context-panel .location-error { color: var(--hud-error); }
 
 .context-panel .sky-surface-toggle {
   display: flex;

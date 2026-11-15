@@ -20,7 +20,7 @@ export const observerContext = (observer, timeContext = { mode: 'live' }) => ({
   mode: timeContext.mode,
 })
 
-// Only the most recent observation is requested; `detector` (1–6) narrows it to one array.
+// Request the most recent observation, optionally limited to one detector
 export async function searchImages(context, direction, size, detector, signal) {
   return (await request('/search', { signal, body: {
     ...context, direction, size_arcmin: size, limit: 1, ...(detector ? { detector } : {}),
@@ -37,8 +37,21 @@ export async function loadMetadata(id, signal) {
   return (await request(`/load/${id}`, { signal, body: {} })).json()
 }
 
-export async function loadPixels(id, signal) {
-  return (await request(`/${id}/pixels`, { signal })).arrayBuffer()
+export async function searchObservations(query, signal) {
+  const params = new URLSearchParams()
+  for (const [key, value] of Object.entries(query)) {
+    if (value !== undefined && value !== null && value !== '') params.set(key, value)
+  }
+  return (await request(`?${params}`, { signal })).json()
+}
+
+export async function loadPixels(id, signal, processing = {}) {
+  const params = new URLSearchParams()
+  for (const key of ['mask_flags', 'subtract_zodi', 'signal_to_noise']) {
+    if (processing[key]) params.set(key, 'true')
+  }
+  const suffix = params.size ? `?${params}` : ''
+  return (await request(`/${id}/pixels${suffix}`, { signal })).arrayBuffer()
 }
 
 export async function loadProjection(id, context, signal) {
