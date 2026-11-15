@@ -1,16 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Matrix4, Vector3 } from 'three'
 import { equatorialFrameBasis } from './coordinateUtils.js'
 
-// Wrap future RA/Dec geometry in this frame to share the local horizon axes.
-export default function EquatorialFrame({ observer, children }) {
-  const [timestamp, setTimestamp] = useState(() => Date.now())
-
-  useEffect(() => {
-    if (!observer) return
-    const interval = window.setInterval(() => setTimestamp(Date.now()), 1000)
-    return () => window.clearInterval(interval)
-  }, [observer])
+export default function EquatorialFrame({ observer, timestamp, children }) {
 
   const matrix = useMemo(() => {
     if (!observer) return new Matrix4()

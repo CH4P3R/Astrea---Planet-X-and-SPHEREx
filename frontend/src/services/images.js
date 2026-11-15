@@ -13,14 +13,19 @@ async function request(path, { signal, body } = {}) {
   return response
 }
 
-export const observerContext = (observer, at = new Date().toISOString()) => ({
+export const observerContext = (observer, timeContext = { mode: 'live' }) => ({
   observer: { latitude_deg: observer.latitude, longitude_deg: observer.longitude, elevation_m: 0 },
-  at,
-  mode: 'live',
+  at: timeContext.at ?? new Date().toISOString(),
+  mode: timeContext.mode,
 })
 
 export async function searchImages(context, direction, size, signal) {
   return (await request('/search', { signal, body: { ...context, direction, size_arcmin: size, limit: 20 } })).json()
+}
+
+export async function searchCoordinates(ra, dec, size, signal) {
+  const query = new URLSearchParams({ ra_deg: ra, dec_deg: dec, size_deg: size / 60, limit: 20 })
+  return (await request(`?${query}`, { signal })).json()
 }
 
 export async function loadMetadata(id, signal) {

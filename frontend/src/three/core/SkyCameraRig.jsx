@@ -101,7 +101,7 @@ export default function SkyCameraRig({ onSkyClick, focus }) {
       if (clicked && onSkyClick && readPointer(event)) {
         const { camera } = get()
         const direction = skyDirectionAtPointer(camera, pointer.x, pointer.y)
-        if (direction) onSkyClick(direction.applyQuaternion(camera.quaternion).toArray())
+        if (direction) onSkyClick(direction.applyQuaternion(camera.quaternion).toArray(), { x: event.clientX, y: event.clientY })
       }
     }
 

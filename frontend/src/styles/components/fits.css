@@ -15,6 +15,8 @@
 }
 .fits-controls h2 { margin: 0 0 0.5rem; font-size: 1rem; }
 .fits-controls p { margin: 0.6rem 0; }
+.fits-steps { margin: 0 0 12px; padding-left: 20px; }
+.fits-steps li { display: list-item; margin: 4px 0; }
 .fits-controls label { display: block; margin: 0.6rem 0; }
 .fits-controls input, .fits-controls button {
   width: 100%;
@@ -29,7 +31,7 @@
 .fits-controls button { cursor: pointer; text-align: left; }
 .fits-controls button:disabled { opacity: 0.5; cursor: default; }
 .fits-controls [role='alert'] { color: #ffb8ad; }
-.fits-results { list-style: none; padding: 0; max-height: 28dvh; overflow-y: auto; }
+.fits-results { list-style: none; padding: 0; }
 @media (max-width: 640px) {
   .fits-controls { top: auto; bottom: 1rem; max-height: 48dvh; }
 }

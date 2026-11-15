@@ -1,0 +1,262 @@
+.sky-clock {
+  position: absolute;
+  top: 32px;
+  left: 48px;
+  color: #f5f7fb;
+  text-shadow: 0 2px 12px #060c18;
+  font-variant-numeric: tabular-nums;
+}
+
+.sky-clock time { display: grid; gap: 5px; }
+.sky-clock strong { font-size: 25px; font-weight: 650; }
+.sky-clock span { font-size: 16px; }
+
+.context-toolbar {
+  position: absolute;
+  left: 48px;
+  top: clamp(150px, 29vh, 310px);
+  display: flex;
+  align-items: flex-start;
+  color: #e1e7ef;
+  --context-surface: #111722;
+  --context-field: #1a2331;
+  --context-hover: #253247;
+  pointer-events: none;
+  --rail-width: 88px;
+  --tool-height: 72px;
+}
+
+.context-rail {
+  display: grid;
+  gap: 12px;
+  padding: 16px 12px;
+  width: var(--rail-width);
+  background: var(--context-surface);
+  border: 0;
+  border-radius: 18px;
+  pointer-events: auto;
+}
+
+.context-tool { position: relative; }
+.context-trigger {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: var(--tool-height);
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 12px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.context-trigger.is-active { --button-surface: var(--context-hover); color: #a9d9ff; }
+.context-toolbar :focus-visible { outline: 2px solid #a9d9ff; outline-offset: 3px; }
+
+.context-panels {
+  position: relative;
+  width: min(330px, calc(100vw - 190px));
+  margin-left: 26px;
+  pointer-events: none;
+}
+.context-panel {
+  --panel-max-height: 560px;
+  --panel-viewport-gap: 24px;
+  --panel-arrow-inset: 35px;
+  position: absolute;
+  top: var(--panel-offset-y, 0px);
+  left: 0;
+  z-index: 1;
+  width: 100%;
+  max-height: min(var(--panel-max-height), var(--panel-available-height, calc(100dvh - 2 * var(--panel-viewport-gap))));
+  visibility: hidden;
+  pointer-events: none;
+  transition: visibility 0s linear var(--motion-exit);
+  color-scheme: dark;
+}
+
+.context-panel[data-visible='true'] {
+  z-index: 2;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.context-panel-surface {
+  position: relative;
+  max-height: inherit;
+  border-radius: 20px;
+  background: var(--context-surface);
+  box-shadow: 0 12px 40px rgb(0 0 0 / 40%);
+  opacity: 0;
+  transform: translateX(-8px);
+  pointer-events: none;
+  transition: opacity var(--motion-exit) ease, transform var(--motion-exit) var(--motion-ease);
+}
+
+.context-panel[data-visible='true'] > .context-panel-surface {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+  transition: opacity var(--motion-exit) ease, transform var(--motion-duration) var(--motion-spring);
+}
+
+.context-panel-surface::before {
+  content: '';
+  position: absolute;
+  top: var(--panel-pointer-y, 52px);
+  right: 100%;
+  transform: translateY(-50%);
+  border: 15px solid transparent;
+  border-right-color: var(--context-surface);
+}
+
+.context-panel-scroll {
+  flex: 0 1 auto;
+  min-height: 0;
+  padding: 0 16px 8px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  border-radius: 0;
+}
+
+.context-panel-scroll,
+.context-panel-header {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+.context-panel-scroll { scrollbar-gutter: stable; }
+.context-panel-scroll::-webkit-scrollbar,
+.context-panel-header::-webkit-scrollbar { width: 6px; }
+.context-panel-scroll::-webkit-scrollbar-track,
+.context-panel-header::-webkit-scrollbar-track { background: transparent; }
+.context-panel-scroll::-webkit-scrollbar-thumb,
+.context-panel-header::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 99px; }
+.context-panel-scroll::-webkit-scrollbar-button,
+.context-panel-header::-webkit-scrollbar-button { display: none; }
+
+@media (hover: hover) {
+  .context-panel-scroll:hover,
+  .context-panel-header:hover { scrollbar-color: var(--scrollbar-thumb-hover) transparent; }
+  .context-panel-scroll::-webkit-scrollbar-thumb:hover,
+  .context-panel-header::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
+}
+
+.context-panel[inert],
+.context-panel[inert] * { pointer-events: none; }
+
+.context-content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: inherit;
+  min-height: 0;
+  color: #e1e7ef;
+  background: transparent;
+  border: 0;
+  border-radius: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.context-panel-header,
+.context-panel-footer { flex: 0 0 auto; padding: 16px; }
+.context-panel-header { padding-bottom: 8px; }
+.context-panel-footer { padding-top: 8px; border-radius: 0 0 20px 20px; background: var(--context-surface); }
+.context-panel-scroll:last-child { padding-bottom: 16px; border-radius: 0 0 20px 20px; }
+.context-panel-scroll:empty { display: none; }
+
+@media (max-height: 520px) {
+  .context-panel-header { flex-shrink: 1; min-height: 48px; overflow-y: auto; }
+  .context-panel-scroll:not(:empty) { min-height: 48px; }
+}
+
+.context-panel h2 { font-size: 16px; margin: 0 0 12px; }
+.context-panel p { margin: 10px 0; }
+.context-panel .context-note { color: #a5b4c8; font-size: 12px; overflow-wrap: anywhere; }
+.context-panel label { display: block; margin: 12px 0; }
+
+.context-panel button,
+.context-panel input {
+  width: 100%;
+  padding: 12px;
+  margin: 5px 0;
+  border: 0;
+  border-radius: 10px;
+  background: var(--context-field);
+  color: #e1e7ef;
+  font: inherit;
+}
+
+.context-panel button { text-align: left; cursor: pointer; --button-surface: var(--context-field); }
+
+.context-trigger,
+.context-panel button {
+  position: relative;
+  isolation: isolate;
+  background: transparent;
+  transition: color var(--motion-duration) ease, opacity var(--motion-exit) ease;
+}
+
+.context-trigger::before,
+.context-panel button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--button-surface, transparent);
+  pointer-events: none;
+  transform: scale(1);
+  transition: transform var(--motion-duration) var(--motion-spring), background-color var(--motion-duration) ease;
+}
+
+.context-trigger:focus-visible::before,
+.context-panel button:focus-visible:not(:disabled):not([aria-disabled='true'])::before {
+  background: var(--context-hover);
+  transform: scale(1.025);
+}
+
+@media (hover: hover) {
+  .context-trigger:hover::before,
+  .context-panel button:hover:not(:disabled):not([aria-disabled='true'])::before {
+    background: var(--context-hover);
+    transform: scale(1.025);
+  }
+}
+
+.context-trigger:active::before,
+.context-panel button:active:not(:disabled):not([aria-disabled='true'])::before { transform: scale(0.985); }
+
+.context-panel input {
+  transition: background-color var(--motion-duration) ease, opacity var(--motion-exit) ease;
+}
+.context-panel input:focus { background: var(--context-hover); }
+.context-panel input:disabled { opacity: 0.5; }
+.context-panel button:disabled,
+.context-panel button[aria-disabled='true'] { opacity: 0.5; cursor: not-allowed; }
+.context-panel [role='alert'], .context-panel .location-error { color: #ffb4a9; }
+
+@media (max-width: 600px) {
+  .sky-clock { top: 24px; left: 20px; }
+  .sky-clock strong { font-size: 22px; }
+  .context-toolbar { left: 16px; top: 160px; --rail-width: 64px; --tool-height: 58px; }
+  .context-rail { padding: 12px 6px; gap: 10px; border-radius: 16px; }
+  .context-trigger svg { width: 30px; height: 30px; }
+  .context-panels { width: calc(100vw - 114px); margin-left: 18px; }
+  .context-panel { --panel-viewport-gap: 16px; --panel-arrow-inset: 30px; }
+  .context-panel-surface::before { border-width: 10px; }
+  .context-panel-header, .context-panel-footer { padding: 12px; }
+  .context-panel-header { padding-bottom: 6px; }
+  .context-panel-footer { padding-top: 6px; }
+  .context-panel-scroll { padding: 0 12px 6px; }
+  .context-panel-scroll:last-child { padding-bottom: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .context-panel-surface { transform: none; }
+  .context-trigger::before,
+  .context-panel button::before { transform: none !important; }
+}

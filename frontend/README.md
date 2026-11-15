@@ -1,5 +1,9 @@
 # Frontend de Astrea
 
+## Antes de crear o modificar UI
+
+Consultar la [Guía de diseño e interacción](docs/UI_DESIGN_GUIDE.md), que reúne las decisiones del flujo 1 y los componentes reutilizables. El [índice de documentación](docs/README.md) enlaza las reglas visuales, la arquitectura y el flujo de referencia.
+
 ## Espacio de trabajo 3D
 
 La vista ocupa toda la ventana y muestra una esfera 3D desde su interior, con un
@@ -18,10 +22,11 @@ La navegación permite explorar ambos hemisferios de la bóveda.
 
 ### Ubicación y direcciones
 
-La ubicación es opcional y no se solicita al abrir la vista. El control
-**Ubicación**, en la esquina superior derecha, permite solicitarla al navegador
-(HTTPS o localhost) o introducir latitud y longitud en grados decimales. Se pliega
-cuando se obtiene la primera ubicación. Una selección manual tiene prioridad
+La ubicación se solicita automáticamente al abrir la vista cuando el navegador lo permite.
+Si no se obtiene, se puede seguir navegando o buscar por RA/Dec. La opción
+**Ubicación**, en la barra izquierda, permite solicitarla al navegador
+(HTTPS o localhost) o introducir latitud y longitud en grados decimales. Las acciones
+permanecen en el pie del panel y el formulario no utiliza plegables. Una selección manual tiene prioridad
 sobre respuestas automáticas pendientes. Sin ubicación, la esfera y las direcciones
 siguen disponibles como referencias de la escena, sin asignar una ubicación ficticia.
 
@@ -33,10 +38,12 @@ Introducir coordenadas no cambia la orientación de la cámara; las etiquetas pu
 quedar fuera del encuadre al apartar la vista del horizonte o ampliar.
 Conservan 14 px de texto al ampliar. A partir de 3× pasan suavemente a N, E, S y O;
 recuperan sus nombres al bajar a 2.7× para evitar parpadeos cerca del umbral.
-No interceptan clics, arrastre ni zoom. No hay controles de fecha ni hora.
+No interceptan clics, arrastre ni zoom. El panel **Tiempo** permite pausar el reloj,
+volver al tiempo actual o aplicar una fecha y hora UTC.
 
 `EquatorialFrame` convierte la referencia ecuatorial de la esfera al horizonte
-local según la ubicación y la hora actual del dispositivo, actualizada cada segundo.
+local según la ubicación y el reloj del cielo, actualizado cada segundo en modo en vivo
+o fijado al instante elegido en modo pausado.
 Usa tiempo sidéreo medio y precesión J2000 → fecha aproximada (IAU 1976), sin
 refracción, nutación, paralaje ni datos IERS. Es una orientación visual; no sustituye
 la transformación Astropy del prototipo para registro preciso de imágenes FITS.
@@ -45,10 +52,16 @@ la transformación Astropy del prototipo para registro preciso de imágenes FITS
 
 ### Imágenes SPHEREx a resolución nativa
 
-Define una ubicación, pulsa **Seleccionar región del cielo** y haz clic sin arrastrar
-sobre la esfera. Selecciona una observación de la lista para cargarla. La cámara
+Con ubicación disponible, haz clic sin arrastrar sobre la esfera para consultar
+observaciones directamente. También puedes introducir **RA y Dec en grados decimales
+ICRS** en Preparación y pulsar **Buscar coordenadas**, incluso sin ubicación terrestre.
+Selecciona una observación de la lista para cargarla; su representación en el cielo
+local necesita ubicación. La cámara
 encuadra automáticamente el recorte; el arrastre y el zoom siguen disponibles.
-El lado del recorte se expresa en minutos de arco, con un máximo de 30.
+El tamaño inicial del recorte es de **7 minutos de arco**, con un máximo de 30.
+Editar ese valor lo actualiza inmediatamente para ambas vías de búsqueda, sin tener
+que confirmar el cambio ni enviar las coordenadas. Si falta ubicación al pulsar la
+escena, un tooltip junto al punto pulsado muestra el estado de la solicitud o su error.
 
 En desarrollo, Vite redirige `/api` al backend en `http://127.0.0.1:8000`.
 En despliegue, el servidor debe publicar `/api` bajo el mismo origen del frontend.

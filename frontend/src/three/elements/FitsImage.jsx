@@ -39,7 +39,7 @@ function createResources(active) {
   return { texture, geometry, material }
 }
 
-export default function FitsImage({ active, onError }) {
+export default function FitsImage({ active, timestamp, onError }) {
   const resources = useRef(null)
   const mesh = useRef(null)
   const projection = useRef(active.projection)
@@ -58,6 +58,7 @@ export default function FitsImage({ active, onError }) {
   }, [active])
 
   useEffect(() => {
+    if (active.timeContext?.mode === 'paused') return
     const controller = new AbortController()
     let timer
     const refresh = async () => {
@@ -77,7 +78,7 @@ export default function FitsImage({ active, onError }) {
     const currentResources = resources.current
     if (!currentResources) return
     const current = projection.current
-    const now = Date.now()
+    const now = active.timeContext?.mode === 'paused' ? timestamp : Date.now()
     currentResources.material.visible = now <= current.sample_times_ms.at(-1)
     const [a, b, fraction] = sampleWindow(current.sample_times_ms, now)
     const positions = currentResources.geometry.attributes.position

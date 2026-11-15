@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 export default function useObserver() {
   const [observer, setObserver] = useState(null)
-  const [status, setStatus] = useState('idle')
+  const [status, setStatus] = useState('loading')
   const [error, setError] = useState('')
   const request = useRef(0)
   const timer = useRef(null)
@@ -13,7 +13,7 @@ export default function useObserver() {
     setError('')
     if (!navigator.geolocation || !window.isSecureContext) {
       setStatus('error')
-      setError('La ubicación automática necesita HTTPS o localhost. Puedes continuar sin ubicación o introducir coordenadas.')
+      setError('La ubicación automática necesita HTTPS o localhost. Introduce latitud y longitud en Ubicación o busca por RA/Dec en Preparación.')
       return
     }
     setStatus('loading')
@@ -24,7 +24,7 @@ export default function useObserver() {
       setStatus('error')
       setError(message)
     }
-    timer.current = window.setTimeout(() => fail('La ubicación está tardando demasiado. Puedes continuar sin ella o introducir coordenadas.'), 12000)
+    timer.current = window.setTimeout(() => fail('No se obtuvo la ubicación a tiempo. Reintenta o introduce latitud y longitud en Ubicación.'), 12000)
     navigator.geolocation.getCurrentPosition(({ coords }) => {
       if (request.current !== id) return
       request.current += 1
@@ -33,8 +33,9 @@ export default function useObserver() {
       setStatus('ready')
       setError('')
     }, ({ code }) => {
-      fail(code === 1 ? 'No se concedió permiso de ubicación. Puedes continuar sin ella o introducir coordenadas.'
-        : 'No se pudo obtener la ubicación. Puedes continuar sin ella, reintentar o introducir coordenadas.')
+      fail(code === 1 ? 'No se concedió permiso de ubicación. Permítelo en el navegador o introduce latitud y longitud en Ubicación.'
+        : code === 3 ? 'No se obtuvo la ubicación a tiempo. Reintenta o introduce latitud y longitud en Ubicación.'
+          : 'El dispositivo no pudo determinar tu ubicación. Reintenta o introduce latitud y longitud en Ubicación.')
     }, { enableHighAccuracy: false, maximumAge: 60000, timeout: 12000 })
   }, [])
 
@@ -49,10 +50,17 @@ export default function useObserver() {
     return true
   }, [])
 
-  useEffect(() => () => {
-    window.clearTimeout(timer.current)
-    request.current += 1
-  }, [])
+  useEffect(() => {
+    const initialRequest = request.current
+    const automatic = window.setTimeout(() => {
+      if (request.current === initialRequest) locate()
+    }, 0)
+    return () => {
+      window.clearTimeout(automatic)
+      window.clearTimeout(timer.current)
+      request.current += 1
+    }
+  }, [locate])
 
   return { observer, status, error, locate, applyManualLocation }
 }

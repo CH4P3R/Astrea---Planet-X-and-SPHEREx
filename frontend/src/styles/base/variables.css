@@ -10,4 +10,19 @@
   --border: #35475d;
   --panel: rgb(12 23 39 / 90%);
   --accent: #8dd6ca;
+  --motion-duration: 360ms;
+  --motion-exit: 180ms;
+  --motion-tooltip: 140ms;
+  --motion-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --scrollbar-thumb: #39475b;
+  --scrollbar-thumb-hover: #53657e;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration: 0ms;
+    --motion-exit: 0ms;
+    --motion-tooltip: 0ms;
+  }
 }

@@ -1,7 +1,10 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
+import PanelContent from '../common/PanelContent.jsx'
+import InputField from '../common/InputField.jsx'
 
 export default function LocationControls({ observer, status, error, locate, applyManualLocation }) {
   const [validation, setValidation] = useState('')
+  const formId = useId()
 
   function submit(event) {
     event.preventDefault()
@@ -15,36 +18,24 @@ export default function LocationControls({ observer, status, error, locate, appl
     setValidation('')
   }
 
-  return (
-    <details className="location-control" open={!observer}>
-      <summary>
-        {observer ? `Ubicación · ${observer.source === 'device' ? 'Dispositivo' : 'Manual'}`
-          : status === 'loading' ? 'Obteniendo ubicación…' : 'Ubicación · Opcional'}
-      </summary>
-      <div className="location-body">
-        <p role="status">{observer
-          ? `${observer.latitude.toFixed(4)}°, ${observer.longitude.toFixed(4)}°`
-          : 'La ubicación es opcional. Sin ella, Norte, Este, Sur y Oeste sirven como referencias de la escena.'}</p>
-        <button type="button" onClick={locate} disabled={status === 'loading'}>
-          {status === 'loading' ? 'Buscando…' : 'Usar ubicación del dispositivo'}
-        </button>
-        {error && <p className="location-error" role="alert">{error}</p>}
-        <form onSubmit={submit}>
-          <fieldset>
-            <legend>Ubicación manual</legend>
-            <label>Latitud (°)
-              <input name="latitude" type="number" min="-90" max="90" step="any" required
-                defaultValue={observer?.latitude} placeholder="−90 a 90" />
-            </label>
-            <label>Longitud (°)
-              <input name="longitude" type="number" min="-180" max="180" step="any" required
-                defaultValue={observer?.longitude} placeholder="−180 a 180" />
-            </label>
-          </fieldset>
-          {validation && <p className="location-error" role="alert">{validation}</p>}
-          <button type="submit">Aplicar ubicación</button>
-        </form>
-      </div>
-    </details>
-  )
+  return <PanelContent title="Ubicación" header={<p role="status">{observer
+    ? `${observer.source === 'device' ? 'Dispositivo' : 'Manual'} · ${observer.latitude.toFixed(4)}°, ${observer.longitude.toFixed(4)}°`
+    : 'Define desde dónde observas para buscar recortes al pulsar el cielo.'}</p>}
+    footer={<>
+      <button type="button" onClick={locate} disabled={status === 'loading'}>
+        {status === 'loading' ? 'Buscando ubicación…' : 'Usar ubicación del dispositivo'}
+      </button>
+      <button type="submit" form={formId}>Aplicar ubicación manual</button>
+    </>}>
+    {error && <p role="alert">{error}</p>}
+    <form id={formId} onSubmit={submit}>
+      <InputField label="Latitud (°)" name="latitude" type="number" min="-90" max="90" step="any" required
+        defaultValue={observer?.latitude} placeholder="−90 a 90"
+        help="Tu posición al norte o al sur del ecuador, en grados decimales. Norte es positivo y sur negativo; por ejemplo, 19,43." />
+      <InputField label="Longitud (°)" name="longitude" type="number" min="-180" max="180" step="any" required
+        defaultValue={observer?.longitude} placeholder="−180 a 180"
+        help="Tu posición al este o al oeste del meridiano de Greenwich, en grados decimales. Este es positivo y oeste negativo; por ejemplo, −99,13." />
+      {validation && <p role="alert">{validation}</p>}
+    </form>
+  </PanelContent>
 }
