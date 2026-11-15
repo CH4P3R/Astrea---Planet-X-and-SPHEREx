@@ -1,0 +1,20 @@
+{
+  "title": "Sky appearance",
+  "status": {
+    "idle": "Set your location to load the stars.",
+    "loading": "Loading Hipparcos stars…",
+    "ready": { "one": "{{count}} star · Hipparcos", "other": "{{count}} stars · Hipparcos" },
+    "unavailable": "Stars unavailable."
+  },
+  "retry": "Reload stars",
+  "surface": {
+    "label": "Show central surface",
+    "help": "A transparent horizontal grid beneath the observer. It fades when looking down and lets you explore the lower sky."
+  },
+  "directions": {
+    "north": { "name": "North", "short": "N" },
+    "east": { "name": "East", "short": "E" },
+    "south": { "name": "South", "short": "S" },
+    "west": { "name": "West", "short": "W" }
+  }
+}

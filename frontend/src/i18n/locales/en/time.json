@@ -1,0 +1,11 @@
+{
+  "title": "Time",
+  "status": { "paused": "Time paused", "live": "Live" },
+  "actions": { "goLive": "Return to current time", "pause": "Pause time", "apply": "Apply date" },
+  "utc": {
+    "label": "UTC date and time",
+    "help": "The instant you want to display in the sky. This uses UTC, the worldwide time reference, rather than your device's local time."
+  },
+  "validation": "Enter a valid UTC date and time.",
+  "acquisitionNote": "Sky time is not the acquisition date of an image."
+}

@@ -1,0 +1,10 @@
+{
+  "appTitle": "Astrea · Explorador del cielo",
+  "viewport": "Bóveda celeste tridimensional",
+  "scene": "Esfera celeste y direcciones del horizonte local",
+  "navigation": "Contexto y preparación",
+  "localTime": "Hora local del cielo mostrado",
+  "fieldHelp": "Información sobre {{label}}",
+  "language": { "label": "Idioma", "current": "Cambiar idioma, actual: {{language}}" },
+  "select": { "placeholder": "Selecciona una opción", "empty": "No hay opciones disponibles" }
+}

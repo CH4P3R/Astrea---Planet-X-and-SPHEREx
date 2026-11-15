@@ -1,4 +1,5 @@
 import { sampleWindow } from './imageDataUtils.js'
+import { LocalizedError } from '../../i18n/messages.js'
 
 export function prepareSkySnapshot(snapshot) {
   const { star_count: count, stars, directions, sample_times_ms: times, mode } = snapshot ?? {}
@@ -9,15 +10,15 @@ export function prepareSkySnapshot(snapshot) {
     || !times.every((time, i) => Number.isFinite(time) && (i === 0 || time > times[i - 1]))
     || !Array.isArray(directions) || directions.length !== times.length
     || !stars.every((star) => star && Number.isFinite(star.apparent_magnitude))) {
-    throw new Error('Los metadatos del cielo no son válidos')
+    throw new LocalizedError('errors.sky.metadata')
   }
   const samples = directions.map((sample) => {
     if (!Array.isArray(sample) || sample.length !== count * 3 || !sample.every(Number.isFinite)) {
-      throw new Error('Las direcciones no coinciden con el catálogo de estrellas')
+      throw new LocalizedError('errors.sky.directions')
     }
     for (let i = 0; i < sample.length; i += 3) {
       const length = Math.hypot(sample[i], sample[i + 1], sample[i + 2])
-      if (Math.abs(length - 1) > 0.001) throw new Error('El cielo contiene una dirección inválida')
+      if (Math.abs(length - 1) > 0.001) throw new LocalizedError('errors.sky.direction')
     }
     return new Float32Array(sample)
   })

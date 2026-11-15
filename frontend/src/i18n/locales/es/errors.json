@@ -1,0 +1,41 @@
+{
+  "unexpected": "No se pudo completar la operación. Vuelve a intentarlo.",
+  "network": "No se pudo conectar con el servidor. Comprueba tu conexión y vuelve a intentarlo.",
+  "api": "Error de la API ({{status}}). Vuelve a intentarlo.",
+  "http": {
+    "400": "La solicitud no es válida. Revisa los datos e inténtalo de nuevo.",
+    "404": "El recurso solicitado ya no está disponible. Repite la búsqueda.",
+    "413": "El recorte es demasiado grande. Prueba una región menor.",
+    "422": "No se pudieron procesar los datos. Revisa las coordenadas, el tamaño y la fecha.",
+    "502": "El servicio de datos astronómicos no pudo completar la solicitud. Vuelve a intentarlo.",
+    "503": "El servicio no está disponible temporalmente. Vuelve a intentarlo.",
+    "504": "El servicio tardó demasiado en responder. Vuelve a intentarlo."
+  },
+  "server": {
+    "catalog": "No se pudo obtener el catálogo de estrellas. Vuelve a intentarlo.",
+    "earthOrientation": "La fecha está fuera de la cobertura de los datos de orientación terrestre. Elige una fecha reciente o solicita actualizar los datos IERS del servidor.",
+    "unknownImage": "La imagen no está disponible. Realiza primero una búsqueda de imágenes.",
+    "searchTooBroad": "Hay demasiadas coincidencias en el archivo para esta consulta. La búsqueda necesita un intervalo de fechas más reducido.",
+    "archiveTimeout": "IRSA tardó demasiado en responder. Vuelve a intentarlo.",
+    "archive": "No se pudieron obtener los datos de IRSA. Vuelve a intentarlo.",
+    "invalidFits": "IRSA devolvió una imagen FITS incompatible o inválida.",
+    "mesh": "El WCS de esta imagen no puede proyectarse con precisión. Prueba un tamaño menor.",
+    "cache": "La caché local de imágenes no está disponible.",
+    "catalogChanged": "El catálogo de estrellas ha cambiado. Vuelve a cargar las estrellas.",
+    "noStars": "Ninguna estrella del catálogo coincide con este límite de magnitud."
+  },
+  "image": {
+    "dimensions": "Dimensiones de imagen inválidas.",
+    "gpuLimit": "El recorte mide {{width}} × {{height}} px; tu GPU admite hasta {{maxTextureSize}} px por lado. Prueba una región menor.",
+    "format": "Formato de píxeles no compatible.",
+    "length": "La longitud de los píxeles no coincide con los metadatos.",
+    "projection": "No se pudo actualizar la proyección: {{reason}}"
+  },
+  "sky": {
+    "metadata": "Los metadatos del cielo no son válidos.",
+    "directions": "Las direcciones no coinciden con el catálogo de estrellas.",
+    "direction": "El cielo contiene una dirección inválida.",
+    "expiredResponse": "La respuesta del cielo ha caducado. Vuelve a cargar las estrellas.",
+    "expired": "El cielo ha caducado. Vuelve a cargar las estrellas."
+  }
+}

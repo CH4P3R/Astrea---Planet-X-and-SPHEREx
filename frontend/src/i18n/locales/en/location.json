@@ -1,0 +1,26 @@
+{
+  "title": "Location",
+  "source": { "device": "Device", "manual": "Manual" },
+  "coordinates": "{{source}} · {{latitude}}°, {{longitude}}°",
+  "intro": "Set your observing location to search for cutouts by clicking the sky.",
+  "actions": { "locating": "Finding location…", "device": "Use device location", "apply": "Apply manual location" },
+  "latitude": {
+    "label": "Latitude (°)", "placeholder": "−90 to 90",
+    "help": "Your position north or south of the equator, in decimal degrees. North is positive and south is negative; for example, 19.43."
+  },
+  "longitude": {
+    "label": "Longitude (°)", "placeholder": "−180 to 180",
+    "help": "Your position east or west of the Greenwich meridian, in decimal degrees. East is positive and west is negative; for example, −99.13."
+  },
+  "validation": "Enter a latitude from −90° to 90° and a longitude from −180° to 180°.",
+  "notices": {
+    "locating": "Getting your location. When it is ready, click the sky point again.",
+    "required": "Set latitude and longitude in Location to search by clicking the sky."
+  },
+  "errors": {
+    "unsupported": "Automatic location requires HTTPS or localhost and a compatible browser. Enter latitude and longitude in Location or search by RA/Dec in Preparation.",
+    "timeout": "Location could not be obtained in time. Try again or enter latitude and longitude in Location.",
+    "denied": "Location permission was not granted. Allow it in your browser or enter latitude and longitude in Location.",
+    "unavailable": "Your device could not determine your location. Try again or enter latitude and longitude in Location."
+  }
+}

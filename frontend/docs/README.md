@@ -9,6 +9,7 @@ Complementar la guía con:
 1. [Reglas de diseño minimalista](../desing.md): organización del CSS, microinteracciones y accesibilidad.
 2. [Arquitectura del frontend](FRONTEND_ARCHITECTURE.md): responsabilidades y ubicación de archivos.
 3. [Flujo del prototipo](PROTOTYPE_UI_FLOW.md): contexto funcional y aparición progresiva de herramientas. Sus plegables y etiquetas históricas no sustituyen las decisiones de la guía actual.
+4. [Internacionalización y selector compartido](I18N.md): catálogos ES/EN, nuevos idiomas y uso del select adaptable.
 
 ## Recursos del flujo 1
 

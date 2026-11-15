@@ -14,9 +14,13 @@ Aspecto del cielo muestra el estado del catálogo estelar y permite ocultar la s
 - La barra principal es vertical, a la izquierda. Orden: Tiempo, Ubicación, Preparación y Aspecto del cielo.
 - Cada opción se representa con un icono; su nombre aparece en un tooltip. El panel asociado se abre a la derecha de la barra.
 - La hora y la fecha local permanecen visibles arriba a la izquierda, independientemente del panel abierto.
+- El selector de idioma permanece abajo a la izquierda con el icono `GlobalLine` y el código ES/EN. La barra conserva espacio inferior para este control y permite scroll cuando la altura es reducida.
+- Los avisos de actividad aparecen arriba a la derecha, independientes del panel abierto. En ventanas estrechas se sitúan debajo de la franja del reloj para evitar superposiciones.
 - Los iconos principales proceden de [Flujo 1/svg.md](Flujo%201/svg.md), adaptados a React y con `currentColor`.
 - La capa general utiliza `pointer-events: none`; solo los controles interactivos recuperan `pointer-events: auto`. El espacio libre permite operar la escena.
 - Las piezas compartidas deben reutilizarse. La apertura, el posicionamiento y el tooltip no se implementan de nuevo para cada opción.
+
+El panel izquierdo contiene la preparación del flujo. Al cargar una imagen se abre el inspector derecho con Datos, Apariencia y Comparar, y Preparación se cierra. El apartado 13 define esta distribución y el encuadre frontal que mantiene libre la imagen.
 
 ## 3. Apariencia oscura y minimalista
 
@@ -64,7 +68,7 @@ La persistencia se decide por el estado de la función, mediante `persistentIds`
 | --- | --- |
 | Preparación: edición de coordenadas manuales | Permanece abierto |
 | Preparación: búsqueda o carga en curso | Permanece abierto y conserva la cancelación accesible |
-| Preparación: resultados pendientes de elección, resultado vacío o error | Permanece abierto para permitir continuar, revisar o limpiar |
+| Preparación: observación pendiente de carga, resultado vacío o error | Permanece abierto para permitir continuar, revisar o limpiar |
 | Ubicación: solicitud al dispositivo en curso | Permanece abierto |
 | Tarea completada o cancelada | Deja de exigir persistencia y permite el cierre temporal |
 
@@ -72,7 +76,7 @@ Mientras el panel activo es persistente, hacer hover sobre otro icono no lo sust
 
 Para un flujo nuevo, definir primero qué estado requiere atención, qué acción lo completa y cómo se cancela. No utilizar un cierre genérico por hover para todas las funciones.
 
-El tamaño del recorte es un parámetro de aplicación inmediata: modificarlo no inicia una tarea pendiente ni requiere un botón de confirmación. El clic válido en la escena abre Preparación automáticamente para mostrar el progreso y los resultados.
+El tamaño del recorte es un parámetro de aplicación inmediata: modificarlo no inicia una tarea pendiente ni requiere un botón de confirmación. El clic válido en la escena abre Preparación automáticamente para mantener accesibles la cancelación y los resultados; el progreso se muestra en el aviso superior derecho.
 
 ## 5. Posición, límites y flecha
 
@@ -110,7 +114,7 @@ El pie permanece dentro del panel y fuera del cuerpo desplazable. No situar una 
 
 Aplicación en el flujo 1:
 
-- **Preparación:** tamaño compartido y estado en el encabezado; campos RA/Dec y observaciones en el cuerpo; búsqueda manual, cancelación o limpieza en el pie, según el estado. La lista se desplaza sin arrastrar fuera de vista las acciones.
+- **Preparación:** tamaño compartido e instrucciones pertinentes en el encabezado; campos RA/Dec y carga pendiente en el cuerpo; búsqueda manual, cancelación o limpieza en el pie. El detector y los datos de una imagen cargada pertenecen al inspector derecho. El progreso de búsqueda y carga pertenece al aviso superior derecho.
 - **Tiempo:** estado en el encabezado; fecha personalizada y referencias temporales en el cuerpo; control del reloj y aplicación de fecha en el pie.
 - **Ubicación:** contexto del observador en el encabezado; coordenadas manuales y errores en el cuerpo; ubicación del dispositivo y aplicación manual en el pie.
 - **Aspecto del cielo:** estado de las estrellas en el encabezado; visibilidad de la superficie central y errores en el cuerpo; reintento de carga en el pie cuando falla.
@@ -156,13 +160,32 @@ La UI ofrece dos vías:
 1. **Clic en la escena:** pulsar un punto del cielo sin arrastrar inicia la consulta directamente. Se retiró «Seleccionar región del cielo» y no existe un modo de selección que deba activarse previamente.
 2. **Coordenadas manuales:** introducir RA y Dec y pulsar «Buscar coordenadas» envía esa posición. Este botón inicia la consulta manual; no confirma el tamaño del recorte.
 
-En ambos casos, elegir posteriormente una observación de los resultados carga su imagen. Consultar una región no equivale a seleccionar automáticamente una exposición.
+Ambas vías solicitan solo la observación más reciente (`limit=1`) de cualquier detector y la cargan automáticamente cuando hay observador. La búsqueda manual sin ubicación conserva el resultado; después de definir el observador, «Cargar observación más reciente» permite cargarlo. Una vez cargada, su información pertenece al inspector derecho.
+
+El inspector presenta D1–D6 como segmentos pastel con controles de radio nativos. Cambiarlo consulta la misma posición ICRS y tamaño, aplicando el nuevo detector. La imagen actual se conserva durante la carga y ante errores o resultados vacíos. Los rangos espectrales describen el detector; no garantizan la longitud de onda de un píxel ni una fecha común entre detectores.
 
 El tamaño admitido es de 0,1 a 30 minutos de arco. Representa el lado angular de una imagen cuadrada, no una resolución en píxeles. Un área mayor suele producir una matriz con más filas y columnas, conservando la resolución nativa.
 
-Las coordenadas manuales son ICRS en grados decimales: RA desde 0 hasta menos de 360 y Dec entre −90 y 90, incluidos ambos polos. La búsqueda manual utiliza `GET /api/v1/images` y convierte el tamaño de minutos de arco a grados. No requiere ubicación terrestre para consultar las observaciones. Para colocar una imagen en el cielo local, la selección de la observación sí requiere un observador y explica ese requisito con un tooltip.
+Las coordenadas manuales son ICRS en grados decimales: RA desde 0 hasta menos de 360 y Dec entre −90 y 90, incluidos ambos polos. La búsqueda manual utiliza `GET /api/v1/images` y convierte el tamaño de minutos de arco a grados. No requiere ubicación terrestre para consultar las observaciones. La carga y colocación de una imagen en el cielo local requieren un observador; el botón de carga explica ese requisito con un tooltip.
 
 La búsqueda mediante un punto del cielo utiliza `POST /api/v1/images/search` y necesita la ubicación del observador. La latitud y longitud de Ubicación describen una posición terrestre; no son RA/Dec.
+
+### Avisos reutilizables de actividad
+
+- Utilizar `StatusNotice` para comunicar el progreso y la finalización de una tarea. Su posición la define `.status-region` en la capa HUD; no depende de Preparación ni de que el panel permanezca visible.
+- Mantener la superficie sólida oscura, sin borde decorativo, con esquinas redondeadas y los colores compartidos `--hud-surface` y `--hud-text`. Los SVG `Loading2Line`, `CheckRounded`, `NoResultsOutlineBold` y `Cancel` utilizan `currentColor` y reproducen los iconos proporcionados para este aviso.
+- Durante la consulta, mostrar «Buscando observaciones…». Con un resultado y observador, continuar directamente con «Cargando imagen…» y finalizar con «Imagen cargada». Sin observador, conservar el aviso de resultado y su recuento; si `has_more` es verdadero, «Más de N imágenes encontradas en IRSA» indica que hay observaciones anteriores fuera del límite actual de una imagen, sin expresar el total del archivo. Una consulta vacía utiliza el estado `empty`, con «No se encontraron observaciones en IRSA.» y el icono `NoResultsOutlineBold` en color neutro.
+- La carga de la imagen elegida utiliza el mismo componente con «Cargando imagen…» y «Imagen cargada». No repetir los indicadores de progreso dentro de Preparación. El botón de cancelación y el detalle persistente de los errores siguen disponibles en el panel.
+- Un fallo de búsqueda o carga muestra el estado `error`, con `NoResultsOutlineBold` en `--hud-error` y un mensaje breve que identifica la operación fallida. El panel conserva el diagnóstico traducido de la causa; no se repite ese mismo texto en el aviso. Los errores de validación y de actualización posterior de la proyección mantienen su presentación contextual.
+- La cancelación explícita muestra `cancelled`, con el icono `Cancel` y «Operación cancelada». `useFitsImage.cancel` aborta la petición del navegador, limpia la operación y publica este aviso. `reset` limpia sin anunciar una cancelación: no confundir limpiar resultados con cancelar una operación en curso.
+- La tarjeta entra desde fuera del borde superior y termina en la esquina superior derecha: 700 ms con desaceleración suave, sin rebote. El resultado permanece 3.200 ms y sale hacia arriba en 500 ms; la opacidad cambia en 420 ms. Estas duraciones locales dan al aviso un movimiento más pausado que el de los controles. No desmontar ni vaciar la superficie antes de completar la salida.
+- El indicador gira continuamente en 1.800 ms y pulsa suavemente entre escala 1 y 1,08 en 2.400 ms. Los iconos de éxito, error, cancelación y ausencia de resultados aparecen suavemente en 500 ms. Giro, escala y desplazamiento de la tarjeta se aplican a capas distintas, sin escalar el texto.
+- Todos los estados finales permanecen 3.200 ms antes de salir. Una operación nueva sustituye la anterior; sus temporizadores no pueden ocultar el aviso nuevo. Las respuestas canceladas no producen éxito, errores ni resultados vacíos tardíos. Los abortos internos al sustituir una petición, cambiar el contexto o desmontar el componente no generan el mensaje de cancelación explícita.
+- El aviso no intercepta clics ni mueve el foco. Una región `role="status"`, con anuncio cortés y atómico, comunica los cambios sin leer los SVG. Con `prefers-reduced-motion`, se eliminan los desplazamientos, giros y pulsaciones; se conserva el tiempo para leer el resultado.
+
+`StatusNotice` recibe `notice`: un objeto estable `{ status, message }` o `null` para cerrar. Admite `loading`, `success`, `error`, `cancelled` y `empty`. `message` es una clave o descriptor traducible de los catálogos ES/EN. Mantener el mismo objeto mientras no cambie la notificación y crear uno nuevo para cada operación o actualización permite repetir tareas con el mismo mensaje. `duration` configura la permanencia del resultado en milisegundos; su valor predeterminado es 3200 y un valor menor o igual a cero desactiva el cierre automático. La carga permanece visible hasta que cambie `notice`.
+
+`useState` y `useEffect`, de React, conservan el contenido de salida y coordinan el temporizador; `setTimeout` y `clearTimeout` son API del navegador. Las animaciones son CSS nativo. El componente no consulta la API ni calcula resultados; `useFitsImage` aporta los mensajes según la operación real. No se requieren dependencias nuevas.
 
 ### Ubicación automática y avisos sobre la escena
 
@@ -186,8 +209,8 @@ La búsqueda mediante un punto del cielo utiliza `POST /api/v1/images/search` y 
 ### Navegación de la cámara
 
 - El arrastre horizontal cambia únicamente el rumbo y el vertical únicamente la elevación, siguiendo los controles del prototipo. La cámara gira desde el centro del cielo.
-- El giro lateral permanece en cero. La elevación se limita justo antes del cenit y del nadir para evitar invertir el horizonte.
-- El suavizado interpola rumbo y elevación por separado. El encuadre automático de imágenes utiliza la misma orientación nivelada y el giro horizontal más corto.
+- La navegación inicial mantiene el giro lateral en cero. La elevación se limita justo antes del cenit y del nadir para evitar invertir el horizonte.
+- El arrastre interpola rumbo y elevación por separado. El encuadre de imágenes utiliza su orientación frontal WCS y una transición GSAP de cuaterniones; el arrastre posterior conserva el giro lateral alcanzado.
 - La sensibilidad depende del zoom ortográfico vigente. La transformación astronómica del fondo no debe inclinar la cámara ni los controles locales.
 
 ## 8. Tooltips reutilizables y explicación de bloqueos
@@ -230,7 +253,7 @@ La ayuda debe explicar qué representa el dato, sus unidades y, cuando sea útil
 | Longitud | Posición este/oeste de Greenwich, grados decimales y signo |
 | RA y Dec | Posición del punto en el cielo en ICRS, grados decimales y rangos; distinguirlas de latitud/longitud terrestres |
 
-La descripción se vincula tanto al campo como al botón de ayuda. Usar lenguaje accesible, español con ortografía correcta y textos breves. Los identificadores y nombres de archivos permanecen en ASCII.
+La descripción se vincula tanto al campo como al botón de ayuda. Usar lenguaje accesible, ortografía correcta y textos breves en el idioma seleccionado. Los textos visibles, ayudas y etiquetas accesibles se obtienen de los catálogos ES/EN de `src/i18n/locales/`. Los identificadores y nombres de archivos permanecen en ASCII.
 
 ## 10. Microinteracciones y accesibilidad
 
@@ -241,6 +264,8 @@ Las transiciones suaves forman parte del diseño, no son un añadido opcional. D
 | Movimiento principal | 360 ms, `cubic-bezier(0.34, 1.56, 0.64, 1)` |
 | Salida y opacidad del panel | 180 ms |
 | Tooltip | 140 ms, opacidad y escala breve |
+| Aviso de actividad | Entrada superior de 700 ms, resultado visible 3.200 ms y salida superior de 500 ms; opacidad de 420 ms |
+| Icono de carga del aviso | Giro de 1.800 ms y pulso de 2.400 ms, escala máxima 1,08 |
 | Fondo del botón con hover o foco | Escala `1.025` |
 | Fondo del botón al pulsar | Escala `0.985` |
 | Superficie del panel al entrar o salir | Desplazamiento horizontal de 8 px y cambio de opacidad |
@@ -265,8 +290,14 @@ Las rutas de esta tabla son relativas a `frontend/`.
 | `src/components/controls/ContextToolbar.jsx` | Opciones principales y presentación de los paneles |
 | `src/components/common/ContextPanel.jsx` | Superficie, anclaje y visibilidad; recibe `id`, `anchorId`, `label`, `visible` y contenido |
 | `src/components/common/PanelContent.jsx` | Distribución por `title`, `header`, cuerpo en `children` y acciones en `footer` |
-| `src/components/common/Tooltip.jsx` | Información o error mediante `message` y `tone`; admite `compact`, `placement`, `id`, apertura controlada con `open` y ancla virtual `point` para el clic en la escena |
-| `src/components/common/InputField.jsx` | Campo nativo con `label`, `help`, identificador y propiedades de entrada |
+| `src/components/common/Tooltip.jsx` | Información o error mediante `message` y `tone`; admite `compact`, anclaje al tamaño del control con `inline`, `placement`, `id`, apertura controlada con `open` y ancla virtual `point` para el clic en la escena |
+| `src/components/common/InputField.jsx` | Campo nativo con `label`, `help`, identificador y propiedades de entrada; comparte `HelpButton` con el inspector |
+| `src/components/common/Select.jsx` | Selector personalizado controlado, opciones habilitadas/deshabilitadas, teclado y portal con posición adaptable |
+| `src/components/controls/LanguageSelect.jsx` | Idioma abajo a la izquierda, icono global y abreviatura del idioma actual |
+| `src/hooks/useSelectPosition.js` | Medición y adaptación del select a ventana, límites y controles cercanos |
+| `src/i18n/` | Catálogos por idioma/sección, proveedor React, formatos locales y errores traducibles |
+| `src/components/common/StatusNotice.jsx` | Aviso reutilizable con `notice` y `duration`, progreso persistente, resultado temporal y salida animada |
+| `src/components/common/StatusIcons.jsx` | Iconos `Loading2Line`, `CheckRounded`, `NoResultsOutlineBold` y `Cancel`, reutilizables y decorativos por defecto |
 | `src/hooks/useContextMenu.js` | Apertura y cierre diferidos; persistencia por `persistentIds` |
 | `src/hooks/useAnchoredPanel.js` | Medición, centrado, límites y posición de la flecha |
 | `src/hooks/useTooltipPosition.js` | Posición del tooltip y adaptación al espacio visible |
@@ -274,16 +305,24 @@ Las rutas de esta tabla son relativas a `frontend/`.
 | `src/hooks/useObserver.js` | Solicitud automática de ubicación, reintento y prioridad de la entrada manual |
 | `src/hooks/useStars.js` | Carga, renovación y cancelación del cielo estelar según ubicación y tiempo |
 | `src/components/controls/SkyControls.jsx` | Estado de las estrellas, reintento y visibilidad de la superficie central |
-| `src/hooks/useFitsImage.js` | Tamaño compartido de aplicación inmediata y consultas por clic o RA/Dec |
-| `src/config/search.js` | Tamaño inicial de 7 minutos de arco y validación de tamaño y coordenadas |
+| `src/hooks/useFitsImage.js` | Tamaño compartido, filtro de detector, consultas por clic o RA/Dec, carga automática de la observación más reciente y avisos de la operación vigente |
+| `src/config/search.js` | Tamaño inicial de 7 minutos de arco, detectores D1–D6 y validación de tamaño y coordenadas |
 | `src/styles/base/variables.css` | Variables globales de movimiento y scroll |
 | `src/styles/components/context-toolbar.css` | Barra, paneles, distribución, límites, scroll y estados visuales |
 | `src/styles/components/tooltip.css` | Variantes y animación del tooltip |
 | `src/styles/components/input-field.css` | Distribución del campo y botón de ayuda |
+| `src/styles/components/status-notice.css` | Superficie, entrada/salida, giro y pulso del aviso de actividad |
+| `src/styles/layout/viewport.css` | Capas de la escena y anclaje adaptable de los avisos superiores |
 
 Los componentes y hooks utilizan React; el portal procede de `react-dom`. `ResizeObserver`, `requestAnimationFrame`, `getBoundingClientRect` y `visualViewport` son API del navegador utilizadas para medir y actualizar posiciones. Estos patrones no requieren una biblioteca externa de tooltips o posicionamiento.
 
 La presentación se define en hojas CSS importadas desde `src/styles/main.css`. Los hooks comunican las mediciones dinámicas mediante propiedades CSS personalizadas; no trasladar colores, espaciados estáticos ni bloques de estilos al JSX.
+
+### Selectores e idioma
+
+Reutilizar `Select` en lugar de crear menús independientes. Su lista se abre arriba o abajo según el espacio visible y los obstáculos declarados; puede ajustarse horizontalmente manteniendo el anclaje. Si no hay espacio libre suficiente, se superpone al contenido para conservar opciones utilizables. Las listas extensas se desplazan dentro del límite disponible. Se conservan la superficie oscura sin bordes decorativos, la marca de selección, el foco de teclado y las transiciones de salida con `inert`.
+
+El cambio de idioma es inmediato, conserva las tareas y actualiza también errores, avisos, accesibilidad y etiquetas del cielo. El idioma inicial es inglés salvo que exista una preferencia guardada válida. No guardar frases traducidas en el estado. Consultar [Internacionalización y selector compartido](I18N.md) para el contrato del componente y la ampliación de catálogos.
 
 ## 12. Aplicación a nuevas pantallas
 
@@ -299,3 +338,59 @@ Antes de añadir una opción al HUD:
 Comprobar visualmente la apertura desde cada icono, el recorrido del ratón hasta el panel, las tareas pendientes, las listas extensas, las acciones del pie, los tooltips y los tamaños de ventana reducidos. La validación estática no acredita por sí sola estos comportamientos visuales.
 
 Si una decisión cambia, actualizar esta guía y sus referencias en la misma entrega para evitar que una solución descartada vuelva a introducirse.
+
+## 13. Inspector derecho y encuadre frontal
+
+### Composición y navegación
+
+- `ImageInspector` contiene una barra de pestañas, cierre, encabezado común, cuerpo y acciones de la pestaña activa. Reutiliza `PanelContent`; no utiliza el anclaje con flecha ni el cierre por hover de `ContextPanel`.
+- El encabezado muestra fecha UTC, detector y publicación de la imagen visible. Estos datos se retiran de Preparación y de la zona inferior de la imagen.
+- Cerrar pausa la reproducción y conserva las imágenes y los ajustes. «Abrir inspector» recupera la vista y su encuadre. El foco regresa al control correspondiente.
+- Cambiar de pestaña pausa la reproducción y conserva la selección. «Buscar otra región» limpia la sesión y abre Preparación. Mientras se inspecciona, pulsar la escena no inicia otra búsqueda accidentalmente.
+- El panel usa la paleta oscura existente, superficies sin bordes decorativos y los iconos de `Flujo 2/svg.md`. En ventanas estrechas se sitúa abajo; la barra izquierda se desplaza internamente y el idioma ocupa la zona superior.
+- El cuerpo tiene un solo scroll. En alturas reducidas el encabezado también puede desplazarse para conservar el contenido y las acciones accesibles.
+
+### Detector y ayuda compartida
+
+- `DetectorSelector` presenta seis segmentos pastel D1–D6, con nombres visibles, selección marcada y teclado nativo. El color identifica opciones; no representa datos espectrales medidos.
+- El icono «i» de «Explorar detectores» muestra los rangos nominales y explica que la fecha puede cambiar. Los segmentos seleccionan el detector. «Más reciente de cualquier detector» restablece la consulta sin filtro.
+- `HelpButton` reutiliza `Tooltip` con `inline` y el icono informativo del flujo 1. El área de hover y el anclaje de la flecha coinciden con el botón «i». Se emplea en encabezados, campos y metadatos; `InputField` comparte el mismo componente. Las etiquetas y los valores no activan la ayuda.
+- Una búsqueda fallida o vacía conserva la imagen anterior y su identidad real. El selector indica el detector cargado, no atribuye la imagen al filtro que falló.
+
+### Contenido de las pestañas
+
+| Pestaña | Organización |
+| --- | --- |
+| Datos | Datos básicos: dimensiones, tamaño solicitado y porcentaje de píxeles finitos. Datos técnicos: posición solicitada, centro real, unidad original, precisión, mínimo/máximo e identificador |
+| Cabecera WCS | Vista interna de Datos con regreso visible; tarjetas del archivo y sus descripciones, sin un segundo scroll |
+| Apariencia | Visualización: paleta, brillo, opacidad y restauración. Procesamiento: flags, fondo zodiacal y señal/ruido, inicialmente desactivados |
+| Comparar | Referencia A, criterio de otra fecha con mismo/cualquier detector, candidatas B, carga independiente, separación temporal y acciones A/B |
+
+La búsqueda inicial sigue limitada a una observación. Comparar solicita hasta 50 candidatas por una operación distinta y explica `has_more`. Excluye A, tiempos ausentes o equivalentes y detectores incompatibles con el criterio. Cargar o cancelar B conserva A. El filtro por longitud de onda específica no se presenta: la API aún no proporciona ese contrato.
+
+Ambas imágenes usan sus propias mallas WCS y un intervalo de intensidad compartido. A define la orientación frontal y B conserva su geometría para mantener la alineación celeste. Los píxeles originales se conservan. Las opciones de procesamiento se aplican conjuntamente y solo habilitan reproducción cuando ambas terminan y tienen píxeles válidos. Las unidades originales deben ser conocidas y compatibles; el modo señal/ruido se identifica como adimensional. Una posición caducada detiene la reproducción y deja de dibujarse.
+
+### Imagen completa y movimiento
+
+- `useImageViewport` mide barra, paneles abiertos, reloj, idioma y región de avisos mediante marcadores `data-image-obstacle` y `ResizeObserver`.
+- `availableImageRect` calcula un rectángulo libre con márgenes; `imageFrame` encuadra todos los vértices WCS de A y, cuando corresponde, B dentro de esa zona.
+- La orientación es frontal y fiel: mantiene las dimensiones y distorsiones reales. Un archivo rectangular sigue siendo rectangular, sin recortar ni estirar datos.
+- `SkyCameraRig` usa `gsap.to` con 1,8 segundos y `power2.inOut` para orientación, zoom y desplazamiento de proyección. Conserva la cámara en el centro de la esfera.
+- Mientras permanece encuadrada, la cámara sigue la proyección en vivo. Arrastrar o ampliar interrumpe el seguimiento; «Centrar imagen» lo recupera. Cambiar la distribución recalcula el encuadre.
+- `prefers-reduced-motion` elimina la transición de cámara. CSS controla las microinteracciones del inspector y GSAP controla exclusivamente la transición de cámara.
+
+### Responsabilidades reutilizables
+
+| Componente o hook | Responsabilidad |
+| --- | --- |
+| `Tabs`, `MetadataList`, `RangeField`, `HelpButton` | Primitivas accesibles independientes del dominio |
+| `ImageInspector` | Composición del inspector y navegación |
+| `ImageDataPanel`, `ImageAppearancePanel`, `ImageComparisonPanel` | Contenido específico de cada pestaña |
+| `useFitsImage` | Región inicial, imagen A y cambio de detector |
+| `useProjectedImage` | Proyección de cada imagen, renovación, vigencia y reintento |
+| `useImageAppearance` | Ajustes visuales, procesamiento y normalización compartida |
+| `useImageComparison` | Consulta de candidatas y carga independiente de B |
+| `useBlinkPlayback` | Imagen visible, pausa y temporización de alternancia |
+| `useImageViewport`, `imageFrameUtils` | Medición del espacio libre y cálculo del encuadre |
+
+Los hooks usan React; el cálculo geométrico usa Three.js y la animación usa GSAP. Los servicios siguen utilizando `fetch` y `AbortController`. Los textos, ayudas y estados proceden de los catálogos ES/EN. Se añade únicamente la dependencia `gsap`.

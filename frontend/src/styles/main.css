@@ -6,3 +6,6 @@
 @import './components/context-toolbar.css';
 @import './components/tooltip.css';
 @import './components/input-field.css';
+@import './components/status-notice.css';
+@import './components/select.css';
+@import './components/image-inspector.css';

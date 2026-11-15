@@ -35,6 +35,10 @@ frontend/src/
 ├── config/
 ├── contracts/
 ├── hooks/
+├── i18n/
+│   └── locales/
+│       ├── es/
+│       └── en/
 ├── services/
 ├── store/
 ├── styles/
@@ -49,6 +53,10 @@ frontend/src/
 ---
 
 ## 3. Propósito Detallado de Cada Sección
+
+### `src/i18n/` — Internacionalización
+
+Centraliza los catálogos JSON por idioma y sección, el proveedor React, los formatos de números y fechas con Intl y los descriptores de errores traducibles. `components/common/Select.jsx` ofrece el selector reutilizable; `components/controls/LanguageSelect.jsx` lo utiliza para cambiar entre ES y EN y conservar la preferencia. Consultar [I18N.md](I18N.md) para añadir textos, secciones e idiomas.
 
 ### `src/styles/` — CSS Nativo Tradicional
 Centraliza todas las hojas de estilo del proyecto bajo una estructura clásica separada por responsabilidad, importadas en orden desde un único archivo maestro (`main.css`):

@@ -12,9 +12,10 @@ en el centro, representando la perspectiva desde la Tierra.
 
 Arrastra para girar la vista alrededor del observador, con ejes independientes
 como en el prototipo: el movimiento horizontal cambia el rumbo alrededor de +Y;
-el vertical cambia la elevación. El giro lateral permanece en cero y la elevación
-se limita justo antes de ±90° para evitar invertir la vista. Ambos ejes se suavizan
-por separado, también al encuadrar una imagen. La sensibilidad se adapta al tamaño
+el vertical cambia la elevación. La navegación inicial mantiene el giro lateral en cero
+y limita la elevación justo antes de ±90°. Al cargar una imagen, el encuadre frontal
+adopta su orientación WCS mediante GSAP y ajusta el zoom al espacio libre de la UI.
+El arrastre interrumpe esa animación y conserva el giro alcanzado. La sensibilidad se adapta al tamaño
 angular visible con el zoom ortográfico. Usa el desplazamiento de dos dedos del trackpad,
 su gesto de pellizco (ctrl+wheel en navegadores compatibles) o la rueda del ratón
 para cambiar la escala de una cámara ortográfica, sin FOV ni distorsión de gran
@@ -116,13 +117,43 @@ La integración utiliza React, Three.js, React Three Fiber y las API del navegad
 Con ubicación disponible, haz clic sin arrastrar sobre la esfera para consultar
 observaciones directamente. También puedes introducir **RA y Dec en grados decimales
 ICRS** en Preparación y pulsar **Buscar coordenadas**, incluso sin ubicación terrestre.
-Selecciona una observación de la lista para cargarla; su representación en el cielo
-local necesita ubicación. La cámara
-encuadra automáticamente el recorte; el arrastre y el zoom siguen disponibles.
+Cada búsqueda solicita solo la observación más reciente (`limit=1`) y carga su imagen
+automáticamente cuando hay ubicación. Si la búsqueda manual se realiza sin ubicación,
+conserva la observación encontrada para cargarla después de definir el observador.
+La cámara encuadra automáticamente el recorte; el arrastre y el zoom siguen disponibles.
 El tamaño inicial del recorte es de **7 minutos de arco**, con un máximo de 30.
 Editar ese valor lo actualiza inmediatamente para ambas vías de búsqueda, sin tener
 que confirmar el cambio ni enviar las coordenadas. Si falta ubicación al pulsar la
 escena, un tooltip junto al punto pulsado muestra el estado de la solicitud o su error.
+
+El selector **Explorar detectores**, en el inspector derecho, permite elegir D1–D6
+mediante segmentos pastel o volver a la observación más reciente de cualquier detector.
+Cambiarlo consulta las mismas coordenadas ICRS y el mismo tamaño de la región cargada.
+La imagen anterior permanece visible hasta que la nueva esté lista, también ante un error
+o una consulta vacía. Una nueva región empieza con cualquier detector.
+Los rangos mostrados son referencias del detector, no la longitud de onda de cada píxel.
+`setDetector`, de `useFitsImage`, coordina ese cambio; `searchImages` y `searchCoordinates`,
+de `services/images.js`, envían el filtro y `limit=1` con `fetch`. Utilizan React y las
+API del navegador existentes, sin dependencias nuevas.
+
+La búsqueda muestra un aviso animado arriba a la derecha con el indicador de carga
+giratorio y un pulso ligero. Si hay observador y un resultado, pasa a «Cargando imagen…»
+y termina con «Imagen cargada» durante 3,2 segundos. Sin observador, informa del
+resultado encontrado; `has_more` indica que hay observaciones anteriores fuera de
+esta consulta limitada, sin representar el total del archivo.
+Preparación conserva la cancelación durante la búsqueda y la carga.
+El aviso también presenta errores de búsqueda/carga, confirmación de cancelación y
+ausencia de observaciones. Error y ausencia de resultados comparten el icono
+`NoResultsOutlineBold`, con color de error solo para el fallo; la cancelación usa `Cancel`.
+El panel conserva el diagnóstico detallado cuando falla una petición.
+
+`components/common/StatusNotice.jsx` recibe un objeto estable `notice` con `status`
+(`loading`, `success`, `error`, `cancelled` o `empty`) y `message`; `null` inicia la salida.
+Los mensajes son claves o descriptores de los catálogos ES/EN. La propiedad `duration`
+permite ajustar la permanencia del resultado. `useFitsImage` actualiza el aviso junto
+con el estado de cada petición y descarta respuestas canceladas. Su función `cancel`
+aborta una operación y muestra la confirmación; `reset` limpia sin ese aviso. Utiliza React,
+temporizadores del navegador y CSS nativo, con soporte para movimiento reducido.
 
 En desarrollo, Vite redirige `/api` al backend en `http://127.0.0.1:8000`.
 En despliegue, el servidor debe publicar `/api` bajo el mismo origen del frontend.
@@ -133,19 +164,52 @@ búsqueda y la carga de una sola imagen; verifica el límite de textura de la GP
 antes de solicitar los píxeles. No se reduce ni amplía la matriz espacialmente.
 
 `decodePixels`, en `three/core/imageDataUtils.js`, interpreta float32/float64
-little-endian mediante `DataView` y prepara una copia float32 normalizada para
-visualización. El contraste utiliza percentiles aproximados 1 y 99,5 de una
-muestra de hasta 65536 valores; los datos científicos del backend no cambian.
+little-endian mediante `DataView`, conserva los valores nativos y prepara una copia
+float32 normalizada. `displayRange` y `normalizePixels` calculan y aplican percentiles
+1 y 99,5 sobre hasta 65536 muestras. En A/B usan un intervalo compartido, conservando
+los valores originales para recalcularlo al cambiar la selección.
 
 `FitsImage` utiliza `DataTexture`, `BufferGeometry` y `ShaderMaterial` de Three.js
-y `useFrame` de React Three Fiber. Aplica una escala asinh en gris, oculta muestras
-no finitas y conserva el origen inferior izquierdo. No aplica flags de calidad.
-La malla WCS procede del backend, sin pasar por `EquatorialFrame`.
-Interpola las muestras temporales y renueva la proyección cada 90 segundos;
-si caduca por un fallo de actualización, oculta la imagen para no mostrar una
-posición obsoleta. Al cambiar o limpiar la imagen libera texturas, geometría y material.
-No se requieren dependencias adicionales. La resolución nativa puede consumir
+y `useFrame` de React Three Fiber. Aplica una escala asinh con paleta, brillo y opacidad,
+oculta muestras no finitas y conserva el origen inferior izquierdo. El procesamiento
+opcional de Apariencia solicita flags, fondo zodiacal o señal/ruido a la API.
+La malla WCS procede del backend, sin pasar por `EquatorialFrame`. `useProjectedImage`
+renueva la proyección cada 90 segundos y permite reintentar; las muestras caducadas
+no se dibujan ni habilitan reproducción. Al cambiar o limpiar la imagen se liberan
+texturas, geometría y material. La resolución nativa puede consumir
 memoria considerable incluso cuando la GPU admite las dimensiones del recorte.
+
+### Inspector derecho
+
+La primera imagen cargada abre el inspector y cierra Preparación. Su encabezado
+concentra la fecha UTC, el detector y la publicación de la observación visible.
+Cerrar conserva el trabajo y ofrece **Abrir inspector**. **Buscar otra región** vuelve
+a Preparación; los clics incidentales sobre una imagen inspeccionada no reemplazan la región.
+
+- **Datos:** datos básicos (dimensiones, tamaño solicitado y píxeles finitos) y datos
+  técnicos (RA/Dec, centro real, unidad, precisión, extremos e identificador). La cabecera
+  WCS tiene una vista interna; el FITS original se abre desde su enlace de procedencia.
+- **Apariencia:** paleta, brillo, opacidad y restauración visual; procesamiento opcional
+  consistente para A/B. Los originales se conservan si falla el procesamiento.
+- **Comparar:** otra fecha del mismo detector o de cualquiera, hasta 50 candidatas,
+  carga independiente de B, Mostrar A/B, reproducción y velocidad de 0,5 a 3 segundos.
+  La reproducción requiere unidades compatibles, procesamiento listo y ambas proyecciones
+  vigentes. La lista limitada no representa toda la historia del archivo.
+
+`ImageInspector` compone las vistas mediante `PanelContent`, `Tabs`, `MetadataList`,
+`Select`, `RangeField`, `HelpButton` y `Tooltip`. Los hooks de búsqueda, proyección,
+apariencia, comparación y reproducción mantienen responsabilidades independientes.
+Los textos y ayudas proceden de `inspector.json` en ES/EN.
+
+`useImageViewport` mide los obstáculos del HUD con `ResizeObserver` y obtiene el área
+libre mediante `availableImageRect`. `imageFrame` calcula orientación y límites a partir
+de los vértices WCS de las imágenes, usando vectores, matrices y cuaterniones de Three.js.
+`SkyCameraRig` interpola orientación, zoom y desplazamiento de proyección con `gsap.to`,
+de **GSAP**, durante 1,8 segundos. Conserva la imagen completa y su proporción original,
+incluidos recortes rectangulares, y sigue su orientación en vivo hasta una interacción manual.
+El encuadre se recalcula al cambiar el espacio disponible o pulsar **Centrar imagen**.
+En pantallas estrechas el inspector pasa a la zona inferior; movimiento reducido elimina
+la transición de cámara. La dependencia nueva es `gsap`; no se añade un gestor de estado.
 
 ### Capas de renderizado
 

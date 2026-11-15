@@ -8,7 +8,7 @@ const image = {
 
 test('native images above 1024 are accepted within GPU limits', () => {
   assert.doesNotThrow(() => validateImage({ ...image, width: 2048, height: 1500 }, 4096))
-  assert.throws(() => validateImage({ ...image, width: 8192 }, 4096), /GPU/)
+  assert.throws(() => validateImage({ ...image, width: 8192 }, 4096), { key: 'errors.image.gpuLimit' })
 })
 
 test('invalid dimensions and formats are rejected', () => {
@@ -40,7 +40,7 @@ test('float64 values are decoded little-endian without overflowing float32 befor
 })
 
 test('truncated pixel responses are rejected', () => {
-  assert.throws(() => decodePixels(new ArrayBuffer(4), image), /longitud/)
+  assert.throws(() => decodePixels(new ArrayBuffer(4), image), { key: 'errors.image.length' })
 })
 
 test('empty finite coverage and constant images remain well-defined', () => {

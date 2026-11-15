@@ -1,0 +1,26 @@
+{
+  "title": "Ubicación",
+  "source": { "device": "Dispositivo", "manual": "Manual" },
+  "coordinates": "{{source}} · {{latitude}}°, {{longitude}}°",
+  "intro": "Define desde dónde observas para buscar recortes al pulsar el cielo.",
+  "actions": { "locating": "Buscando ubicación…", "device": "Usar ubicación del dispositivo", "apply": "Aplicar ubicación manual" },
+  "latitude": {
+    "label": "Latitud (°)", "placeholder": "−90 a 90",
+    "help": "Tu posición al norte o al sur del ecuador, en grados decimales. Norte es positivo y sur negativo; por ejemplo, 19,43."
+  },
+  "longitude": {
+    "label": "Longitud (°)", "placeholder": "−180 a 180",
+    "help": "Tu posición al este o al oeste del meridiano de Greenwich, en grados decimales. Este es positivo y oeste negativo; por ejemplo, −99,13."
+  },
+  "validation": "Introduce latitud de −90° a 90° y longitud de −180° a 180°.",
+  "notices": {
+    "locating": "Obteniendo tu ubicación. Cuando termine, vuelve a pulsar el punto del cielo.",
+    "required": "Define latitud y longitud en Ubicación para buscar al pulsar el cielo."
+  },
+  "errors": {
+    "unsupported": "La ubicación automática necesita HTTPS o localhost y un navegador compatible. Introduce latitud y longitud en Ubicación o busca por RA/Dec en Preparación.",
+    "timeout": "No se obtuvo la ubicación a tiempo. Reintenta o introduce latitud y longitud en Ubicación.",
+    "denied": "No se concedió permiso de ubicación. Permítelo en el navegador o introduce latitud y longitud en Ubicación.",
+    "unavailable": "El dispositivo no pudo determinar tu ubicación. Reintenta o introduce latitud y longitud en Ubicación."
+  }
+}

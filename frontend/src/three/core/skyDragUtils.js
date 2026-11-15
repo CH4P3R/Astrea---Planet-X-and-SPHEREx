@@ -4,8 +4,9 @@ import { SKY } from '../../config/sky.js'
 const pitchLimit = Math.PI / 2 - 1e-6
 
 export function skyDirectionAtPointer(camera, x, y, target = new Vector3()) {
-  const localX = (camera.left + camera.right) / 2 + x * (camera.right - camera.left) / (2 * camera.zoom)
-  const localY = (camera.top + camera.bottom) / 2 + y * (camera.top - camera.bottom) / (2 * camera.zoom)
+  const plane = new Vector3(x, y, -1).applyMatrix4(camera.projectionMatrixInverse)
+  const localX = plane.x
+  const localY = plane.y
   const depthSquared = SKY.radius ** 2 - localX ** 2 - localY ** 2
   if (depthSquared < 0) return null
   return target.set(localX, localY, -Math.sqrt(depthSquared)).normalize()

@@ -1,0 +1,54 @@
+{
+  "title": "Preparación",
+  "intro": "Pulsa un punto del cielo o busca por coordenadas.",
+  "fields": {
+    "size": {
+      "label": "Tamaño del recorte (minutos de arco)",
+      "help": "Cuánto cielo cubre cada lado de la imagen. Se aplica al editarlo, tanto al clic en el cielo como a RA/Dec. Un valor mayor suele generar una matriz con más píxeles."
+    },
+    "ra": {
+      "label": "Ascensión recta, RA (°)", "placeholder": "0 a menos de 360",
+      "help": "La posición este/oeste del punto en el cielo, en el sistema ICRS. Introduce grados decimales desde 0 hasta menos de 360, no horas; por ejemplo, 83,63."
+    },
+    "detector": {
+      "label": "Detector",
+      "any": "Más reciente (cualquier detector)",
+      "option": "Detector {{detector}} · {{range}} µm"
+    },
+    "dec": {
+      "label": "Declinación, Dec (°)", "placeholder": "−90 a 90",
+      "help": "La posición al norte o al sur del ecuador celeste, en el sistema ICRS. Introduce grados decimales entre −90 y 90; por ejemplo, −5,39. No es tu latitud terrestre."
+    }
+  },
+  "actions": {
+    "loadLatest": "Cargar observación más reciente",
+    "search": "Buscar coordenadas", "cancel": "Cancelar operación",
+    "cancelPreparation": "Cancelar preparación", "clear": "Limpiar imagen y resultados"
+  },
+  "validation": {
+    "size": "Introduce un tamaño de entre 0,1 y 30 minutos de arco en Preparación.",
+    "coordinates": "Introduce RA y Dec en grados decimales.",
+    "ra": "La ascensión recta (RA) debe estar entre 0° y menos de 360°.",
+    "dec": "La declinación (Dec) debe estar entre −90° y 90°."
+  },
+  "projectionRequired": "Para colocar esta imagen en el cielo, define latitud y longitud en Ubicación.",
+  "imageSummary": "{{width}} × {{height}} px · {{unit}}",
+  "noUnit": "Sin unidad",
+  "results": {
+    "empty": "No hay observaciones en esta región.",
+    "choose": "Selecciona la observación para cargar su imagen.",
+    "observation": "{{id}} · Detector {{detector}} · {{collection}}",
+    "noDate": "Fecha de observación no disponible",
+    "date": "{{date}} · UTC",
+    "limit": "Solo se muestra la observación más reciente. Cambia el detector para ver otra banda."
+  },
+  "notices": {
+    "searching": "Buscando observaciones…", "loading": "Cargando imagen…", "loaded": "Imagen cargada",
+    "searchFailed": "No se pudieron buscar observaciones en IRSA.",
+    "loadFailed": "No se pudo cargar la imagen.",
+    "cancelled": "Operación cancelada",
+    "empty": "No se encontraron observaciones en IRSA.",
+    "found": { "one": "{{count}} imagen encontrada en IRSA", "other": "{{count}} imágenes encontradas en IRSA" },
+    "foundMore": { "one": "Más de {{count}} imagen encontrada en IRSA", "other": "Más de {{count}} imágenes encontradas en IRSA" }
+  }
+}
