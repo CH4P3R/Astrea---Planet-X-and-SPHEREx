@@ -101,6 +101,10 @@ export default function SkyCameraRig({ onSkyClick, onImageZoom, images = [], vie
     if (!previewActive) {
       frameCache.current = null
       following.current = false
+      if (skyView.current && selectionPending && selectionDirection) {
+        selectionView.current = skyView.current
+        skyView.current = null
+      }
       if (skyView.current) {
         const saved = skyView.current
         const destination = camera.clone(false)
@@ -197,7 +201,7 @@ export default function SkyCameraRig({ onSkyClick, onImageZoom, images = [], vie
     }
 
     const startDrag = (event) => {
-      if (following.current || returning.current) return
+      if (returning.current) return
       if (pointerId !== null || !event.isPrimary || event.button !== 0 || !readPointer(event)) return
       event.preventDefault()
       previousPointer.copy(pointer)
@@ -213,6 +217,7 @@ export default function SkyCameraRig({ onSkyClick, onImageZoom, images = [], vie
       if (event.pointerId !== pointerId || !readPointer(event)) return
       event.preventDefault()
       if (Math.hypot(event.clientX - startX, event.clientY - startY) > 5) moved = true
+      if (following.current) return
       const roll = targetRotation.current.z
       skyDragRotation(get().camera, pointer.x - previousPointer.x, pointer.y - previousPointer.y,
         targetRotation.current, targetRotation.current)

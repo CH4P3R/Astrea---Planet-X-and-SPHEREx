@@ -17,6 +17,7 @@ import useImageViewport from '../../hooks/useImageViewport.js'
 import useImageComparison from '../../hooks/useImageComparison.js'
 import useComparisonPresentation from '../../hooks/useComparisonPresentation.js'
 import useProjectedImage from '../../hooks/useProjectedImage.js'
+import ConfirmRegionModal from '../common/ConfirmRegionModal.jsx'
 
 export default function AppViewport() {
   const { t, language } = useTranslation()
@@ -33,6 +34,7 @@ export default function AppViewport() {
   const [tab, setTab] = useState('data')
   const [focusVersion, setFocusVersion] = useState(0)
   const [searchDirection, setSearchDirection] = useState(null)
+  const [pendingRegion, setPendingRegion] = useState(null)
   const activeId = fits.active?.metadata.id
   const inspectorOpen = Boolean(activeId)
   const searchPending = fits.preparing || (!fits.active && ['searching', 'loading', 'results', 'error'].includes(fits.status))
@@ -57,18 +59,37 @@ export default function AppViewport() {
   const { open } = menu
   useEffect(() => { if (activeId) open(null) }, [activeId, open])
   const onSkyClick = useCallback((direction, point) => {
-    if (activeId) return
     const reason = !observer ? 'location' : cutoutSizeError(size) ? 'size' : null
     if (reason) {
       setNotice((previous) => ({ id: (previous?.id ?? 0) + 1, point, reason }))
       return
     }
     setNotice(null)
+    if (searchDirection || activeId) {
+      setPendingRegion({ direction, observer, context: clock.context })
+      return
+    }
     setSearchDirection(direction)
     open('search')
     search(direction)
     return true
-  }, [observer, size, search, open, activeId])
+  }, [observer, size, activeId, clock.context, searchDirection, open, search])
+  const regionConfirmationOpen = pendingRegion
+    && pendingRegion.observer === observer && pendingRegion.context === clock.context
+  const dismissRegion = () => {
+    setPendingRegion(null)
+    requestAnimationFrame(() => rootRef.current?.focus({ preventScroll: true }))
+  }
+  const confirmRegion = () => {
+    if (!regionConfirmationOpen) return
+    const { direction } = pendingRegion
+    dismissRegion()
+    playback.pause()
+    setTab('data')
+    setSearchDirection(direction)
+    open('search')
+    search(direction)
+  }
   const locating = location.status === 'loading'
   const noticeMessage = notice?.reason === 'location' && !observer
     ? locating ? 'location.notices.locating'
@@ -102,6 +123,7 @@ export default function AppViewport() {
         {notice && <Tooltip key={notice.id} point={notice.point} message={t(noticeMessage)} open
           tone={notice.reason === 'location' && locating ? 'info' : 'error'} />}
       </div>
+      {regionConfirmationOpen && <ConfirmRegionModal onConfirm={confirmRegion} onCancel={dismissRegion} />}
     </main>
   )
 }

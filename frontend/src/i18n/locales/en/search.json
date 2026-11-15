@@ -1,6 +1,12 @@
 {
   "title": "Preparation",
   "intro": "Click a point in the sky or search by coordinates.",
+  "confirmRegion": {
+    "title": "Change region?",
+    "description": "Do you want to change region?",
+    "cancel": "No",
+    "confirm": "Yes"
+  },
   "fields": {
     "size": {
       "label": "Cutout size (arcminutes)",

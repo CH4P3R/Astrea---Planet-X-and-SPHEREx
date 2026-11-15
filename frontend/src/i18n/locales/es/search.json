@@ -1,6 +1,12 @@
 {
   "title": "Preparación",
   "intro": "Pulsa un punto del cielo o busca por coordenadas.",
+  "confirmRegion": {
+    "title": "¿Cambiar de región?",
+    "description": "¿Quieres cambiar de región?",
+    "cancel": "No",
+    "confirm": "Sí"
+  },
   "fields": {
     "size": {
       "label": "Tamaño del recorte (minutos de arco)",
