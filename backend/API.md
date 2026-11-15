@@ -43,7 +43,7 @@ the API never guesses a timezone. Both bounds filter the start of an exposure,
 not any overlap with its duration. NaN and infinity are rejected in inputs.
 
 The backend uses Astroquery's IRSA SIA interface to select Level 2 FITS files
-from DR1 and QR3 (wide and deep surveys) whose footprints intersect a one-arcsecond cone around the requested
+from dynamically discovered SPHEREx collections (including wide and deep surveys) whose footprints intersect a one-arcsecond cone around the requested
 point (the introductory notebook convention). It deduplicates URLs, filters detector and observation start time, then
 orders by observation start descending, with the archive URL breaking ties.
 SIA interval-overlap filtering is also applied upstream when dates are supplied.
@@ -53,7 +53,7 @@ with HTTP 422 asking for narrower dates, rather than returning misleading order.
 The response contains `query`, `images`, `order`, and `has_more`. Each image
 includes an opaque `id`, `observation_id`, `detector`, `collection`,
 `observation`, `requested`, `source_url`, `metadata_url`, and `pixels_url`.
-`collection` identifies the release (`dr1` or `qr3`), not a separate wide/deep
+`collection` identifies the release (for example `dr1` or `qr3`), not a separate wide/deep
 survey selection. `source_url` points to the original full FITS for provenance;
 use the API URLs to retrieve the selected cutout's data.
 
@@ -438,7 +438,23 @@ Example click request (+Y is the zenith):
 backend (the prototype allowed larger fields). The search response retains
 `query`, `images`, `has_more`, and `order`. Optional `start_time`/`end_time`
 filter exposure dates; `at` is the displayed sky time, not an exposure filter.
-DR1 and QR3 are searched together. A click can return multiple observations
+Discovered SPHEREx collections are searched together. A click can return multiple observations
 or no observations; no image is downloaded until an ID is loaded.
 
 Use `/docs` to test POST requests; the browser address bar only sends GET.
+
+### Automatic release discovery
+
+The backend uses Astroquery's `list_collections(servicetype="SIA", filter="spherex")`
+to discover collection names. This registry lookup uses TAP; image searches remain
+SIA. Names are cached in memory per backend worker for one hour and refreshed on
+subsequent searches. On refresh failure, the last valid list is reused and refresh
+is retried after 60 seconds. Without a cached list, a network/VO failure falls back
+to SIA's `facility="SPHEREx"` filter, without a release-name restriction. Empty or
+malformed registry tables are reported as archive errors, never unfiltered searches.
+
+No DR numbering is assumed. New releases must still publish compatible Level 2
+FITS files under IRSA's `/ibe/data/spherex/<release>/level2/` path. Other products
+are skipped. A future file format or archive-path change may require backend work;
+release discovery alone cannot guarantee format compatibility. The `collection`
+response field remains an open string. Frontend code should not enumerate releases.

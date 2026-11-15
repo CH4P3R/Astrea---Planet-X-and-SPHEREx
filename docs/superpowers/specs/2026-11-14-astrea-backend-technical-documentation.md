@@ -748,7 +748,7 @@ current API without waiting for quality/background processing.
 | 1 | **Download resilience** — *done* | Retries for 429/5xx and dropped connections, honouring `Retry-After`; one time budget per download; `MeshError` → 422. |
 | 2 | **Configuration from environment** | `ASTREA_*` env vars for cache dirs, CORS, limits. Move module constants into `Settings`. |
 | 3 | **Quality and background variants** — *done* | `mask_flags` (by flag *name*, never `SOURCE`), `subtract_zodi` and `signal_to_noise` on `/pixels`; plane endpoints for flags, zodi and variance. Raw `/pixels` is unchanged. |
-| 4 | **Blink (epoch comparison)** | One detector, frames spread over the time baseline, reprojected onto a common north-up grid, returned as float32. The frontend applies one shared stretch. Design: [`2026-11-14-spherex-backend-fastapi-design.md`](2026-11-14-spherex-backend-fastapi-design.md). |
+| 4 | **Blink (epoch comparison)** | Frontend selects A/B, uses each observation's existing pixels and WCS projection, applies one shared display scale and alternates visibility. Future frontend sequences can include more than two observations. No new blink routes or common-grid resampling required; quantitative reprojection remains optional future work. Design: [`2026-11-14-spherex-backend-fastapi-design.md`](2026-11-14-spherex-backend-fastapi-design.md). |
 | 5 | **Pre-warm command** | CLI that fills the cache for the acceptance targets (Barnard's Star, ε Indi B, WISE 0855, RW Aur, R Dra), with proper-motion propagation. Needed for an offline demo. |
 | 6 | **Spectra** | Wavelength at the target from `WCS-WAVE` (requires keeping that extension). |
 | 7 | **Pagination and full history** | Search beyond `limit`; date-window paging. |

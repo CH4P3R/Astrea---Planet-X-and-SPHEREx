@@ -9,7 +9,7 @@
 - **Related:**
   - `docs/superpowers/specs/2026-11-14-spherex-blink-viewer-design.md`: product intent and acceptance targets
   - `docs/superpowers/specs/2026-11-14-astrea-backend-technical-documentation.md`: interpretation guide (written at `ef4f862`; §15 lists what is now outdated)
-  - `docs/superpowers/specs/2026-11-14-spherex-backend-fastapi-design.md`: Blink module, a future step
+  - `docs/superpowers/specs/2026-11-14-spherex-backend-fastapi-design.md`: active frontend-owned Blink integration contract
   - `backend/API.md`: the public HTTP contract, which wins if this document disagrees
 
 ## 1. Overview
@@ -52,7 +52,8 @@ Constraints:
 - Python 3 with FastAPI, Pydantic v2, astropy, astroquery, numpy and requests.
 
 **Non-goals for this design:**
-- reprojection or blink (a future module)
+- common-grid reprojection (optional future analysis)
+- blink selection, playback and display scaling (frontend responsibilities)
 - spectra
 - photometry
 - server-side rendering
@@ -260,9 +261,12 @@ class ArchiveError(Exception); class ArchiveTimeout(ArchiveError); class SearchT
 ```
 
 **Search:**
-- `astroquery` `Irsa().query_sia` with a 1″ cone over `spherex_dr1`,
-  `spherex_dr1_deep`, `spherex_qr3` and `spherex_qr3_deep`, `maxrec=10000`.
-- A guarded adapter allows only the `/SIA` paths and adds a `(10, 60)` s
+- `astroquery` `Irsa().query_sia` with a 1″ cone over dynamically discovered
+  SPHEREx collections, `maxrec=10000`. `list_collections` uses TAP; names are
+  cached per client for one hour. Failed refreshes retain the last list and retry
+  after 60 seconds. On initial network/VO failure, SIA uses `facility="SPHEREx"`
+  without a release-name restriction. Empty/malformed registry tables are errors.
+- A guarded adapter allows only the `/SIA` paths and `/TAP/sync`, `/TAP/capabilities` and adds a `(10, 60)` s
   timeout.
 - Retries on transient failures. An overflow, or 10 000 rows or more, raises
   `SearchTooBroad`.
@@ -371,7 +375,7 @@ sequenceDiagram
     F->>A: GET /images?ra_deg&dec_deg&size_deg[&detector&limit&dates]
     A->>S: search(ImageSearchQuery)
     S->>I: search(ra, dec, detector, limit, start_mjd, end_mjd)
-    I->>I: SIA 1″ cone, 4 collections (with_retries)
+    I->>I: SIA 1″ cone, discovered collections or mission filter (with_retries)
     I-->>S: ≤ limit+1 ArchiveImage, newest first
     loop each kept row
         S->>S: id = sha256(format_version, source_url, requested)
@@ -451,7 +455,7 @@ image_id = sha256(json.dumps({"format_version": 1,
 | Model | Key fields |
 | --- | --- |
 | `ImageSearchQuery` | `ra_deg [0,360)`, `dec_deg [−90,90]`, `size_deg (0,0.5]`, `detector 1–6?`, `limit 1–100 (20)`, `start_time?`/`end_time?` (timezone required, start ≤ end). `extra="forbid"`, no NaN/∞ |
-| `ImageSummary` | `id`, `observation_id`, `detector`, `collection` (`dr1`\|`qr3`), `observation` (MJD + UTC), `requested`, `source_url`, `metadata_url`, `pixels_url` |
+| `ImageSummary` | `id`, `observation_id`, `detector`, `collection` (open release identifier), `observation` (MJD + UTC), `requested`, `source_url`, `metadata_url`, `pixels_url` |
 | `ImageSearchResponse` | `query`, `images[]`, `has_more`, `order="observation_start_desc"` |
 | `ImageMetadata` | `ImageSummary` + `image: ImageDataMetadata` |
 | `ImageDataMetadata` | `width`, `height`, `dtype` (f32\|f64), `byte_order="little"`, `array_order="C"`, `pixel_origin="lower-left"`, `unit`, `finite_min/max`, `nonfinite_count`, `center`, `footprint`, `wcs_header[]`, `fits_metadata` |
@@ -538,9 +542,9 @@ Full FITS files are never persisted.
 
 - **Outbound allowlist:**
   - `access_url` must match
-    `https://irsa.ipac.caltech.edu/ibe/data/spherex/(dr1|qr3)/level2/…\.fits`
+    `https://irsa.ipac.caltech.edu/ibe/data/spherex/<release>/level2/…\.fits`
     with no query string and no dot segments.
-  - SIA traffic may only reach `/SIA` paths.
+  - Discovery traffic may only reach `/SIA` paths and `/TAP/sync`, `/TAP/capabilities`.
   - Redirects are refused everywhere.
 - **Resource caps:**
   - 80 MiB per cutout download, and a byte cap per ranged request.
@@ -599,7 +603,7 @@ Every new module adds:
 | # | Decision | Alternatives considered | Rationale |
 | --- | --- | --- | --- |
 | DD1 | Layered packages with injection through `app.state` | Flat modules; global singletons | Features grow independently. Tests swap fakes without patching imports |
-| DD2 | Raw float pixels; rendering in the frontend | Server-side PNG with stretch | Keeps science values intact. Enables difference and blink in the browser. The team's choice |
+| DD2 | Raw float pixels; rendering in the frontend | Server-side PNG with stretch | Keeps science values intact. Supports frontend blink; pixel subtraction additionally requires aligned grids. The team's choice |
 | DD3 | Byte-range reads per plane, cutout service as fallback | Cutout service only | ~50× fewer bytes and ~3× faster. The fallback preserves correctness |
 | DD4 | Planes fetched on demand, not with the image | Fetch all planes at load | FLAGS is the most expensive plane. Most views never need it |
 | DD5 | Corrections as optional query flags (default off) plus raw plane endpoints | A separate endpoint per correction; always corrected | Backward compatible. The simple path needs no client maths, and the plane path allows instant toggles |
@@ -617,8 +621,9 @@ integration (if any) → service → wiring in `create_app` and `dependencies.py
 
 | Module | Reuses | New pieces |
 | --- | --- | --- |
-| Blink | `IrsaClient`, `irsa_ranges`, `CutoutStore`, `quality.corrected`, planes | `search_all` without a limit; time-spread selection; `reproject` onto a common grid; `/api/v1/blink` (see the Blink spec) |
-| Pre-warm CLI | `ImageService` / Blink service | `targets.yaml` with proper motion; `python -m app.warm`; `--offline` |
+| Frontend blink integration | Existing image search, load, pixels and per-image WCS projection | No new backend module or routes. Frontend owns A/B selection, shared display scale and playback; future sequences can include more observations |
+| Common-grid analysis (optional later) | Image data, WCS and optional corrections | Separately specified resampling for subtraction/measurements; not a prerequisite for visual blink |
+| Pre-warm CLI (optional) | `ImageService` and existing cache | `targets.yaml`, proper motion, saved observation manifest and offline cache checks; browser offline discovery needs a separate handoff |
 | Spectra | `irsa_ranges` (`WCS-WAVE` plane) | Wavelength at the target |
 | Overlays | `catalog.py` pattern | Gaia DR3 / WISE |
 
@@ -643,15 +648,16 @@ Strengths:
 ## 16. Requirements traceability
 
 `docs/sdd/backend/requirements.md` does not exist yet. Until it does, this
-design traces to the goals of the product spec (`spherex-blink-viewer-design.md`
-§2) and to the goals in §2 above:
+design traces to the historical product goals (`spherex-blink-viewer-design.md`
+§2), interpreted through the active prototype-style Blink spec, and to §2 above.
+Historical PNG rendering and mandatory reprojection are not current requirements:
 
 | Product goal | Status in this design |
 | --- | --- |
 | G1 Query any ICRS position and get real SPHEREx frames | Met: §4.7, §5.1 |
-| G2 Blink frames with epoch labels | Supported: epochs in `observation`. Blink module is future work (§14) |
+| G2 Blink frames with epoch labels | Supported: epochs in `observation`. Frontend integration is future work; no new blink backend module (§14) |
 | G3 Cache so repeat views don't depend on IRSA | Met: §7. Pre-warm is future work |
 | G4 Pre-warm acceptance targets | Future: pre-warm CLI |
-| G5 Pass the acceptance set | Pending: needs Blink + pre-warm |
+| G5 Pass the acceptance set | Pending: frontend visual comparison and target validation; pre-warm/offline discovery only for an offline demo |
 | G6 Shareable URL parameters | Frontend concern. The backend is stateless per request |
 | G7 User-controlled FOV | Met for cutouts (`size_deg` ≤ 0.5°, `size_arcmin` ≤ 30) |

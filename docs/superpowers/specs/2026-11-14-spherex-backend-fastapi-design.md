@@ -143,7 +143,10 @@ images explicitly.
 Pixels keep lower-left origin and little-endian encoding. Nonfinite values
 must be made transparent by the renderer. This is not a FLAGS quality mask.
 Compare the overlapping footprint: boundaries and missing coverage may differ.
-The prototype's optional quality masking is not implemented in Astrea yet.
+Astrea now supports optional `mask_flags`, `subtract_zodi` and `signal_to_noise`
+through the existing pixels endpoint, plus individual plane endpoints. They
+default off. Apply consistent options to every compared observation, and do
+not mix raw intensity values with dimensionless signal-to-noise values.
 
 ## 7. Differences from the prototype contract
 
@@ -158,7 +161,7 @@ backend without adapting its data mapping:
 | Mesh UVs/indices returned at load | Mesh UVs/indices returned by `/projection` |
 | Always float32 preview | Preserve float32 or float64, without preview downsampling |
 | `stretch_min`, `stretch_max` | Raw values and finite statistics; shared display range computed by frontend |
-| Optional mask endpoint and quality toggle | Not yet available; raw IMAGE only |
+| Optional mask endpoint and quality toggle | Optional corrected pixels and `flags`/`zodi`/`variance` plane endpoints; adapt to `API.md`, not the prototype mask contract |
 | Wavelength comparison using `target_spectrum` | Future wavelength metadata processing |
 | Larger selectable fields | Current cutout maximum 0.5 degrees / 30 arcminutes |
 
@@ -182,8 +185,9 @@ These acceptance criteria do not claim that the current frontend implements blin
 
 ## 9. Optional future work
 
-The following items require their own implementation and validation; they are
-not implicitly included by adopting this specification:
+The following items require their own integration and validation; they are
+not implicitly included by adopting this specification. Optional correction
+endpoints already exist; their comparison UI is separate frontend work:
 
 1. **More than two observations:** a frontend-managed ordered collection of
    observation IDs, individual readiness/error states, and a playback index.
@@ -193,8 +197,9 @@ not implicitly included by adopting this specification:
    avoid relying on a permanent A/B-shaped data model. The backend continues
    serving each observation independently. Full-history search or pagination
    may be needed for broader time coverage.
-2. **Quality and background variants:** optional FLAGS masking and IMAGE − ZODI,
-   with processing provenance; preserve the existing raw-pixel contract.
+2. **Quality/background controls in the frontend:** consume the already
+   implemented optional corrections consistently across the selection; preserve
+   access to raw pixels. This is not a prerequisite for basic visual blink.
 3. **Target wavelength metadata:** enable the prototype's optional spectral
    comparison once supported by the backend.
 4. **Download retries and pre-warming:** improve availability; an offline demo
