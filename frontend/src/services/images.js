@@ -20,12 +20,16 @@ export const observerContext = (observer, timeContext = { mode: 'live' }) => ({
   mode: timeContext.mode,
 })
 
-export async function searchImages(context, direction, size, signal) {
-  return (await request('/search', { signal, body: { ...context, direction, size_arcmin: size, limit: 20 } })).json()
+// Only the most recent observation is requested; `detector` (1–6) narrows it to one array.
+export async function searchImages(context, direction, size, detector, signal) {
+  return (await request('/search', { signal, body: {
+    ...context, direction, size_arcmin: size, limit: 1, ...(detector ? { detector } : {}),
+  } })).json()
 }
 
-export async function searchCoordinates(ra, dec, size, signal) {
-  const query = new URLSearchParams({ ra_deg: ra, dec_deg: dec, size_deg: size / 60, limit: 20 })
+export async function searchCoordinates(ra, dec, size, detector, signal) {
+  const query = new URLSearchParams({ ra_deg: ra, dec_deg: dec, size_deg: size / 60, limit: 1 })
+  if (detector) query.set('detector', detector)
   return (await request(`?${query}`, { signal })).json()
 }
 

@@ -119,3 +119,4 @@
 @media (prefers-reduced-motion: reduce) {
   .select-trigger::before, .select-chevron, .select-list { transform: none !important; }
 }
+.detector-select .select-trigger { --select-trigger-surface: var(--context-field); }

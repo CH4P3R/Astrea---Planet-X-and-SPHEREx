@@ -2,13 +2,15 @@ import { useId, useState } from 'react'
 import Tooltip from '../common/Tooltip.jsx'
 import PanelContent from '../common/PanelContent.jsx'
 import InputField from '../common/InputField.jsx'
-import { coordinateError, cutoutSizeError } from '../../config/search.js'
+import Select from '../common/Select.jsx'
+import { ANY_DETECTOR, coordinateError, cutoutSizeError, DETECTORS } from '../../config/search.js'
 import useScrollHint from '../../hooks/useScrollHint.js'
 import useTranslation from '../../i18n/useTranslation.js'
 
 export default function FitsControls({ fits, observer, visible }) {
   const { t, date } = useTranslation()
   const formId = useId()
+  const detectorId = useId()
   const [ra, setRa] = useState('')
   const [dec, setDec] = useState('')
   const [validation, setValidation] = useState('')
@@ -18,6 +20,10 @@ export default function FitsControls({ fits, observer, visible }) {
   const sizeError = t(cutoutSizeError(fits.size))
   const projectionReason = !observer
     ? t('search.projectionRequired') : ''
+  const detectors = [
+    { value: ANY_DETECTOR, label: t('search.fields.detector.any') },
+    ...DETECTORS.map(({ value, range }) => ({ value, label: t('search.fields.detector.option', { detector: value, range }) })),
+  ]
 
   function submit(event) {
     event.preventDefault()
@@ -48,6 +54,11 @@ export default function FitsControls({ fits, observer, visible }) {
         value={fits.size}
         help={t('search.fields.size.help')}
         onChange={(event) => fits.setSize(event.target.value === '' ? '' : Number(event.target.value))} />
+      <div className="input-field">
+        <label htmlFor={detectorId}>{t('search.fields.detector.label')}</label>
+        <Select id={detectorId} className="detector-select" label={t('search.fields.detector.label')}
+          value={fits.detector} onChange={fits.setDetector} options={detectors} disabled={busy} />
+      </div>
       {!busy && !hasResults && <p>{t('search.intro')}</p>}
     </>}
     footer={<>
@@ -94,7 +105,7 @@ export default function FitsControls({ fits, observer, visible }) {
           </Tooltip>
         </li>)}
       </ul>
-      {fits.hasMore && <p>{t('search.results.limit', { count: fits.images.length })}</p>}
+      {fits.hasMore && <p>{t('search.results.limit')}</p>}
     </>}
   </PanelContent>
 }

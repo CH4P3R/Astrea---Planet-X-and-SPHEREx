@@ -10,6 +10,11 @@
       "label": "Right ascension, RA (°)", "placeholder": "0 to less than 360",
       "help": "The point's east/west position in the sky, in the ICRS system. Enter decimal degrees from 0 to less than 360, not hours; for example, 83.63."
     },
+    "detector": {
+      "label": "Detector",
+      "any": "Most recent (any detector)",
+      "option": "Detector {{detector}} · {{range}} µm"
+    },
     "dec": {
       "label": "Declination, Dec (°)", "placeholder": "−90 to 90",
       "help": "The position north or south of the celestial equator, in the ICRS system. Enter decimal degrees between −90 and 90; for example, −5.39. This is not your latitude on Earth."
@@ -30,11 +35,11 @@
   "noUnit": "No unit",
   "results": {
     "empty": "There are no observations in this region.",
-    "choose": "Select an observation to load its image.",
+    "choose": "Select the observation to load its image.",
     "observation": "{{id}} · Detector {{detector}} · {{collection}}",
     "noDate": "Observation date unavailable",
     "date": "{{date}} · UTC",
-    "limit": "Showing the first {{count}} observations."
+    "limit": "Showing only the most recent observation. Change the detector to see another band."
   },
   "notices": {
     "searching": "Searching for observations…", "loading": "Loading image…", "loaded": "Image loaded",
