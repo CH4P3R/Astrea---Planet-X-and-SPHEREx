@@ -25,6 +25,9 @@ export default function AppViewport() {
   const clock = useSkyClock()
   const fits = useFitsImage(location.observer, clock.context)
   const stars = useStars(location.observer, clock.context, clock.timestamp)
+  const starsNotice = useMemo(() => stars.status === 'loading' && !stars.snapshot
+    ? { status: 'loading', message: 'sky.status.loadingNotice', icon: 'star' } : null,
+  [stars.status, stars.snapshot])
   const [surfaceVisible, setSurfaceVisible] = useState(true)
   const [notice, setNotice] = useState(null)
   const [tab, setTab] = useState('data')
@@ -94,7 +97,7 @@ export default function AppViewport() {
             requestAnimationFrame(() => rootRef.current?.focus({ preventScroll: true })) }}
           onCenter={() => { fits.refine(1); setFocusVersion((value) => value + 1) }} />
         <div className="status-region">
-          <StatusNotice notice={fits.notice} />
+          <StatusNotice notice={starsNotice ?? fits.notice} />
         </div>
         {notice && <Tooltip key={notice.id} point={notice.point} message={t(noticeMessage)} open
           tone={notice.reason === 'location' && locating ? 'info' : 'error'} />}

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import useTooltipPosition from '../../hooks/useTooltipPosition.js'
 
 export default function Tooltip({ children, message, tone = 'info', open, compact = false, inline = false,
-  placement = 'top', id, point }) {
+  placement = 'top', id, point, hoverOnly = false }) {
   const generatedId = useId()
   const tooltipId = id ?? generatedId
   const anchorRef = useRef(null)
@@ -11,7 +11,7 @@ export default function Tooltip({ children, message, tone = 'info', open, compac
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
   const [dismissed, setDismissed] = useState(false)
-  const visible = Boolean(message) && !dismissed && (open ?? (hovered || focused))
+  const visible = Boolean(message) && !dismissed && (open ?? (hovered || (!hoverOnly && focused)))
   useTooltipPosition(anchorRef, tooltipRef, visible, placement, message, point)
 
   useEffect(() => {
@@ -39,9 +39,9 @@ export default function Tooltip({ children, message, tone = 'info', open, compac
       if (event.pointerType !== 'touch') { setHovered(true); setDismissed(false) }
     }}
     onPointerLeave={() => setHovered(false)}
-    onFocus={() => { setFocused(true); setDismissed(false) }}
+    onFocus={() => { if (!hoverOnly) { setFocused(true); setDismissed(false) } }}
     onBlur={() => setFocused(false)}
-    onClick={() => setDismissed(false)}
+    onClick={() => { if (!hoverOnly) setDismissed(false) }}
     onKeyDown={(event) => { if (event.key === 'Escape') setDismissed(true) }}>
     {cloneElement(children, { 'aria-describedby': describedBy })}
     {bubble}

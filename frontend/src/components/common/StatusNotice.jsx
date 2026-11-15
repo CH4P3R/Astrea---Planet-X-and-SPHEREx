@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Cancel, CheckRounded, Loading2Line, NoResultsOutlineBold } from './StatusIcons.jsx'
+import { Cancel, CheckRounded, Loading2Line, NoResultsOutlineBold, StarLoading } from './StatusIcons.jsx'
 import useTranslation from '../../i18n/useTranslation.js'
 
 const statusIcons = {
@@ -26,14 +26,14 @@ export default function StatusNotice({ notice, duration = 3200 }) {
   }, [notice, duration])
 
   const status = presented?.status ?? 'loading'
-  const Icon = statusIcons[status] ?? NoResultsOutlineBold
+  const Icon = presented?.icon === 'star' ? StarLoading : statusIcons[status] ?? NoResultsOutlineBold
 
   return <div className="status-notice" data-image-obstacle={visible || undefined}>
     <span className="status-notice-announcement" role="status" aria-live="polite" aria-atomic="true">
       {visible ? t(notice.message) : ''}
     </span>
     <div className="status-notice-surface" data-visible={visible} data-status={status} aria-hidden="true">
-      <span key={status} className={`status-notice-icon status-notice-icon-${status}`}>
+      <span key={`${status}:${presented?.icon ?? 'default'}`} className={`status-notice-icon status-notice-icon-${status}`}>
         <Icon />
       </span>
       <p className="status-notice-message">{t(presented?.message)}</p>
