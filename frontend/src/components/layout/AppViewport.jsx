@@ -29,6 +29,7 @@ export default function AppViewport() {
   const [notice, setNotice] = useState(null)
   const [tab, setTab] = useState('data')
   const [focusVersion, setFocusVersion] = useState(0)
+  const [searchDirection, setSearchDirection] = useState(null)
   const activeId = fits.active?.metadata.id
   const inspectorOpen = Boolean(activeId)
   const searchPending = fits.preparing || (!fits.active && ['searching', 'loading', 'results', 'error'].includes(fits.status))
@@ -60,6 +61,7 @@ export default function AppViewport() {
       return
     }
     setNotice(null)
+    setSearchDirection(direction)
     open('search')
     search(direction)
     return true
@@ -77,7 +79,8 @@ export default function AppViewport() {
           <SkyScene observer={observer} fits={fits} stars={stars} surfaceVisible={surfaceVisible}
             timestamp={clock.timestamp} onSkyClick={onSkyClick} frameImages={frameImages} viewport={viewport} focusVersion={focusVersion}
             layers={layers} appearance={appearance} frameId={playback.frameId}
-            onImageZoom={tab === 'compare' ? undefined : fits.refine} />
+            onImageZoom={tab === 'compare' ? undefined : fits.refine}
+            searchDirection={searchDirection} />
         </Canvas>
       </div>
       <div className="ui-layer">
