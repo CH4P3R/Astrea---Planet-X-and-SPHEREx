@@ -21,7 +21,7 @@ export default function SkyScene({ observer, fits, stars, surfaceVisible, timest
     <>
       <SkyCameraRig onSkyClick={onSkyClick} onImageZoom={onImageZoom} images={frameImages} viewport={viewport} focusVersion={focusVersion}
         previewActive={Boolean(fits.active)} selectionPending={['searching', 'loading', 'results'].includes(fits.status)}
-        focusRequest={fits.focus} timestamp={timestamp} />
+        focusRequest={fits.focus} timestamp={timestamp} selectionDirection={searchDirection} />
       {stars.snapshot && <Stars snapshot={stars.snapshot} timestamp={timestamp} />}
       <ImageLoadingMarker direction={searchDirection} status={fits.status} />
       {layers.map(({ image, pixels, ready }) => image && pixels && <FitsImage key={image.metadata.id}

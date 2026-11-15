@@ -8,7 +8,7 @@ import { dampSkyRotation, skyDirectionAtPointer, skyDragRotation, skyRotationFor
 import { imageFrame, zoomImageFrame } from './imageFrameUtils.js'
 
 export default function SkyCameraRig({ onSkyClick, onImageZoom, images = [], viewport, focusVersion = 0,
-  previewActive = false, selectionPending = false, focusRequest, timestamp }) {
+  previewActive = false, selectionPending = false, selectionDirection, focusRequest, timestamp }) {
   const { get, gl, invalidate, size } = useThree()
   const rotation = useRef(new Euler(0, 0, 0, 'YXZ'))
   const targetRotation = useRef(new Euler(0, 0, 0, 'YXZ'))
@@ -25,6 +25,8 @@ export default function SkyCameraRig({ onSkyClick, onImageZoom, images = [], vie
   const transition = useRef({ progress: 1, quaternion: new Quaternion(), zoom: 1, offsetX: 0, offsetY: 0 })
   const imageId = images[0]?.metadata.id
   const partnerId = images[1]?.metadata.id
+  // Fit the initial orthographic frustum inside the sky sphere
+  const baseZoom = baseOrthographicZoom(size.width, size.height)
 
   useEffect(() => {
     const { camera } = get()
@@ -87,12 +89,13 @@ export default function SkyCameraRig({ onSkyClick, onImageZoom, images = [], vie
     invalidate()
   }, -1)
 
-  // Fit the initial orthographic frustum inside the sky sphere
-  const baseZoom = baseOrthographicZoom(size.width, size.height)
-
   useEffect(() => {
     const { camera } = get()
     tween.current?.kill()
+    if (returning.current) {
+      rotation.current.setFromQuaternion(camera.quaternion, 'YXZ')
+      targetRotation.current.copy(rotation.current)
+    }
     returning.current = null
     const duration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 1.8
     if (!previewActive) {
@@ -125,6 +128,26 @@ export default function SkyCameraRig({ onSkyClick, onImageZoom, images = [], vie
       } else if (!selectionPending) selectionView.current = null
       imageZoom.current = 1
       focusKey.current = null
+      if (selectionPending && selectionDirection) {
+        const destination = camera.clone(false)
+        const centeredRotation = skyRotationForDirection(new Vector3(...selectionDirection), rotation.current.y)
+        destination.quaternion.setFromEuler(centeredRotation)
+        destination.clearViewOffset()
+        destination.updateMatrixWorld()
+        const motion = { progress: 0, from: camera.clone(false), to: destination }
+        returning.current = motion
+        tween.current = gsap.to(motion, {
+          progress: 1, duration: duration ? 0.8 : 0, ease: 'power2.inOut', onUpdate: invalidate,
+          onComplete: () => {
+            interpolateSkyView(camera, motion.from, motion.to, 1)
+            rotation.current.copy(centeredRotation)
+            targetRotation.current.copy(centeredRotation)
+            returning.current = null
+            invalidate()
+          },
+        })
+        return () => tween.current?.kill()
+      }
       camera.updateMatrixWorld()
       invalidate()
       return
@@ -151,7 +174,7 @@ export default function SkyCameraRig({ onSkyClick, onImageZoom, images = [], vie
     tween.current = gsap.to(motion, { progress: 1, duration,
       ease: 'power2.inOut', onUpdate: invalidate })
     return () => tween.current?.kill()
-  }, [imageId, partnerId, viewport, focusVersion, focusRequest, previewActive, selectionPending, get, invalidate, size.width, size.height])
+  }, [imageId, partnerId, viewport, focusVersion, focusRequest, previewActive, selectionPending, selectionDirection, get, invalidate, size.width, size.height])
 
   useEffect(() => {
     const element = gl.domElement

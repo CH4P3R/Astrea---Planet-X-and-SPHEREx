@@ -3,6 +3,7 @@
   "status": {
     "idle": "Set your location to load the stars.",
     "loading": "Loading Hipparcos stars…",
+    "loadingNotice": "Loading little stars...",
     "ready": { "one": "{{count}} star · Hipparcos", "other": "{{count}} stars · Hipparcos" },
     "unavailable": "Stars unavailable."
   },
