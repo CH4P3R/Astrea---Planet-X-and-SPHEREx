@@ -239,6 +239,42 @@
 .context-panel button[aria-disabled='true'] { opacity: 0.5; cursor: not-allowed; }
 .context-panel [role='alert'], .context-panel .location-error { color: #ffb4a9; }
 
+.context-panel .sky-surface-toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.sky-surface-toggle input[type='checkbox'] {
+  appearance: none;
+  flex: 0 0 22px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  margin: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.sky-surface-toggle input::after {
+  content: '';
+  width: 6px;
+  height: 11px;
+  border: solid #a9d9ff;
+  border-width: 0 2px 2px 0;
+  transform: translateY(-1px) rotate(45deg) scale(0);
+  transition: transform var(--motion-duration) var(--motion-spring);
+}
+.sky-surface-toggle input:checked { background: var(--context-hover); }
+.sky-surface-toggle input:checked::after { transform: translateY(-1px) rotate(45deg) scale(1); }
+
+@media (forced-colors: active) {
+  .sky-surface-toggle input[type='checkbox'] { appearance: auto; }
+  .sky-surface-toggle input::after { display: none; }
+}
+
 @media (max-width: 600px) {
   .sky-clock { top: 24px; left: 20px; }
   .sky-clock strong { font-size: 22px; }

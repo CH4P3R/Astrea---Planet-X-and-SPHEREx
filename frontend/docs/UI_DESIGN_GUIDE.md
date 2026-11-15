@@ -6,7 +6,7 @@
 
 La guía establece los patrones que deben extenderse a los siguientes flujos. Se complementa con [desing.md](../desing.md) y la [arquitectura](FRONTEND_ARCHITECTURE.md). Para la presentación e interacción del HUD, estas decisiones actualizan las referencias históricas del [flujo del prototipo](PROTOTYPE_UI_FLOW.md).
 
-Cerrar el diseño del flujo 1 no significa que todas las funciones del prototipo estén integradas: Aspecto del cielo conserva un mensaje de disponibilidad pendiente del catálogo estelar. Preparación permite buscar directamente al pulsar el cielo o introduciendo RA/Dec. Al ampliar la UI, representar únicamente capacidades reales del frontend y de la API.
+Aspecto del cielo muestra el estado del catálogo estelar y permite ocultar la superficie central. Preparación permite buscar directamente al pulsar el cielo o introduciendo RA/Dec. Al ampliar la UI, representar únicamente capacidades reales del frontend y de la API.
 
 ## 2. Composición del HUD
 
@@ -113,7 +113,7 @@ Aplicación en el flujo 1:
 - **Preparación:** tamaño compartido y estado en el encabezado; campos RA/Dec y observaciones en el cuerpo; búsqueda manual, cancelación o limpieza en el pie, según el estado. La lista se desplaza sin arrastrar fuera de vista las acciones.
 - **Tiempo:** estado en el encabezado; fecha personalizada y referencias temporales en el cuerpo; control del reloj y aplicación de fecha en el pie.
 - **Ubicación:** contexto del observador en el encabezado; coordenadas manuales y errores en el cuerpo; ubicación del dispositivo y aplicación manual en el pie.
-- **Aspecto del cielo:** título y contenido pertinente a su disponibilidad, sin acciones ficticias.
+- **Aspecto del cielo:** estado de las estrellas en el encabezado; visibilidad de la superficie central y errores en el cuerpo; reintento de carga en el pie cuando falla.
 
 ### Scroll
 
@@ -173,6 +173,21 @@ La búsqueda mediante un punto del cielo utiliza `POST /api/v1/images/search` y 
 - Aplicar el mismo aviso contextual cuando el tamaño del recorte no sea válido.
 - El aviso se descarta con Escape o con otro clic. El gesto de arrastre no debe iniciar una consulta.
 - Obtener la ubicación después de una búsqueda manual no debe borrar sus resultados.
+
+### Estrellas y superficie central
+
+- Las estrellas Hipparcos se cargan al disponer de ubicación y se actualizan con el contexto de Tiempo. El encabezado de Aspecto del cielo informa de carga, disponibilidad y cantidad.
+- Un fallo de carga o actualización muestra el error y la acción «Volver a cargar estrellas». Las direcciones caducadas no se muestran.
+- «Mostrar superficie central» es un checkbox nativo de aplicación inmediata, activado por defecto. Oculta o muestra la guía horizontal transparente situada bajo el observador, formada por cuadrícula y anillos.
+- La superficie es atravesable y permite ver el hemisferio inferior. No intercepta clics ni restringe la cámara. Su visibilidad es independiente de la ubicación y de la carga de estrellas.
+- La guía sigue el suelo del prototipo de referencia: plano en Y = −1, detalle atenuado por distancia y menor opacidad al mirar hacia abajo. Se adapta a la proyección ortográfica mediante las direcciones del cielo y solo aparece bajo el horizonte. No se debe volver a forzar la profundidad de un disco relleno, porque produce superposiciones al girar.
+
+### Navegación de la cámara
+
+- El arrastre horizontal cambia únicamente el rumbo y el vertical únicamente la elevación, siguiendo los controles del prototipo. La cámara gira desde el centro del cielo.
+- El giro lateral permanece en cero. La elevación se limita justo antes del cenit y del nadir para evitar invertir el horizonte.
+- El suavizado interpola rumbo y elevación por separado. El encuadre automático de imágenes utiliza la misma orientación nivelada y el giro horizontal más corto.
+- La sensibilidad depende del zoom ortográfico vigente. La transformación astronómica del fondo no debe inclinar la cámara ni los controles locales.
 
 ## 8. Tooltips reutilizables y explicación de bloqueos
 
@@ -256,6 +271,8 @@ Las rutas de esta tabla son relativas a `frontend/`.
 | `src/hooks/useTooltipPosition.js` | Posición del tooltip y adaptación al espacio visible |
 | `src/hooks/useSkyClock.js` | Tiempo en vivo, pausa, regreso al presente y aplicación de fecha |
 | `src/hooks/useObserver.js` | Solicitud automática de ubicación, reintento y prioridad de la entrada manual |
+| `src/hooks/useStars.js` | Carga, renovación y cancelación del cielo estelar según ubicación y tiempo |
+| `src/components/controls/SkyControls.jsx` | Estado de las estrellas, reintento y visibilidad de la superficie central |
 | `src/hooks/useFitsImage.js` | Tamaño compartido de aplicación inmediata y consultas por clic o RA/Dec |
 | `src/config/search.js` | Tamaño inicial de 7 minutos de arco y validación de tamaño y coordenadas |
 | `src/styles/base/variables.css` | Variables globales de movimiento y scroll |

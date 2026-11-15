@@ -1,28 +1,29 @@
 import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { MathUtils, Quaternion, Vector2, Vector3 } from 'three'
+import { Euler, MathUtils, Vector2, Vector3 } from 'three'
 import { SKY } from '../../config/sky.js'
 import { baseOrthographicZoom } from './skyViewUtils.js'
-import { skyDirectionAtPointer, skyDragRotation } from './skyDragUtils.js'
+import { dampSkyRotation, skyDirectionAtPointer, skyDragRotation, skyRotationForDirection } from './skyDragUtils.js'
 
 export default function SkyCameraRig({ onSkyClick, focus }) {
   const { get, gl, invalidate, size } = useThree()
-  const targetRotation = useRef(new Quaternion())
+  const rotation = useRef(new Euler(0, 0, 0, 'YXZ'))
+  const targetRotation = useRef(new Euler(0, 0, 0, 'YXZ'))
   const zoomScale = useRef(SKY.initialZoom)
 
   useEffect(() => {
     const { camera } = get()
     camera.position.set(0, 0, 0)
-    targetRotation.current.copy(camera.quaternion)
+    skyRotationForDirection(camera.getWorldDirection(new Vector3()), rotation.current.y, rotation.current)
+    targetRotation.current.copy(rotation.current)
+    camera.quaternion.setFromEuler(rotation.current)
     camera.updateMatrixWorld()
   }, [get])
 
   useFrame(({ camera }, delta) => {
-    if (camera.quaternion.angleTo(targetRotation.current) < 1e-7) {
-      camera.quaternion.copy(targetRotation.current)
-      return
-    }
-    camera.quaternion.slerp(targetRotation.current, MathUtils.damp(0, 1, 10, delta))
+    if (rotation.current.x === targetRotation.current.x && rotation.current.y === targetRotation.current.y) return
+    dampSkyRotation(rotation.current, targetRotation.current, delta)
+    camera.quaternion.setFromEuler(rotation.current)
     camera.updateMatrixWorld()
     invalidate()
   }, -1)
@@ -34,7 +35,7 @@ export default function SkyCameraRig({ onSkyClick, focus }) {
   useEffect(() => {
     if (!focus) return
     const { camera } = get()
-    targetRotation.current.setFromUnitVectors(new Vector3(0, 0, -1), new Vector3(...focus.direction).normalize())
+    skyRotationForDirection(new Vector3(...focus.direction), rotation.current.y, targetRotation.current)
     zoomScale.current = MathUtils.clamp(SKY.visibleDiameter / (SKY.radius * MathUtils.degToRad(focus.size) * 1.5), SKY.minZoom, SKY.maxZoom)
     camera.zoom = baseZoom * zoomScale.current
     camera.updateProjectionMatrix()
@@ -51,8 +52,7 @@ export default function SkyCameraRig({ onSkyClick, focus }) {
   useEffect(() => {
     const element = gl.domElement
     const pointer = new Vector2()
-    const anchor = new Vector3()
-    const dragRotation = new Quaternion()
+    const previousPointer = new Vector2()
     let pointerId = null
     let startX = 0
     let startY = 0
@@ -70,13 +70,9 @@ export default function SkyCameraRig({ onSkyClick, focus }) {
 
     const startDrag = (event) => {
       if (pointerId !== null || !event.isPrimary || event.button !== 0 || !readPointer(event)) return
-      const { camera } = get()
-      const direction = skyDirectionAtPointer(camera, pointer.x, pointer.y)
-      if (!direction) return
       event.preventDefault()
-      anchor.copy(direction).applyQuaternion(camera.quaternion)
-      dragRotation.copy(camera.quaternion)
-      targetRotation.current.copy(camera.quaternion)
+      previousPointer.copy(pointer)
+      targetRotation.current.copy(rotation.current)
       pointerId = event.pointerId
       startX = event.clientX
       startY = event.clientY
@@ -88,8 +84,9 @@ export default function SkyCameraRig({ onSkyClick, focus }) {
       if (event.pointerId !== pointerId || !readPointer(event)) return
       event.preventDefault()
       if (Math.hypot(event.clientX - startX, event.clientY - startY) > 5) moved = true
-      // Keep the grabbed sky point at the cursor instead of scaling pixel deltas
-      skyDragRotation(get().camera, pointer.x, pointer.y, anchor, dragRotation, targetRotation.current)
+      skyDragRotation(get().camera, pointer.x - previousPointer.x, pointer.y - previousPointer.y,
+        targetRotation.current, targetRotation.current)
+      previousPointer.copy(pointer)
       invalidate()
     }
 
@@ -118,13 +115,6 @@ export default function SkyCameraRig({ onSkyClick, focus }) {
       )
       camera.zoom = baseZoom * zoomScale.current
       camera.updateProjectionMatrix()
-      if (pointerId !== null) {
-        const direction = skyDirectionAtPointer(camera, pointer.x, pointer.y)
-        if (direction) {
-          anchor.copy(direction).applyQuaternion(targetRotation.current)
-          dragRotation.copy(targetRotation.current)
-        }
-      }
       invalidate()
     }
     element.addEventListener('pointerdown', startDrag)

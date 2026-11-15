@@ -6,4 +6,5 @@ export const SKY = {
   visibleDiameter: 120,
   raStep: 15,
   decStep: 15,
+  starMagnitudeLimit: 7,
 }
