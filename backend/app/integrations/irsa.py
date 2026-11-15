@@ -27,7 +27,7 @@ from pyvo.dal.sia2 import SIA2Service
 import requests
 
 from app.integrations import irsa_ranges
-from app.integrations.http_retry import is_transient, timeout_until, with_retries
+from app.integrations.http_retry import count_retries, is_transient, timeout_until, with_retries
 
 
 logger = logging.getLogger(__name__)
@@ -300,8 +300,21 @@ class IrsaClient:
         except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
             raise ArchiveError("IRSA returned an invalid search response.") from exc
 
+    def _logged(self, operation: str, label: str | None, run):
+        """Run `run(path)` and log one timing line; run sets path[0] to "service" on fallback."""
+        started, path, outcome, size = time.monotonic(), ["ranges"], "error", 0
+        with count_retries() as retries:
+            try:
+                content = run(path)
+                outcome, size = "ok", len(content)
+                return content
+            finally:
+                logger.info("IRSA %s image=%s path=%s outcome=%s bytes=%d seconds=%.2f retries=%d",
+                            operation, label or "-", path[0], outcome, size,
+                            time.monotonic() - started, retries[0])
+
     def download_cutout(
-        self, source_url: str, ra_deg: float, dec_deg: float, size_deg: float
+        self, source_url: str, ra_deg: float, dec_deg: float, size_deg: float, label: str | None = None,
     ) -> bytes:
         """FITS bytes for a selected cutout; only IMAGE is guaranteed to be present.
 
@@ -313,15 +326,19 @@ class IrsaClient:
         if not math.isfinite(size_deg) or size_deg <= 0:
             raise ValueError("size_deg must be positive and finite.")
         deadline = self._deadline()
-        content = self._partial(
-            lambda: self.ranges.read_cutout(source_url, ra_deg, dec_deg, size_deg, deadline))
-        if content is not None:
-            return content
-        return self._service_cutout(source_url, ra_deg, dec_deg, size_deg, deadline)
+
+        def run(path):
+            content = self._partial(
+                lambda: self.ranges.read_cutout(source_url, ra_deg, dec_deg, size_deg, deadline))
+            if content is not None:
+                return content
+            path[0] = "service"
+            return self._service_cutout(source_url, ra_deg, dec_deg, size_deg, deadline)
+        return self._logged("cutout", label, run)
 
     def download_plane(
         self, source_url: str, ra_deg: float, dec_deg: float, size_deg: float,
-        extension: str, grid: tuple[float, float, int, int],
+        extension: str, grid: tuple[float, float, int, int], label: str | None = None,
     ) -> bytes:
         """FITS bytes holding `extension` on exactly the grid of an already loaded image.
 
@@ -339,10 +356,14 @@ class IrsaClient:
         if not (math.isfinite(crpix1) and math.isfinite(crpix2) and int(width) > 0 and int(height) > 0):
             raise ValueError("grid must hold a finite reference pixel and a positive size.")
         deadline = self._deadline()
-        content = self._partial(lambda: self.ranges.read_plane(source_url, extension, grid, deadline))
-        if content is not None:
-            return content
-        return align_plane(self._service_cutout(source_url, ra_deg, dec_deg, size_deg, deadline), extension, grid)
+
+        def run(path):
+            content = self._partial(lambda: self.ranges.read_plane(source_url, extension, grid, deadline))
+            if content is not None:
+                return content
+            path[0] = "service"
+            return align_plane(self._service_cutout(source_url, ra_deg, dec_deg, size_deg, deadline), extension, grid)
+        return self._logged(f"plane {extension}", label, run)
 
     @staticmethod
     def _partial(read):

@@ -76,6 +76,7 @@ class ImageService:
                 content = self.archive.download_cutout(
                     source_url=selection["archive"]["source_url"],
                     ra_deg=request["ra_deg"], dec_deg=request["dec_deg"], size_deg=request["size_deg"],
+                    label=identifier,
                 )
                 decoded = decode_cutout(content)
                 # Validate the public contract before caching a completed image.
@@ -106,6 +107,7 @@ class ImageService:
                     ra_deg=request["ra_deg"], dec_deg=request["dec_deg"], size_deg=request["size_deg"],
                     extension=PLANES[plane][0],
                     grid=(float(crpix["CRPIX1"]), float(crpix["CRPIX2"]), image.width, image.height),
+                    label=identifier,
                 )
                 decoded = decode_plane(content, plane, image.width, image.height)
                 metadata = decoded.metadata

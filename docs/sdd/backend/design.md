@@ -138,6 +138,7 @@ calls, with no WebSockets or streaming sessions.
 | --- | --- | --- |
 | `GET /images` | `search_images(query: ImageSearchQuery)` | `ImageService.search` |
 | `POST /images/search` | `search_from_click(ClickSearchRequest)` | `click_to_icrs` → `ImageService.search` |
+| `POST /images/search-box` | `search_from_box(BoxSearchRequest)` | `directions_to_icrs` → `box_selection` → `ImageService.search` |
 | `GET /images/{id}` | `image_metadata` | `ImageService.metadata` |
 | `POST /images/load/{id}` | `load_image` | `ImageService.metadata` |
 | `GET /images/{id}/pixels` | `image_pixels(subtract_zodi, mask_flags, signal_to_noise)` | `pixels` (all options off → `FileResponse`) or `corrected_pixels` |
@@ -147,6 +148,7 @@ calls, with no WebSockets or streaming sessions.
 | `GET /stars` | `stars(magnitude_limit)` | `StarService.selected` |
 | `GET /star-catalog` | `star_catalog` | `StarService.metadata` |
 | `POST /sky` | `sky(SkyRequest)` | `StarService` → `calculate_sky` → `encode_sky` (binary) |
+| `GET /targets` | `targets()` | `TargetService.targets` (loaded and propagated once at startup) |
 
 - **Path validation:** `image_id` must match `^[0-9a-f]{64}$`. `plane` must
   be `Literal["flags", "zodi", "variance"]`. Anything else returns 422 before
@@ -223,8 +225,13 @@ def corrected(image, *, zodi=None, variance=None, flags=None, bad_mask: int = 0)
 
 ### 4.5 Geometry and sky (`services/image_geometry.py`, `sky.py`, `sky_transport.py`)
 
-- `click_to_icrs(direction, observer, at) -> (ra, dec)` uses the scene
-  convention +X east, +Y up, −Z north, with airless AltAz.
+- `directions_to_icrs(directions, observer, at) -> SkyCoord` converts scene
+  directions (+X east, +Y up, −Z north) to ICRS with airless AltAz.
+  `click_to_icrs(direction, observer, at) -> (ra, dec)` wraps it for one click.
+- `box_selection(corners) -> BoxGeometry(ra_deg, dec_deg, size_deg, corners)`
+  gives a dragged box's centre (normalised mean of the corner vectors) and the
+  side of the north-aligned tangent-plane square that covers it. Outside
+  6.15″ to 0.5° it raises `SelectionTooSmall` / `SelectionTooLarge`.
 - `build_mesh(wcs, w, h)` adaptively refines through 8 → 128 segments until
   interpolation error is at most 0.15 native pixel. UVs sit on pixel edges.
 - `project_image(metadata, observer, at, live)` returns UVs, indices and
@@ -469,6 +476,8 @@ image_id = sha256(json.dumps({"format_version": 1,
 | `ProjectionRequest` | `observer`, `at` (aware), `mode` (`live`\|`paused`) |
 | `SkyRequest` | + `magnitude_limit [−2,15]`, `format` (`json`\|`binary`), `catalog_version?` |
 | `ClickSearchRequest` | + `direction[3]`, `size_arcmin (0,30] = 6`, `detector?`, `limit`, dates |
+| `BoxSearchRequest` | + `corners[4][3]` (nonzero, components in −1…1), `detector?`, `limit`, dates |
+| `BoxSearchResponse` | `ImageSearchResponse` + `selection {center, size_deg, corners[4]}` |
 
 ### 6.3 Wire formats
 
@@ -512,6 +521,7 @@ Full FITS files are never persisted.
 | `ArchiveError` (irsa) | 502 | IRSA data could not be retrieved. Please retry. |
 | `InvalidFitsError` (fits_image) | 502 | IRSA returned an unsupported or invalid FITS image. |
 | `MeshError` (image_geometry) | 422 | This image's WCS cannot be projected accurately. Try a smaller size. |
+| `SelectionTooLarge` / `SelectionTooSmall` (image_geometry) | 422 | The exception's own message, stating the selected size and the limit |
 | `CatalogError` (catalog) | 502 | The star catalog could not be retrieved. |
 | `CacheError` (store/service) | 503 | The local image cache is unavailable. |
 | `ArchiveTimeout` (irsa) | 504 | IRSA timed out. Please retry. |
@@ -562,8 +572,12 @@ Full FITS files are never persisted.
 
 ## 11. Configuration
 
-`core/config.Settings` is a frozen dataclass. `create_app(Settings(...))`
-overrides it in tests.
+`core/config.Settings` is a frozen dataclass. `create_app()` uses
+`Settings.from_env()`: defaults overridden by `ASTREA_CACHE_DIR`,
+`ASTREA_STAR_CACHE`, `ASTREA_TARGETS_FILE`, `ASTREA_CORS_ORIGINS`, `ASTREA_BAD_FLAGS` and
+`ASTREA_ARCHIVE_BUDGET_SECONDS`. Invalid values, `SOURCE` in the flag list and
+unknown `ASTREA_*` names stop startup. `create_app(Settings(...))` overrides
+everything in tests.
 
 | Field | Default |
 | --- | --- |
@@ -571,6 +585,7 @@ overrides it in tests.
 | `api_prefix` | `/api/v1` |
 | `cutout_cache_dir` | `backend/data/image-cutouts` |
 | `star_cache_path` | `backend/data/hipparcos-v1.json` |
+| `targets_path` | `backend/targets.yaml` |
 | `cors_origins` | `http://localhost:5173`, `http://127.0.0.1:5173` |
 | `bad_flags` | `DEFAULT_BAD_FLAGS` (defined in `core/config.py`) |
 | `archive_budget_seconds` | `120.0` |
@@ -582,7 +597,9 @@ Some tuning still lives as module constants:
 - `http_retry.py`: `RETRY_DELAYS`
 - `sky.py`: sample interval and live window
 
-Settings are not read from environment variables yet (task T2).
+Each image or plane download logs one `INFO` line from `IrsaClient`
+(`operation`, `image`, `path=ranges|service`, `outcome`, `bytes`, `seconds`,
+`retries`); `app/main.py` attaches a handler to the `app` logger.
 
 ## 12. Testing strategy
 
@@ -627,7 +644,7 @@ integration (if any) → service → wiring in `create_app` and `dependencies.py
 | --- | --- | --- |
 | Frontend blink integration | Existing image search, load, pixels and per-image WCS projection | No new backend module or routes. Frontend owns A/B selection, shared display scale and playback; future sequences can include more observations |
 | Common-grid analysis (optional later) | Image data, WCS and optional corrections | Separately specified resampling for subtraction/measurements; not a prerequisite for visual blink |
-| Pre-warm CLI (optional) | `ImageService` and existing cache | `targets.yaml`, proper motion, saved observation manifest and offline cache checks; browser offline discovery needs a separate handoff |
+| Pre-warm CLI — *implemented* | `ImageService` and existing cache | `targets.yaml` + `services/targets.py` (proper motion, `GET /targets`), `app/warm.py` (time-spread choice, manifest, `--offline` cache check). Browser offline discovery still needs a separate handoff |
 | Spectra | `irsa_ranges` (`WCS-WAVE` plane) | Wavelength at the target |
 | Overlays | `catalog.py` pattern | Gaia DR3 / WISE |
 
@@ -651,17 +668,20 @@ Strengths:
 
 ## 16. Requirements traceability
 
-`docs/sdd/backend/requirements.md` does not exist yet. Until it does, this
-design traces to the historical product goals (`spherex-blink-viewer-design.md`
-§2), interpreted through the active prototype-style Blink spec, and to §2 above.
-Historical PNG rendering and mandatory reprojection are not current requirements:
+Requirements live in [`requirements.md`](requirements.md) (SRCH, DATA, GEO,
+BLNK, OFF, NFR and AT IDs, with goal traceability in its §5). This design
+covers them as follows:
 
-| Product goal | Status in this design |
+| Requirements | Design sections |
 | --- | --- |
-| G1 Query any ICRS position and get real SPHEREx frames | Met: §4.7, §5.1 |
-| G2 Blink frames with epoch labels | Supported: epochs in `observation`. Frontend integration is future work; no new blink backend module (§14) |
-| G3 Cache so repeat views don't depend on IRSA | Met: §7. Pre-warm is future work |
-| G4 Pre-warm acceptance targets | Future: pre-warm CLI |
-| G5 Pass the acceptance set | Pending: frontend visual comparison and target validation; pre-warm/offline discovery only for an offline demo |
-| G6 Shareable URL parameters | Frontend concern. The backend is stateless per request |
-| G7 User-controlled FOV | Met for cutouts (`size_deg` ≤ 0.5°, `size_arcmin` ≤ 30) |
+| SRCH-1, SRCH-5–9 | §4.7 (`IrsaClient.search`, release discovery), §5.1 |
+| SRCH-2, SRCH-3, SRCH-4 | §4.1 (routes), §4.5 (`directions_to_icrs`, `box_selection`) |
+| DATA-1–3, DATA-7–8 | §4.2, §4.3, §6.3 |
+| DATA-4–6 | §4.4 (`quality`), §4.7 (`download_plane`, `align_plane`), §5.3 |
+| GEO-1–4 | §4.5 |
+| BLNK-1–5 | §4.2 (IDs, cache, locks), §14 (frontend blink integration); `API.md` blink checklist |
+| OFF-1–4 | §14 (pre-warm CLI, optional) |
+| NFR-1–12 | §2 (D1–D8), §7–§12 |
+
+Historical PNG rendering, server-side frame selection and mandatory
+reprojection are not requirements (requirements §4).

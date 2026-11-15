@@ -6,6 +6,8 @@ Timeouts are not retried: an archive that did not answer in time rarely
 answers at once, and repeating the wait would triple it.
 """
 
+from contextlib import contextmanager
+from contextvars import ContextVar
 import time
 
 import requests
@@ -14,6 +16,18 @@ import requests
 RETRY_STATUS = frozenset({429, 500, 502, 503, 504})
 RETRY_DELAYS = (1.0, 2.5)
 MAX_RETRY_AFTER = 5.0
+_retry_counter: ContextVar[list[int] | None] = ContextVar("archive_retry_counter", default=None)
+
+
+@contextmanager
+def count_retries():
+    """Count the retry waits taken by with_retries inside this block: `with count_retries() as n: ... n[0]`."""
+    counter = [0]
+    token = _retry_counter.set(counter)
+    try:
+        yield counter
+    finally:
+        _retry_counter.reset(token)
 
 
 def is_transient(error: BaseException) -> bool:
@@ -57,4 +71,6 @@ def with_retries(action, *, transient=is_transient, sleep=None, deadline=None):
             wait = _delay(error, delay)
             if deadline is not None and time.monotonic() + wait >= deadline:
                 raise
+            if (counter := _retry_counter.get()) is not None:
+                counter[0] += 1
             (sleep or time.sleep)(wait)

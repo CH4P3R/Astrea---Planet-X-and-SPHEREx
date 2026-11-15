@@ -11,11 +11,12 @@ from app.core.config import Settings
 from app.integrations.cutout_store import CutoutStore
 from app.integrations.irsa import IrsaClient
 from app.services.images import ImageService
+from app.services.targets import TargetService
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     """Build an independent application instance for Uvicorn or tests."""
-    settings = settings if settings is not None else Settings()
+    settings = settings if settings is not None else Settings.from_env()
     app = FastAPI(title=settings.app_name, version=settings.app_version)
     app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins),
                        allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
@@ -26,6 +27,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         store=CutoutStore(settings.cutout_cache_dir),
         api_prefix=settings.api_prefix, bad_flags=settings.bad_flags,
     )
+    app.state.target_service = TargetService(settings.targets_path, settings.api_prefix)
     register_exception_handlers(app)
     app.include_router(api_router, prefix=settings.api_prefix)
     return app

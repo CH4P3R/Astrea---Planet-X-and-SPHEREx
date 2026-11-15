@@ -7,11 +7,11 @@ from fastapi.responses import FileResponse
 
 from app.api.dependencies import get_image_service
 from app.schemas.images import (
-    ImageMetadata, ImageSearchQuery, ImageSearchResponse, PlaneMetadata, PlaneName,
+    BoxSearchResponse, BoxSelection, ImageMetadata, ImageSearchQuery, ImageSearchResponse, PlaneMetadata, PlaneName,
 )
 from app.services.images import ImageService
-from app.schemas.sky import ClickSearchRequest, ProjectionRequest
-from app.services.image_geometry import click_to_icrs, project_image
+from app.schemas.sky import BoxSearchRequest, ClickSearchRequest, ProjectionRequest
+from app.services.image_geometry import box_selection, click_to_icrs, directions_to_icrs, project_image
 
 router = APIRouter(prefix="/images", tags=["images"])
 Service = Annotated[ImageService, Depends(get_image_service)]
@@ -79,6 +79,22 @@ def search_from_click(request: ClickSearchRequest, service: Service):
         ra_deg=ra, dec_deg=dec, size_deg=request.size_arcmin / 60,
         detector=request.detector, limit=request.limit,
         start_time=request.start_time, end_time=request.end_time,
+    ))
+
+
+@router.post("/search-box", response_model=BoxSearchResponse)
+def search_from_box(request: BoxSearchRequest, service: Service):
+    """Convert a box dragged on the local sky to an ICRS centre and cutout size, then search."""
+    box = box_selection(directions_to_icrs(request.corners, request.observer.model_dump(), request.at))
+    result = service.search(ImageSearchQuery(
+        ra_deg=box.ra_deg, dec_deg=box.dec_deg, size_deg=box.size_deg,
+        detector=request.detector, limit=request.limit,
+        start_time=request.start_time, end_time=request.end_time,
+    ))
+    return BoxSearchResponse(**result.model_dump(), selection=BoxSelection(
+        center={"ra_deg": box.ra_deg, "dec_deg": box.dec_deg},
+        size_deg=box.size_deg,
+        corners=[{"ra_deg": ra, "dec_deg": dec} for ra, dec in box.corners],
     ))
 
 

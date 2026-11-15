@@ -1,19 +1,21 @@
-# API runtime and tests. Notebook and ML tools: requirements-notebooks.txt.
+# API runtime and tests (Python 3.10+). Notebook and ML tools: requirements-notebooks.txt.
+# Lower bounds are verified by requirements-min.txt.
 
 # --- Astronomical Data Tools ---
-astropy>=6.0
+astropy>=6.1.3
 astroquery>=0.4.11
 pyvo>=1.5
-pyerfa>=2.0.1
+pyerfa>=2.0.1.4
+pyyaml>=6.0.2
 
 # --- Math and HTTP ---
-numpy>=1.26
+numpy>=2.1
 requests>=2.31
 
 # --- Server / Backend ---
 fastapi>=0.115
 uvicorn>=0.29
-pydantic>=2.7
+pydantic>=2.8
 
 # --- Testing and Code Quality ---
 pytest>=8.0

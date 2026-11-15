@@ -11,3 +11,7 @@ def get_image_service(request: Request) -> ImageService:
 
 def get_star_service(request: Request):
     return request.app.state.star_service
+
+
+def get_target_service(request: Request):
+    return request.app.state.target_service

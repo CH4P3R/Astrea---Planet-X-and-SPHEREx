@@ -12,6 +12,7 @@ details in this document.
 | --- | --- | --- | --- | --- |
 | GET | `/images` | JSON | Search observations by RA/Dec; downloads nothing | 1 |
 | POST | `/images/search` | JSON | Search from a click on the local sky | Click, load and project |
+| POST | `/images/search-box` | JSON | Search from a box dragged on the local sky | Box selection on the sky |
 | GET | `/images/{id}` | JSON | Load a cutout and read its metadata | 2 |
 | POST | `/images/load/{id}` | JSON | Same as `GET /images/{id}` | Click, load and project |
 | GET | `/images/{id}/pixels` | binary | Pixel values, with optional corrections | 3, 4 |
@@ -21,6 +22,7 @@ details in this document.
 | GET | `/stars` | JSON | Hipparcos stars up to a magnitude | Star catalog and observer sky |
 | GET | `/star-catalog` | JSON | Catalog version and render metadata | Star catalog and observer sky |
 | POST | `/sky` | JSON or binary | Star directions for an observer and time | Star catalog and observer sky |
+| GET | `/targets` | JSON | Acceptance targets, positions propagated to the SPHEREx epoch | Acceptance targets |
 
 ## 1. Search observations
 
@@ -282,14 +284,15 @@ The response sent to the browser is always `width * height * 4` bytes
 
 | Status | Meaning |
 | --- | --- |
-| 422 | Invalid coordinates, dates, limits, size, detector, or malformed ID; or an image whose WCS cannot be projected accurately (projection endpoint). |
+| 422 | Invalid coordinates, dates, limits, size, detector, or malformed ID; a dragged box outside the size limits; or an image whose WCS cannot be projected accurately (projection endpoint). |
 | 404 | Unknown ID; run a search to register it on this backend. |
 | 502 | IRSA request failed or the returned FITS could not be decoded. |
 | 504 | IRSA timed out, or one download used up its time budget (120 s by default). |
 | 503 | The local cache is unavailable. |
 
 Errors include `detail`; request-validation details are FastAPI's structured
-list. Upstream/internal exception traces stay in server logs. The same
+list. A rejected NaN or infinity in a JSON body is reported in that list (its
+`input` echoed as the text `"nan"`/`"inf"`), not as a server error. Upstream/internal exception traces stay in server logs. The same
 statuses apply to the plane endpoints and to the pixel options; 422 also
 covers an unknown plane name or a non-boolean option.
 
@@ -442,6 +445,132 @@ Discovered SPHEREx collections are searched together. A click can return multipl
 or no observations; no image is downloaded until an ID is loaded.
 
 Use `/docs` to test POST requests; the browser address bar only sends GET.
+
+### Box selection on the sky
+
+`POST /api/v1/images/search-box` is the drag-a-rectangle counterpart of the
+click search. The frontend sends the four corners of the dragged box as local
+directions; the backend converts them to ICRS with the same observer, time
+and conventions as the click (+X east, +Y up, −Z north), then runs the normal
+image search.
+
+```json
+{
+  "corners": [[-0.05, 0.99, -0.12], [0.05, 0.99, -0.12], [0.05, 0.99, -0.02], [-0.05, 0.99, -0.02]],
+  "observer": {"latitude_deg": 14, "longitude_deg": -89, "elevation_m": 0},
+  "at": "2026-11-14T18:00:00Z",
+  "mode": "paused",
+  "detector": 2,
+  "limit": 20
+}
+```
+
+- `corners`: exactly four nonzero directions (components in −1…1), in drag
+  order. `detector`, `limit`, `start_time` and `end_time` behave exactly as
+  in the click search.
+- **Centre:** the normalised mean of the corners' sky directions (well defined
+  across RA 0°/360° and near the poles).
+- **Cutout size:** the side of the north-aligned square, in the tangent plane at
+  the centre, that contains every corner. A box tilted relative to north gets
+  a larger square that still covers it. It must lie between one SPHEREx pixel
+  (6.15″) and 0.5° (30′):
+  - larger: 422, `"The selected box spans 36.0′; the maximum is 30′. Zoom in or drag a smaller box."`;
+  - smaller: 422, `"The selected box is smaller than one pixel. Drag a larger box or click instead."`.
+- **Search semantics** are unchanged: exposures that contain the box **centre**
+  are returned, each with a cutout of the computed size. Near an exposure edge
+  a cutout can be clipped; `width`/`height` in the metadata are authoritative.
+  Exposures that touch the box but not its centre are not returned yet.
+
+The response is the normal search response (`query`, `images`, `has_more`,
+`order`) plus `selection`:
+
+| Field | Meaning |
+| --- | --- |
+| `selection.center` | ICRS centre used for the search (`ra_deg`, `dec_deg`, `frame`) |
+| `selection.size_deg` | Cutout side used for every result |
+| `selection.corners` | The four corners in ICRS, in the order they were sent |
+
+Image IDs are the same as a `GET /api/v1/images` search with that centre and
+size, so loading, pixels and projection work exactly as for click results.
+Nothing is downloaded until an ID is loaded.
+
+Frontend side, on drag end:
+
+1. Compute the four screen-corner rays with `skyDirectionAtPointer` and rotate
+   each by `camera.quaternion`, exactly as for a click.
+2. If any corner falls off the sky disc (`skyDirectionAtPointer` returns
+   `null`), do not send the request; ask the user to drag inside the sky.
+3. Send the corners in drag order with the same observer and displayed time
+   used for the sky.
+4. Draw `selection.corners` as the selected region, then load results as for
+   a click. Show the 422 `detail` text as is: it states the limit.
+
+### Blink: frontend integration checklist
+
+Blink runs entirely in the frontend on top of the routes above; there is no
+blink endpoint. The full contract is
+[`docs/superpowers/specs/2026-11-14-spherex-backend-fastapi-design.md`](../docs/superpowers/specs/2026-11-14-spherex-backend-fastapi-design.md).
+In short:
+
+- **Selection.** Search once (click, box or RA/Dec) and pick A and B from
+  `images` with different IDs and observation times. Same-detector filtering
+  is optional; a shared detector does not guarantee a shared wavelength.
+  `images` is limited by `limit` (newest first) and `has_more`: never present
+  it as the complete observation history; use `start_time`/`end_time` to reach
+  older dates.
+- **Loading.** Load each observation independently (`POST /images/load/{id}`,
+  then its `pixels_url`). Keep A usable while B loads or fails. Decode each with
+  its own `width`, `height` and `dtype`. Cancel or ignore stale responses when
+  the selection changes.
+- **Placement.** Request `POST /images/{id}/projection` for every observation
+  with the **same** `observer`, `at` and `mode`, and draw each texture with its
+  own `uv`, `indices` and `directions`. Never reuse one image's mesh for
+  another. In live mode refresh projections (not pixels) before the
+  120-second sample window ends.
+- **Display scale.** Compute one range (for example percentiles of the
+  combined finite values) and apply it to every observation; never autoscale
+  per image while blinking. Keep the raw values so the range can be recomputed
+  when the selection changes. Nonfinite samples are transparent.
+- **Corrections.** `subtract_zodi`, `mask_flags` and `signal_to_noise` stay off
+  by default. If used, use the same options for every compared observation, and
+  never mix raw intensities with dimensionless signal-to-noise.
+- **States.** Handle empty results, a single observation, a failed B load and
+  expired projections; playback starts only when every selected observation
+  has pixels and a usable projection, and switching visibility makes no
+  request.
+- **More than two observations** use the same per-image calls: an ordered list
+  of IDs, a playback index and individual readiness, with bounded loading.
+- A visible difference is a visual comparison, not a confirmed detection.
+
+### Acceptance targets
+
+`GET /api/v1/targets` returns the demo and validation targets from
+`backend/targets.yaml` (SIMBAD positions at J2000.0 with proper motions).
+Each position is propagated by proper motion to the file's `epoch` (2025.9,
+the middle of SPHEREx DR1), because fast movers drift out of a small search
+box: Barnard's Star moves about 4.5′ between 2000 and 2025.9.
+
+```json
+{
+  "epoch": 2025.9,
+  "size_deg": 0.1,
+  "targets": [{
+    "name": "Barnard's Star", "simbad_id": "NAME Barnard's star", "expected": "motion",
+    "detector": null, "reference": "2020yCat.1350....0G",
+    "catalog": {"ra_deg": 269.452077, "dec_deg": 4.693365, "frame": "ICRS", "epoch": "J2000.0",
+                "pmra_mas_yr": -801.551, "pmdec_mas_yr": 10362.394},
+    "position": {"ra_deg": 269.44629, "dec_deg": 4.767917, "frame": "ICRS"},
+    "motion_arcsec": 269.19,
+    "search": {"ra_deg": 269.4462902, "dec_deg": 4.7679166, "size_deg": 0.1, "frame": "ICRS"},
+    "images_url": "/api/v1/images?ra_deg=269.4462902&dec_deg=4.7679166&size_deg=0.1"
+  }]
+}
+```
+
+`images_url` is a ready-made search. `expected` (`motion` or `variability`)
+says what to look for; it is not a confirmed result. Use these as one-click
+examples instead of hard-coding coordinates in the frontend. The response
+never changes while the server runs.
 
 ### Automatic release discovery
 

@@ -60,6 +60,16 @@ class ImageSearchResponse(BaseModel):
     order: Literal["observation_start_desc"] = "observation_start_desc"
 
 
+class BoxSelection(BaseModel):
+    center: SkyPosition = Field(description="ICRS centre used for the search.")
+    size_deg: float = Field(description="Side of the north-aligned square cutout that covers the box.")
+    corners: list[SkyPosition] = Field(description="The dragged corners in ICRS, in the order they were sent.")
+
+
+class BoxSearchResponse(ImageSearchResponse):
+    selection: BoxSelection
+
+
 class HeaderCard(BaseModel):
     keyword: str
     value: str | int | float | bool | None

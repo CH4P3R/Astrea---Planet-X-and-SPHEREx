@@ -4,6 +4,7 @@
 - **Scope:** `backend/`
 - **Inputs:**
   - [`design.md`](design.md): architecture, components, and decisions DD1–DD10
+  - [`requirements.md`](requirements.md): SRCH, DATA, GEO, BLNK, OFF, NFR and AT requirements
   - [`spec.md`](spec.md): hardening REQ-1 to REQ-7 (done)
   - Blink design: [`../../superpowers/specs/2026-11-14-spherex-backend-fastapi-design.md`](../../superpowers/specs/2026-11-14-spherex-backend-fastapi-design.md)
   - Historical product goals G1–G7 and candidate acceptance targets (not an active architecture): [`../../superpowers/specs/2026-11-14-spherex-blink-viewer-design.md`](../../superpowers/specs/2026-11-14-spherex-blink-viewer-design.md)
@@ -45,7 +46,7 @@
 
 ## Phase 1 — Foundations
 
-### [ ] 1.1 Settings from environment variables
+### [x] 1.1 Settings from environment variables
 
 - **Why:** deployment and demo machines need different cache paths, CORS
   origins and budgets without code edits (design §11).
@@ -63,9 +64,9 @@
   - Defaults are unchanged.
   - A bad value fails fast with a clear message.
 - **Tests:** `tests/test_config.py`: defaults, each override, bad number, `SOURCE` rejected.
-- **Refs:** D1, D8; roadmap step 2.
+- **Refs:** NFR-9; D1, D8; roadmap step 2.
 
-### [ ] 1.2 Request timing logs
+### [x] 1.2 Request timing logs
 
 - **Why:** to see where time goes (search, ranges, fallback, decode,
   projection) before optimising (roadmap step 8).
@@ -79,9 +80,9 @@
 - **Done when:** one line per image or plane download, and a warning when the
   fallback was used.
 - **Tests:** assert with `caplog` in `test_irsa_ranges.py` and `test_planes_api.py`.
-- **Refs:** D6.
+- **Refs:** NFR-10; D6.
 
-### [ ] 1.3 Check the minimum dependency versions
+### [x] 1.3 Check the minimum dependency versions
 
 - **Why:** the `>=` bounds in `requirements.txt` resolve, but the tests only
   ran on the newest releases (spec REQ-7).
@@ -91,9 +92,9 @@
   - Raise any bound that fails.
 - **Done when:** the suite passes on both the minimum and the latest sets.
   Record the result in `environment.md`.
-- **Refs:** REQ-7.
+- **Refs:** NFR-11; REQ-7.
 
-### [ ] 1.4 Product requirements document
+### [x] 1.4 Product requirements document
 
 - **Why:** `design.md` §16 traces to product goals because `requirements.md`
   does not exist yet.
@@ -136,7 +137,7 @@ coordinates have a single source of truth (same rule as the click search,
   are authoritative). Exposures that touch the box but not its centre are
   out of scope (task 5.7).
 
-### [ ] 2.1 Shared sky-direction geometry
+### [x] 2.1 Shared sky-direction geometry
 
 - **Changes:** `services/image_geometry.py`:
   - `directions_to_icrs(directions, observer, at) -> SkyCoord`: a vectorised
@@ -161,9 +162,9 @@ coordinates have a single source of truth (same rule as the click search,
     and a 45°-rotated box (size = side × √2).
   - **Limits:** too large → `SelectionTooLarge`; corners closer than 6.15″
     → `SelectionTooSmall`; zero or non-finite vectors are rejected.
-- **Refs:** G1, G7; D3, D6, D8.
+- **Refs:** SRCH-3, SRCH-4; G1, G7; D3, D6, D8.
 
-### [ ] 2.2 Box search schema, route and errors
+### [x] 2.2 Box search schema, route and errors
 
 - **Changes:**
   - `schemas/sky.py`: `BoxSearchRequest(ProjectionRequest)`:
@@ -198,9 +199,9 @@ coordinates have a single source of truth (same rule as the click search,
     never contacted.
   - Malformed `corners` (3 or 5 vectors, a zero vector, NaN) → 422.
   - OpenAPI lists the new route.
-- **Refs:** G1, G7; D1, D6.
+- **Refs:** SRCH-3, SRCH-4, NFR-1, NFR-6; G1, G7; D1, D6.
 
-### [ ] 2.3 Box selection documentation and frontend contract
+### [x] 2.3 Box selection documentation and frontend contract
 
 - **Changes:**
   - `API.md`: add a section "Box selection on the sky" with the request,
@@ -217,7 +218,7 @@ coordinates have a single source of truth (same rule as the click search,
   - Technical documentation §4.2 (a new "search by box" flow) and §14.
 - **Done when:** the frontend team can implement box selection from `API.md`
   alone.
-- **Refs:** D1.
+- **Refs:** SRCH-3, NFR-1; D1.
 
 ## Phase 3 — Support frontend blink with the existing API
 
@@ -230,7 +231,7 @@ required for this integration. Existing corrections are optional and default off
 These tasks cover backend verification and handoff only. They do not authorize
 changes to frontend source or imply that playback is already implemented.
 
-### [ ] 3.1 Verify independent observation loading and projection
+### [x] 3.1 Verify independent observation loading and projection
 
 - **Changes:** add focused regression coverage where the existing tests do not
   already cover two observations loaded concurrently for one region.
@@ -241,9 +242,9 @@ changes to frontend source or imply that playback is already implemented.
   - No new response shape or blink-specific backend state is introduced.
 - **Tests:** `test_images_api.py`: two synthetic observations with different
   WCS rotations, independent load/pixel/projection responses and cache reuse.
-- **Refs:** G1, G2; D1, D3, D5; active Blink spec §3–§4 and §8.
+- **Refs:** BLNK-1, BLNK-2, BLNK-3; G1, G2; D1, D3, D5; active Blink spec §3–§4 and §8.
 
-### [ ] 3.2 Document the frontend integration contract
+### [x] 3.2 Document the frontend integration contract
 
 - **Changes:** complete the Blink integration section in `API.md` using existing
   `/images/search`, `/images/load/{id}`, `/images/{id}/pixels` and
@@ -265,7 +266,7 @@ changes to frontend source or imply that playback is already implemented.
     index, individual readiness and bounded loading, still using this API.
 - **Done when:** the frontend team can implement the initial A/B interaction
   without relying on this chat or a new backend endpoint.
-- **Refs:** G2; D1, D3, D6; active Blink spec §4–§8.
+- **Refs:** BLNK-4, BLNK-5; G2; D1, D3, D6; active Blink spec §4–§8.
 
 ### [ ] 3.3 Joint integration acceptance (manual)
 
@@ -283,7 +284,7 @@ changes to frontend source or imply that playback is already implemented.
   - Visual differences are not presented as confirmed scientific detections.
 - Record test evidence. Mark this item complete only after the frontend
   integration is tested, not merely because the backend routes exist.
-- **Refs:** G2; active Blink spec §8.
+- **Refs:** BLNK-1–5; G2; active Blink spec §8.
 
 ## Phase 4 — Optional offline demo preparation (roadmap step 5)
 
@@ -292,7 +293,7 @@ blink. Reuse `ImageService`, not a separate blink service. Candidate targets
 from the historical proposal need live validation; their visibility or motion
 is not guaranteed by implementing playback.
 
-### [ ] 4.1 Acceptance targets
+### [x] 4.1 Acceptance targets
 
 - **Changes:**
   - `backend/targets.yaml`: the five targets with ICRS J2000 position, proper
@@ -300,22 +301,22 @@ is not guaranteed by implementing playback.
   - **Manual check:** take every value from SIMBAD (or Sesame) and record the
     date in the file. Do not keep the approximate values from the Blink spec.
 - **Done when:** each value has a source noted in a YAML comment.
-- **Refs:** G4, G5.
+- **Refs:** OFF-1, AT-1–5; G4, G5.
 
-### [ ] 4.2 Target propagation and route
+### [x] 4.2 Target propagation and route
 
 - **Changes:**
   - Add `pyyaml` to `requirements.txt`.
   - `services/targets.py`: load and validate the YAML, then propagate with
     `SkyCoord.apply_space_motion` (angles only) to the configured epoch
-    (default 2025.6).
-  - Proposed additive route `GET /api/v1/targets` → `Target[]`; document its
-    schema before implementation. No blink-specific route is needed.
-- **Done when:** Barnard's Star moves about 4.4′ between J2000 and 2025.6.
+    (2025.9, the middle of SPHEREx DR1; set in `targets.yaml`).
+  - Additive route `GET /api/v1/targets` → `TargetsResponse` (documented in
+    `API.md`). No blink-specific route is needed.
+- **Done when:** Barnard's Star moves about 4.5′ between J2000 and 2025.9.
 - **Tests:** `tests/test_targets.py`.
-- **Refs:** G4.
+- **Refs:** OFF-1; G4.
 
-### [ ] 4.3 Warm command
+### [x] 4.3 Warm command
 
 - **Changes:**
   - `app/warm.py`: `python -m app.warm targets.yaml [--only NAME] [--fov 0.1] [--max-frames 12] [--offline]`.
@@ -337,7 +338,7 @@ is not guaranteed by implementing playback.
     A complete offline demo additionally needs a documented manifest handoff
     or cached search response path, implemented and tested separately.
 - **Tests:** `tests/test_warm.py`: report format, exit codes, offline mode raises on network use.
-- **Refs:** G3, G4; anti-goal "demo dies because IRSA is slow".
+- **Refs:** OFF-2, OFF-3, OFF-4; G3, G4; anti-goal "demo dies because IRSA is slow".
 
 ### [ ] 4.4 Acceptance run (manual)
 
@@ -356,7 +357,7 @@ is not guaranteed by implementing playback.
   - No 5xx.
 - **If a target fails:** try QR3, then the deep collections, then a
   per-target `detector`. Record the decision.
-- **Refs:** G5; product spec §13.
+- **Refs:** AT-1–5, OFF-3; G5; product spec §13.
 
 ## Phase 5 — Later
 

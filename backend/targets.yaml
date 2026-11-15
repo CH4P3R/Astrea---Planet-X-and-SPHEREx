@@ -1,0 +1,63 @@
+# Acceptance targets for the offline demo (docs/sdd/backend/requirements.md §3).
+#
+# Source: SIMBAD TAP, Harvard mirror (https://simbad.harvard.edu/simbad/sim-tap),
+# table `basic`, retrieved 2026-11-15. Positions are ICRS at epoch J2000.0;
+# proper motions are mas/yr (pmra includes cos(dec)); parallax in mas is informative.
+# Each entry records SIMBAD's main identifier and the reference of its position.
+#
+# epoch: when the targets are looked at. Mid-point of SPHEREx DR1
+# (MJD 60800-61174, May 2025 - May 2026). Positions are propagated to it by
+# proper motion (angles only) before searching.
+epoch: 2025.9
+size_deg: 0.1
+
+targets:
+  - name: Barnard's Star
+    simbad_id: NAME Barnard's star
+    ra_deg: 269.4520769586187
+    dec_deg: 4.693364966576667
+    pmra_mas_yr: -801.551
+    pmdec_mas_yr: 10362.394
+    parallax_mas: 546.9759
+    expected: motion
+    reference: 2020yCat.1350....0G  # Gaia EDR3
+
+  - name: Epsilon Indi B
+    simbad_id: "* eps Ind B"
+    ra_deg: 331.04414658852124
+    dec_deg: -56.782844195116105
+    pmra_mas_yr: 3981.977
+    pmdec_mas_yr: -2466.832
+    parallax_mas: 270.658
+    expected: motion
+    reference: 2020yCat.1350....0G  # Gaia EDR3; the Ba/Bb brown-dwarf pair
+
+  - name: WISE 0855-0714
+    simbad_id: WISEA J085510.74-071442.5
+    ra_deg: 133.81890825
+    dec_deg: -7.247048000000001
+    pmra_mas_yr: -8123.7
+    pmdec_mas_yr: 673.2
+    parallax_mas: 439.0
+    expected: motion
+    reference: 2021ApJS..253....7K  # Kirkpatrick et al. 2021
+
+  - name: RW Aurigae
+    simbad_id: V* RW Aur
+    ra_deg: 76.95652603458333
+    dec_deg: 30.401438173888888
+    pmra_mas_yr: 7.23
+    pmdec_mas_yr: -20.33
+    parallax_mas: 15.42
+    expected: variability
+    reference: 2007A&A...474..653V  # Hipparcos new reduction
+
+  - name: R Draconis
+    simbad_id: V* R Dra
+    ra_deg: 248.16761083295
+    dec_deg: 66.75497941722
+    pmra_mas_yr: -20.643
+    pmdec_mas_yr: 6.149
+    parallax_mas: 1.2509
+    expected: variability
+    reference: 2020yCat.1350....0G  # Gaia EDR3
