@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { AdditiveBlending, BufferAttribute, BufferGeometry, Color, DynamicDrawUsage, ShaderMaterial } from 'three'
+import { BufferAttribute, BufferGeometry, Color, DynamicDrawUsage, ShaderMaterial } from 'three'
 import { SKY } from '../../config/sky.js'
 import { interpolateStarPositions, skySnapshotIsCurrent } from '../core/starDataUtils.js'
+import { starAppearance, starZoomScale } from '../core/starAppearanceUtils.js'
 
 const ignoreRaycast = () => {}
 
@@ -15,9 +16,9 @@ function createResources(snapshot) {
   const color = new Color()
   snapshot.stars.forEach((star, i) => {
     color.set(/^#[\da-f]{6}$/i.test(star.color_hex) ? star.color_hex : '#ffffff').toArray(colors, i * 3)
-    const light = Math.min(1, 10 ** (-0.15 * (star.apparent_magnitude + 1.5)))
-    sizes[i] = 2 + 7 * light
-    brightness[i] = 0.35 + 0.65 * light
+    const appearance = starAppearance(star.apparent_magnitude)
+    sizes[i] = appearance.diameter
+    brightness[i] = appearance.brightness
   })
   interpolateStarPositions(snapshot, snapshot.sample_times_ms[0], positions.array, SKY.radius)
   geometry.setAttribute('position', positions)
@@ -25,18 +26,19 @@ function createResources(snapshot) {
   geometry.setAttribute('starSize', new BufferAttribute(sizes, 1))
   geometry.setAttribute('starBrightness', new BufferAttribute(brightness, 1))
   const material = new ShaderMaterial({
-    uniforms: { pixelRatio: { value: 1 } },
+    uniforms: { pixelRatio: { value: 1 }, zoomScale: { value: 1 } },
     vertexShader: `
       attribute vec3 color;
       attribute float starSize;
       attribute float starBrightness;
       uniform float pixelRatio;
+      uniform float zoomScale;
       varying vec3 starColor;
       varying float brightness;
       void main() {
         starColor = color;
         brightness = starBrightness;
-        gl_PointSize = starSize * pixelRatio;
+        gl_PointSize = starSize * zoomScale * pixelRatio;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }`,
     fragmentShader: `
@@ -45,12 +47,10 @@ function createResources(snapshot) {
       void main() {
         float radius = length(gl_PointCoord * 2.0 - 1.0);
         if (radius > 1.0) discard;
-        float alpha = (1.0 - smoothstep(0.08, 1.0, radius)) * brightness;
-        gl_FragColor = vec4(starColor, alpha);
+        gl_FragColor = vec4(starColor * brightness, 1.0);
         #include <colorspace_fragment>
       }`,
     transparent: true,
-    blending: AdditiveBlending,
     depthWrite: false,
     depthTest: false,
     toneMapped: false,
@@ -74,13 +74,14 @@ export default function Stars({ snapshot, timestamp }) {
     }
   }, [snapshot])
 
-  useFrame(({ gl }) => {
+  useFrame(({ gl, camera, size }) => {
     const current = resources.current
     if (!current) return
     const now = snapshot.mode === 'paused' ? timestamp : Date.now()
     points.current.visible = skySnapshotIsCurrent(snapshot, now)
     if (!points.current.visible) return
     current.material.uniforms.pixelRatio.value = gl.getPixelRatio()
+    current.material.uniforms.zoomScale.value = starZoomScale(camera.zoom, size.width, size.height)
     if (snapshot.mode === 'live') {
       const positions = current.geometry.attributes.position
       interpolateStarPositions(snapshot, now, positions.array, SKY.radius)

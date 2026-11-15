@@ -1,0 +1,23 @@
+{
+  "title": "Astrea guide",
+  "progress": "Step {{current}} of {{total}}",
+  "skip": "Skip all",
+  "previous": "Previous",
+  "next": "Next",
+  "finish": "Finish",
+  "restart": "View tutorial",
+  "realData": "Tutorial · Barnard's Star field · Real SPHEREx FITS",
+  "download": "Download local FITS",
+  "load": "Load Barnard FITS",
+  "loading": "Loading the local observation and its projection…",
+  "found": "Local Barnard observation found",
+  "empty": "No local FITS match these coordinates, size or detector. Use the Barnard field, 7 arcminutes and D3.",
+  "welcome": { "title": "Explore Astrea", "body": "This is Astrea's real interface. The guide opens a practice session with real Barnard FITS stored in the project; your work stays separate. Use Next to advance or Skip all to leave. The question mark above the language selector lets you repeat it." },
+  "time": { "title": "Sky time", "body": "Try these real controls to pause the clock, return to the current time or apply a UTC date. Practice starts on August 17, 2025 at 21:00 UTC. This clock orients the sky: it does not change the FITS acquisition dates." },
+  "location": { "title": "Observer location", "body": "Practice uses Greenwich as a reference location, not as your actual location. Try the latitude and longitude fields or request your device location. Changes affect only this tutorial session. The observer allows the FITS to be projected onto the local sky." },
+  "search": { "title": "Search the Barnard field", "body": "Barnard's coordinates are prefilled in the real form. Keep the 7-arcminute cutout and click Search coordinates to load the local FITS. The tutorial collection contains only two D3 observations of this region; it does not query IRSA. If you advance without searching, the guide loads the observation automatically." },
+  "sky": { "title": "Sky appearance", "body": "This real panel shows star loading status and lets you hide the central surface. The next step opens the right inspector with the Barnard FITS pixels and WCS geometry, not a generated image." },
+  "data": { "title": "Real inspector: Data", "body": "These are real FITS properties: date, detector D3, dimensions, coordinates and WCS header. Try Data and Center image; you can also download the saved FITS. Other detectors have no bundled files and return an empty result without replacing the image. If you close the inspector, Load Barnard FITS lets you continue." },
+  "appearance": { "title": "Real inspector: Appearance", "body": "Try palette, brightness and opacity: they change the real sky image. You can also apply flags, subtract zodiacal light or show signal-to-noise; these planes come from the local FITS. Restore appearance resets visual adjustments. There are no simulated controls or data." },
+  "compare": { "title": "Real inspector: Compare", "body": "For 2025 and the same D3 detector, add the other available observation. Use the sequence, Show, Play and time per image to compare the two real FITS. Their dates are about 6.6 hours apart: this example teaches blink controls, not guaranteed visible Barnard motion. Finishing returns to your previous session." }
+}

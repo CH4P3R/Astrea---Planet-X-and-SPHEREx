@@ -44,9 +44,10 @@ except A, and the other frames can be cleared together.
 Previous/next, play/pause and the interval control operate on already loaded
 data. Automatic playback supports 0.1 to 3 seconds per image in 0.1-second steps.
 The timeline and playback controls appear above the observation browser. Compare
-uses one scroll area for its content, with the tab bar always accessible. Search
-filters and results share a bordered area; the list grows naturally rather than
-being squeezed into a second scroll area. A single-frame timeline is disabled
+uses the same fixed observation summary and detector selector as Data and
+Appearance; its body scrolls independently below them. Search filters and results
+share a bordered area; the list grows naturally without its own nested scroll
+area. A single-frame timeline is disabled
 until another image is added. Available browser/GPU memory still limits very
 large sequences.
 

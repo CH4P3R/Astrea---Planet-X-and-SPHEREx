@@ -10,7 +10,7 @@ import ImageComparisonPanel from '../blink-hud/ImageComparisonPanel.jsx'
 import useTranslation from '../../i18n/useTranslation.js'
 
 export default function ImageInspector({ open, onClose, tab, onTabChange, fits, displayed,
-  appearance, comparison, playback, reason, primaryProjection, frames, projections, onCenter }) {
+  appearance, comparison, playback, reason, primaryProjection, frames, projections, onCenter, tutorial = false }) {
   const { t } = useTranslation()
   const id = useId()
   if (!fits.active || !open) return null
@@ -27,6 +27,9 @@ export default function ImageInspector({ open, onClose, tab, onTabChange, fits, 
       </div>
       <div className="inspector-surface">
         <header className="inspector-summary">
+          {tutorial && <p className="context-note">{t('onboarding.realData')}<br />
+            <a href={`/api/v1/images/onboarding/${metadata.id}/fits`} target="_blank" rel="noreferrer">{t('onboarding.download')}</a>
+          </p>}
           <div className="inspector-observation-heading">
             <div><span className="context-note">{t('inspector.observation')}{comparison.observations.length ? ` · ${playback.frame}` : ''}</span>
               <strong><ObservationDate value={metadata.observation.start_utc} /></strong></div>

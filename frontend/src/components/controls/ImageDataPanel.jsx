@@ -7,8 +7,7 @@ export default function ImageDataPanel({ active, onCenter }) {
   const { metadata } = active
   const { image, requested } = metadata
   const format = (value, digits = 4) => Number.isFinite(value) ? number(value, { maximumFractionDigits: digits }) : '—'
-  const row = (id, value) => ({ id, value, label: t(`inspector.data.${id}`),
-    help: ['coverage', 'requested', 'center', 'unit', 'range'].includes(id) ? t(`inspector.help.${id}`) : undefined })
+  const row = (id, value) => ({ id, value, label: t(`inspector.data.${id}`) })
   const coordinates = (position) => position ? `${format(position.ra_deg, 6)}° / ${format(position.dec_deg, 6)}°` : '—'
   const finite = (1 - image.nonfinite_count / (image.width * image.height)) * 100
   return <PanelContent title={t('inspector.tabs.data')}

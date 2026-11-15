@@ -4,6 +4,30 @@
 
 Consultar la [Guía de diseño e interacción](docs/UI_DESIGN_GUIDE.md), que reúne las decisiones del flujo 1 y los componentes reutilizables. El [índice de documentación](docs/README.md) enlaza las reglas visuales, la arquitectura y el flujo de referencia.
 
+## Tutorial guiado
+
+El botón de interrogación encima del selector de idioma abre el tutorial, incluso si
+ya se completó o se saltó. La primera visita también lo abre automáticamente. Finalizar
+guarda `completed` y Saltar todo o Escape guarda `skipped` en `localStorage`, bajo
+`astrea.onboarding.v1`; ambos estados desactivan únicamente la apertura automática.
+
+El recorrido reutiliza el espacio de trabajo y el inspector reales, incluidos Datos,
+Apariencia y Comparar. Los FITS originales de Barnard están en `backend/data/onboarding/`,
+con su procedencia y SHA-256. No hay datos ni controles simulados. La sesión previa se
+mantiene montada y se recupera al salir; el tutorial tiene su propio observador y reloj.
+
+El backend debe estar disponible. La práctica consulta `/api/v1/images/onboarding` y las
+rutas normales de carga, procesamiento y proyección, sin descargar imágenes de IRSA.
+Solo incluye dos observaciones D3, con recortes de 7 minutos de arco; para Comparar,
+seleccionar 2025 y añadir la otra observación. Su separación de 6,6 horas sirve para
+enseñar el blink, no para garantizar movimiento visible.
+
+`AppViewport` controla la apertura y conserva la sesión; `AppWorkspace` compone la UI
+real en ambas sesiones. `OnboardingTour` utiliza un portal de React DOM y `box-shadow`;
+`scrollTo: false` y foco con `preventScroll` evitan desplazar el lienzo. Los textos son
+ES/EN y no se añaden dependencias. El aviso de carga de estrellas y las mejoras del
+inspector, los detectores y la cámara de los merges se mantienen.
+
 ## Espacio de trabajo 3D
 
 La vista ocupa toda la ventana y muestra una esfera 3D desde su interior, con un

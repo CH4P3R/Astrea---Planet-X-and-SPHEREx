@@ -1,4 +1,6 @@
 .image-inspector {
+  --inspector-corner-radius: 16px;
+  container: image-inspector / inline-size;
   position: absolute;
   top: clamp(128px, 16dvh, 176px);
   right: max(var(--ui-edge-y), env(safe-area-inset-right));
@@ -24,7 +26,7 @@
   .image-inspector { transform: none; }
   .detector-segment .detector-color { transform: none !important; }
 }
-.inspector-topbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex: 0 0 auto; padding: 0 16px; }
+.inspector-topbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex: 0 0 auto; padding: 0 var(--inspector-corner-radius); }
 .panel-tabs { display: flex; min-width: 0; gap: 5px; }
 .panel-tabs button {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
@@ -34,7 +36,7 @@
 }
 .panel-tabs button[aria-selected='true'] { background: var(--hud-surface); color: var(--hud-text); }
 .panel-tabs svg, .inspector-close svg { width: 21px; height: 21px; flex-shrink: 0; }
-.inspector-surface { display: flex; flex-direction: column; flex: 1; min-height: 0; background: var(--hud-surface); border-radius: 22px; box-shadow: 0 16px 48px rgb(0 0 0 / 26%); overflow: hidden; }
+.inspector-surface { display: flex; flex-direction: column; flex: 1; min-height: 0; background: var(--hud-surface); border-radius: var(--inspector-corner-radius); box-shadow: 0 16px 48px rgb(0 0 0 / 26%); overflow: hidden; }
 .inspector-summary { padding: 20px 24px 8px; flex: 0 0 auto; }
 .inspector-observation-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .inspector-observation-heading > div { min-width: 0; }
@@ -60,7 +62,7 @@
   transition: background-color var(--motion-duration) ease, color var(--motion-duration) ease;
 }
 .image-inspector .panel-tabs button { border-radius: 16px 16px 0 0; font-size: 14px; }
-.image-inspector .panel-tabs button[aria-selected='true'] { background: var(--hud-surface); }
+.image-inspector .panel-tabs button[aria-selected='true'] { background: var(--hud-surface); transition: none; }
 .image-inspector button:disabled, .image-inspector button[aria-disabled='true'] { opacity: 0.5; cursor: not-allowed; }
 .image-inspector [role='alert'] { color: var(--hud-error); }
 .image-inspector .input-help { display: grid; place-items: center; flex-shrink: 0; padding: 4px; margin: 0; width: 30px; height: 30px; color: var(--hud-muted); background: transparent; }
@@ -114,13 +116,13 @@
 .playback-buttons > .tooltip-anchor { flex: 1; }
 .playback-buttons button { width: 100%; }
 @media (hover: hover) {
-  .image-inspector button:hover:not(:disabled):not([aria-disabled='true']), .image-inspector a:hover { background-color: var(--hud-hover); }
+  .image-inspector button:hover:not(:disabled):not([aria-disabled='true']):not([aria-selected='true']), .image-inspector a:hover { background-color: var(--hud-hover); }
   .detector-segment:hover .detector-color { opacity: 1; transform: translateY(-2px); }
   .image-inspector input[type='range']:hover::-webkit-slider-thumb { transform: scale(1.2); }
 }
 @media (max-width: 1440px), (max-height: 800px) {
-  .image-inspector { top: clamp(96px, 14dvh, 128px); width: clamp(360px, 42vw, 560px); }
-  .inspector-topbar { padding: 0 8px; gap: 8px; }
+  .image-inspector { --inspector-corner-radius: 12px; top: clamp(96px, 14dvh, 128px); width: clamp(360px, 42vw, 560px); }
+  .inspector-topbar { gap: 8px; }
   .panel-tabs { gap: 3px; }
   .inspector-summary { padding: 12px 16px 4px; max-height: 42%; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
   .inspector-panels .context-panel-scroll { padding: 0 16px 12px; }
@@ -143,7 +145,6 @@
   .image-inspector { top: auto; bottom: 16px; right: 16px; left: 16px; width: auto; height: min(54dvh, 540px); }
   .inspector-summary { padding: 12px 16px 4px; max-height: 40%; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
   .inspector-panels .context-panel-scroll, .inspector-panels .context-panel-footer { padding-left: 16px; padding-right: 16px; }
-  .inspector-topbar { padding: 0 8px; }
   .image-inspector .panel-tabs button { padding: 8px; gap: 5px; font-size: 14px; }
   .inspector-observation-heading strong { font-size: 14px; }
   .detector-color { height: 30px; }
@@ -153,5 +154,8 @@
   .inspector-summary { max-height: 42%; overflow-y: auto; scrollbar-width: thin; }
 }
 @media (max-width: 420px) {
+  .image-inspector .panel-tabs svg { display: none; }
+}
+@container image-inspector (max-width: 400px) {
   .image-inspector .panel-tabs svg { display: none; }
 }

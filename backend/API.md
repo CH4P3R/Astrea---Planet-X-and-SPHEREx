@@ -12,6 +12,8 @@ details in this document.
 | --- | --- | --- | --- | --- |
 | GET | `/images` | JSON | Search observations by RA/Dec; downloads nothing | 1 |
 | GET | `/images/availability` | JSON | Complete available-day index for one zone, detector and UTC year | 1a |
+| GET | `/images/onboarding` | JSON | Query the bundled real Barnard observations | Local onboarding data |
+| GET | `/images/onboarding/{id}/fits` | FITS | Download a verified local cutout | Local onboarding data |
 | POST | `/images/search` | JSON | Search from a click on the local sky | Click, load and project |
 | POST | `/images/search-box` | JSON | Search from a box dragged on the local sky | Box selection on the sky |
 | GET | `/images/{id}` | JSON | Load a cutout and read its metadata | 2 |
@@ -24,6 +26,21 @@ details in this document.
 | GET | `/star-catalog` | JSON | Catalog version and render metadata | Star catalog and observer sky |
 | POST | `/sky` | JSON or binary | Star directions for an observer and time | Star catalog and observer sky |
 | GET | `/targets` | JSON | Acceptance targets, positions propagated to the SPHEREx epoch | Acceptance targets |
+
+## Local onboarding data
+
+`GET /images/onboarding` accepts the same query contract as `/images`, including
+required RA, Dec and size plus optional detector, date and limit filters. Use
+RA 269.4463, Dec 4.7679 and size 7/60 degrees. The response is restricted to the
+two real D3 observations in `backend/data/onboarding/`; other regions, sizes,
+detectors or dates return no observations rather than triggering a remote search.
+
+The existing metadata, pixel, plane, corrected-pixel and projection endpoints
+read these bundled FITS without contacting IRSA. SHA-256 is checked before decoding.
+Local tutorial images do not support remote recropping. The direct FITS download
+is `/images/onboarding/{id}/fits`; metadata retains the original archive URL.
+The backend must be running. The ordinary `/images` archive search is unchanged.
+See `data/onboarding/README.md` for provenance and reproduction.
 
 ## 1. Search observations
 

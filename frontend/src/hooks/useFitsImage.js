@@ -3,10 +3,11 @@ import { loadMetadata, loadPixels, loadProjection, observerContext, recropImage,
 import { ANY_DETECTOR, coordinateError, cutoutSizeError, DEFAULT_CUTOUT_SIZE } from '../config/search.js'
 import { decodePixels, validateImage } from '../three/core/imageDataUtils.js'
 import { errorMessage } from '../i18n/messages.js'
+import { barnardQuery } from '../config/onboarding.js'
 
 const emptyState = { status: 'idle', images: [], error: '', active: null, hasMore: false, query: null, notice: null }
 
-export default function useFitsImage(observer, timeContext) {
+export default function useFitsImage(observer, timeContext, catalog = 'archive') {
   const [state, setState] = useState(emptyState)
   const [size, updateSize] = useState(DEFAULT_CUTOUT_SIZE)
   const [detector, updateDetector] = useState(ANY_DETECTOR)
@@ -61,7 +62,7 @@ export default function useFitsImage(observer, timeContext) {
     refinement.current?.abort()
     setDetailError('')
     setRefining(false)
-    if (!source || !observer || scale <= 1) { setDetail(null); return }
+    if (!source || !observer || scale <= 1 || catalog === 'onboarding') { setDetail(null); return }
     const job = new AbortController()
     refinement.current = job
     setRefining(true)
@@ -80,7 +81,7 @@ export default function useFitsImage(observer, timeContext) {
     } finally {
       if (!job.signal.aborted) setRefining(false)
     }
-  }, [source, observer, timeContext])
+  }, [source, observer, timeContext, catalog])
 
   useEffect(() => () => {
     if (controller.current?.kind === 'load') controller.current.abort()
@@ -134,12 +135,13 @@ export default function useFitsImage(observer, timeContext) {
       const result = await request(job.signal)
       if (!job.signal.aborted) {
         const count = result.images.length
-        const message = count === 0 ? 'search.notices.empty'
+        const message = catalog === 'onboarding' ? count === 0 ? 'onboarding.empty' : 'onboarding.found'
+          : count === 0 ? 'search.notices.empty'
           : { key: result.has_more ? 'search.notices.foundMore' : 'search.notices.found', values: { count } }
         setState((previous) => ({ ...previous, status: 'results', images: result.images,
           hasMore: result.has_more, query: result.query, notice: { status: count === 0 ? 'empty' : 'success', message } }))
         const { ra_deg: ra, dec_deg: dec, size_deg: sizeDeg } = result.query
-        lastSearch.current = (chosen, signal) => searchCoordinates(ra, dec, sizeDeg * 60, chosen, signal)
+        lastSearch.current = (chosen, signal) => searchCoordinates(ra, dec, sizeDeg * 60, chosen, signal, catalog)
         // Load the most recent observation as soon as the search completes
         if (result.images[0]) await load(result.images[0].id)
       }
@@ -147,7 +149,14 @@ export default function useFitsImage(observer, timeContext) {
       if (!job.signal.aborted) setState((previous) => ({ ...previous, status: 'error', error: errorMessage(error),
         notice: { status: 'error', message: 'search.notices.searchFailed' } }))
     }
-  }, [load])
+  }, [load, catalog])
+
+  const loadOnboarding = useCallback(() => {
+    updateSize(barnardQuery.size_deg * 60)
+    updateDetector(ANY_DETECTOR)
+    return runSearch((signal) => searchCoordinates(barnardQuery.ra_deg, barnardQuery.dec_deg,
+      barnardQuery.size_deg * 60, null, signal, 'onboarding'))
+  }, [runSearch])
 
   const search = useCallback((direction) => {
     const error = cutoutSizeError(size) || (!observer ? 'location.notices.required' : '')
@@ -168,9 +177,9 @@ export default function useFitsImage(observer, timeContext) {
       return
     }
     updateDetector(ANY_DETECTOR)
-    lastSearch.current = (chosen, signal) => searchCoordinates(ra, dec, size, chosen, signal)
+    lastSearch.current = (chosen, signal) => searchCoordinates(ra, dec, size, chosen, signal, catalog)
     return runSearch((signal) => lastSearch.current(ANY_DETECTOR, signal))
-  }, [size, runSearch])
+  }, [size, runSearch, catalog])
 
   const setDetector = useCallback((value) => {
     updateDetector(value)
@@ -183,6 +192,6 @@ export default function useFitsImage(observer, timeContext) {
     ? { ...state, status: state.active ? 'ready' : 'results', notice: null } : state
   return { ...visible, size, setSize, detector, setDetector, preparing, beginPreparation, cancelPreparation,
     detail: detail?.source === visible.active ? detail.image : null, detailError, refining, refine,
-    search, searchByCoordinates, load, cancel, reset, focus: visible.active ? focus : null,
+    search, searchByCoordinates, loadOnboarding, load, cancel, reset, focus: visible.active ? focus : null,
     setTextureLimit, textureLimit }
 }
