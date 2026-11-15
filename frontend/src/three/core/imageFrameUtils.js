@@ -44,7 +44,15 @@ export function projectedVertices(image, timestamp) {
   return vertices
 }
 
-export function imageFrame(images, timestamp, rect, width, height) {
+export function zoomImageFrame(frame, scale, rect, width, height) {
+  const centerX = width / 2 - (rect.left + rect.width / 2)
+  const centerY = height / 2 - (rect.top + rect.height / 2)
+  return { ...frame, zoom: frame.zoom * scale,
+    offsetX: centerX + (frame.offsetX - centerX) * scale,
+    offsetY: centerY + (frame.offsetY - centerY) * scale }
+}
+
+export function imageFrame(images, timestamp, rect, width, height, orientation = null) {
   if (!images.length || rect.width <= 0 || rect.height <= 0) return null
   const vertices = projectedVertices(images[0], timestamp)
   const uv = images[0].projection.uv
@@ -68,7 +76,13 @@ export function imageFrame(images, timestamp, rect, width, height) {
   }
   const right = new Vector3().crossVectors(up, z).normalize()
   up.crossVectors(z, right).normalize()
-  const quaternion = new Quaternion().setFromRotationMatrix(new Matrix4().makeBasis(right, up, z))
+  let quaternion = new Quaternion().setFromRotationMatrix(new Matrix4().makeBasis(right, up, z))
+  if (orientation) {
+    const forward = new Vector3(0, 0, -1).applyQuaternion(orientation)
+    quaternion = new Quaternion().setFromUnitVectors(forward, center).multiply(orientation).normalize()
+    right.set(1, 0, 0).applyQuaternion(quaternion)
+    up.set(0, 1, 0).applyQuaternion(quaternion)
+  }
   const all = [...vertices, ...images.slice(1).flatMap((image) => projectedVertices(image, timestamp))]
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
   for (const vertex of all) {

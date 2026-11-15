@@ -45,6 +45,10 @@ export async function searchObservations(query, signal) {
   return (await request(`?${params}`, { signal })).json()
 }
 
+export async function recropImage(id, sizeDeg, signal) {
+  return (await request(`/${id}/recrop`, { signal, body: { size_deg: sizeDeg } })).json()
+}
+
 export async function loadPixels(id, signal, processing = {}) {
   const params = new URLSearchParams()
   for (const key of ['mask_flags', 'subtract_zodi', 'signal_to_noise']) {

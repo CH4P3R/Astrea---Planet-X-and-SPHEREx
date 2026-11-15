@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { loadMetadata, loadPixels, loadProjection, observerContext, searchImages, searchCoordinates } from '../services/images.js'
+import { loadMetadata, loadPixels, loadProjection, observerContext, recropImage, searchImages, searchCoordinates } from '../services/images.js'
 import { ANY_DETECTOR, coordinateError, cutoutSizeError, DEFAULT_CUTOUT_SIZE } from '../config/search.js'
 import { decodePixels, validateImage } from '../three/core/imageDataUtils.js'
 import { errorMessage } from '../i18n/messages.js'
@@ -13,6 +13,10 @@ export default function useFitsImage(observer, timeContext) {
   const [preparing, setPreparing] = useState(false)
   const [focus, setFocus] = useState(null)
   const controller = useRef(null)
+  const refinement = useRef(null)
+  const [detail, setDetail] = useState(null)
+  const [detailError, setDetailError] = useState('')
+  const [refining, setRefining] = useState(false)
   const contextRef = useRef({ observer, timeContext })
   // Repeat the last search at the same sky point when the detector changes
   const lastSearch = useRef(null)
@@ -27,6 +31,10 @@ export default function useFitsImage(observer, timeContext) {
 
   const reset = useCallback(() => {
     controller.current?.abort()
+    refinement.current?.abort()
+    setDetail(null)
+    setDetailError('')
+    setRefining(false)
     lastSearch.current = null
     updateDetector(ANY_DETECTOR)
     setState(emptyState)
@@ -42,7 +50,37 @@ export default function useFitsImage(observer, timeContext) {
     setPreparing(false)
   }, [state.status])
 
-  useEffect(() => () => controller.current?.abort(), [])
+  useEffect(() => () => { controller.current?.abort(); refinement.current?.abort() }, [])
+
+  const source = state.active
+  useEffect(() => {
+    return () => { refinement.current?.abort(); setRefining(false) }
+  }, [source, observer, timeContext])
+
+  const refine = useCallback(async (scale) => {
+    refinement.current?.abort()
+    setDetailError('')
+    setRefining(false)
+    if (!source || !observer || scale <= 1) { setDetail(null); return }
+    const job = new AbortController()
+    refinement.current = job
+    setRefining(true)
+    try {
+      const metadata = await recropImage(source.metadata.id, source.metadata.requested.size_deg / scale, job.signal)
+      if (job.signal.aborted) return
+      validateImage(metadata.image, maxTextureSize.current)
+      const [buffer, projection] = await Promise.all([
+        loadPixels(metadata.id, job.signal), loadProjection(metadata.id, observerContext(observer, timeContext), job.signal),
+      ])
+      if (!job.signal.aborted) setDetail({ source, image: {
+        metadata, pixels: decodePixels(buffer, metadata.image), projection, observer, timeContext,
+      } })
+    } catch (error) {
+      if (!job.signal.aborted) setDetailError(errorMessage(error))
+    } finally {
+      if (!job.signal.aborted) setRefining(false)
+    }
+  }, [source, observer, timeContext])
 
   useEffect(() => () => {
     if (controller.current?.kind === 'load') controller.current.abort()
@@ -52,6 +90,10 @@ export default function useFitsImage(observer, timeContext) {
     const { observer, timeContext } = contextRef.current
     if (!observer) return
     controller.current?.abort()
+    refinement.current?.abort()
+    setDetail(null)
+    setDetailError('')
+    setRefining(false)
     const job = new AbortController()
     job.kind = 'load'
     controller.current = job
@@ -140,6 +182,7 @@ export default function useFitsImage(observer, timeContext) {
   const visible = !currentContext && state.status === 'loading'
     ? { ...state, status: state.active ? 'ready' : 'results', notice: null } : state
   return { ...visible, size, setSize, detector, setDetector, preparing, beginPreparation, cancelPreparation,
+    detail: detail?.source === visible.active ? detail.image : null, detailError, refining, refine,
     search, searchByCoordinates, load, cancel, reset, focus: visible.active ? focus : null,
     setTextureLimit, textureLimit }
 }

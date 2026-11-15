@@ -117,7 +117,9 @@
     "invalidYear": "Select a mission year from 2025 through the current year."
   },
   "projection": {
-    "waiting": "Updating the image position…"
+    "waiting": "Updating the image position…",
+    "refining": "Loading a new cutout for this zoom…",
+    "refineFailed": "The new cutout could not be loaded. The previous image is retained."
   },
   "help": {
     "observationDate": "When the satellite acquired this observation, in UTC. This is independent of the sky clock. During comparison it identifies the visible image.",

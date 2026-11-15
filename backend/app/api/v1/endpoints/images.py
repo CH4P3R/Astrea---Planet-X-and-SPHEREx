@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse
 from app.api.dependencies import get_image_service
 from app.schemas.images import (
     BoxSearchResponse, BoxSelection, ImageAvailabilityQuery, ImageAvailabilityResponse,
-    ImageMetadata, ImageSearchQuery, ImageSearchResponse, PlaneMetadata, PlaneName,
+    ImageMetadata, ImageRecropRequest, ImageSearchQuery, ImageSearchResponse, PlaneMetadata, PlaneName,
 )
 from app.services.images import ImageService
 from app.schemas.sky import BoxSearchRequest, ClickSearchRequest, ProjectionRequest
@@ -116,3 +116,9 @@ def image_projection(image_id: ImageId, request: ProjectionRequest, service: Ser
     """Project the image WCS mesh into the same local frame as the stars."""
     return project_image(service.metadata(image_id), request.observer.model_dump(),
                          request.at, request.mode == "live")
+
+
+@router.post("/{image_id}/recrop", response_model=ImageMetadata)
+def recrop_image(image_id: ImageId, request: ImageRecropRequest, service: Service):
+    """Request a new native-resolution window from the same observation."""
+    return service.recrop(image_id, request.size_deg)

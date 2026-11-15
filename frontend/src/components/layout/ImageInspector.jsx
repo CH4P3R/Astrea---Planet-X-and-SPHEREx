@@ -1,7 +1,6 @@
 import { useId } from 'react'
 import Tabs from '../common/Tabs.jsx'
 import Tooltip from '../common/Tooltip.jsx'
-import HelpButton from '../common/HelpButton.jsx'
 import InspectorIcon from '../controls/InspectorIcons.jsx'
 import DetectorSelector from '../controls/DetectorSelector.jsx'
 import ObservationDate from '../controls/ObservationDate.jsx'
@@ -10,22 +9,20 @@ import ImageAppearancePanel from '../controls/ImageAppearancePanel.jsx'
 import ImageComparisonPanel from '../blink-hud/ImageComparisonPanel.jsx'
 import useTranslation from '../../i18n/useTranslation.js'
 
-export default function ImageInspector({ open, onClose, onOpen, tab, onTabChange, fits, displayed,
-  appearance, comparison, playback, reason, primaryProjection, frames, projections, onCenter, onNewRegion }) {
+export default function ImageInspector({ open, onClose, tab, onTabChange, fits, displayed,
+  appearance, comparison, playback, reason, primaryProjection, frames, projections, onCenter }) {
   const { t } = useTranslation()
   const id = useId()
-  if (!fits.active) return null
+  if (!fits.active || !open) return null
   const metadata = displayed.metadata
   const busy = ['searching', 'loading'].includes(fits.status)
   const items = ['data', 'appearance', 'compare'].map((name) => ({ id: name, label: t(`inspector.tabs.${name}`), icon: <InspectorIcon name={name} /> }))
   return <>
-    {!open && <button id={`${id}-reopen`} type="button" className="inspector-reopen" data-image-obstacle
-      onClick={() => { onOpen(); requestAnimationFrame(() => document.getElementById(`${id}-tab-${tab}`)?.focus()) }}>{t('inspector.actions.open')}</button>}
     <aside className="image-inspector" data-open={open} data-active-tab={tab} inert={!open} aria-hidden={!open} aria-label={t('inspector.title')} data-image-obstacle data-select-obstacle>
       <div className="inspector-topbar">
         <Tabs id={id} label={t('inspector.title')} items={items} value={tab} onChange={onTabChange} />
         <Tooltip message={t('inspector.actions.close')} inline><button type="button" className="inspector-close"
-          onClick={() => { onClose(); requestAnimationFrame(() => document.getElementById(`${id}-reopen`)?.focus()) }}
+          onClick={onClose}
           aria-label={t('inspector.actions.close')}><InspectorIcon name="close" /></button></Tooltip>
       </div>
       <div className="inspector-surface">
@@ -33,12 +30,11 @@ export default function ImageInspector({ open, onClose, onOpen, tab, onTabChange
           <div className="inspector-observation-heading">
             <div><span className="context-note">{t('inspector.observation')}{comparison.observations.length ? ` · ${playback.frame}` : ''}</span>
               <strong><ObservationDate value={metadata.observation.start_utc} /></strong></div>
-            <HelpButton label={t('inspector.observation')} message={t('inspector.help.observationDate')} />
           </div>
           <div className="inspector-identity">
             <span>{t('inspector.detector', { detector: metadata.detector ?? '—' })}</span>
             <span className="inspector-release"><span>{t('inspector.release', { release: metadata.collection })}</span>
-              <HelpButton label={t('inspector.releaseLabel')} message={t('inspector.help.release')} /></span>
+              </span>
           </div>
           <DetectorSelector value={metadata.detector} onChange={(value) => { playback.show(fits.active.metadata.id); fits.setDetector(value) }} disabled={busy} />
           {Object.values(appearance.appliedProcessing).some(Boolean) && <p className="context-note">
@@ -51,6 +47,8 @@ export default function ImageInspector({ open, onClose, onOpen, tab, onTabChange
             <button type="button" onClick={fits.cancel}>{t('search.actions.cancel')}</button></div>}
           {fits.status === 'results' && !fits.images.length && <p role="status">{t('inspector.detectors.empty')}</p>}
           {fits.error && <p role="alert">{t(fits.error)}</p>}
+          {tab !== 'compare' && fits.refining && <p role="status">{t('inspector.projection.refining')}</p>}
+          {tab !== 'compare' && fits.detailError && <p role="alert">{t('inspector.projection.refineFailed')} {t(fits.detailError)}</p>}
           {!primaryProjection.ready && !primaryProjection.error && <p role="status">{t('inspector.projection.waiting')}</p>}
           {primaryProjection.error && <div role="alert"><p>{t(primaryProjection.error)}</p>
             <button type="button" onClick={primaryProjection.retry}>{t('inspector.actions.retryProjection')}</button></div>}
@@ -64,7 +62,6 @@ export default function ImageInspector({ open, onClose, onOpen, tab, onTabChange
               primary={fits.active} frames={frames} projections={projections} />}
           </div>)}
         </div>
-        <div className="inspector-bottom"><button type="button" className="text-action" onClick={onNewRegion}>{t('inspector.actions.newRegion')}</button></div>
       </div>
     </aside>
   </>

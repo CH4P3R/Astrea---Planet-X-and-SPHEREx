@@ -49,13 +49,12 @@
 .inspector-panels .context-panel-header { display: none; }
 .inspector-panels .context-panel-scroll { flex: 1; padding: 0 24px 16px; }
 .inspector-panels .context-panel-footer { padding: 12px 24px; }
-.inspector-bottom { flex-shrink: 0; padding: 0 24px 12px; }
 .inspector-section + .inspector-section { margin-top: 24px; }
 .image-inspector h3 { display: flex; align-items: center; gap: 8px; margin: 12px 0; font-size: 14px; font-weight: 650; }
 .image-inspector p { margin: 8px 0; font-size: 13px; line-height: 1.5; }
 .image-inspector .context-note { color: var(--hud-muted); font-size: 12px; }
-.image-inspector :is(button, a, input, [role='tabpanel']):focus-visible, .inspector-reopen:focus-visible { outline: 2px solid var(--hud-focus); outline-offset: 3px; }
-.image-inspector button, .image-inspector a, .inspector-reopen {
+.image-inspector :is(button, a, input, [role='tabpanel']):focus-visible { outline: 2px solid var(--hud-focus); outline-offset: 3px; }
+.image-inspector button, .image-inspector a {
   border: 0; border-radius: 10px; padding: 10px 12px; background: var(--hud-field); color: var(--hud-text);
   font: inherit; font-size: 13px; cursor: pointer; text-decoration: none;
   transition: background-color var(--motion-duration) ease, color var(--motion-duration) ease;
@@ -67,7 +66,6 @@
 .image-inspector .input-help { display: grid; place-items: center; flex-shrink: 0; padding: 4px; margin: 0; width: 30px; height: 30px; color: var(--hud-muted); background: transparent; }
 .image-inspector .text-action { padding: 6px 0; background: transparent; color: var(--hud-muted); text-align: left; }
 .image-inspector .inspector-close { padding: 8px; display: grid; place-items: center; margin-bottom: 6px; }
-.inspector-reopen { position: absolute; top: 128px; right: 32px; pointer-events: auto; }
 .inspector-inline-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .inspector-task { display: flex; gap: 8px; align-items: center; justify-content: space-between; font-size: 12px; }
 .metadata-list { margin: 0; }
@@ -116,7 +114,7 @@
 .playback-buttons > .tooltip-anchor { flex: 1; }
 .playback-buttons button { width: 100%; }
 @media (hover: hover) {
-  .image-inspector button:hover:not(:disabled):not([aria-disabled='true']), .image-inspector a:hover, .inspector-reopen:hover { background-color: var(--hud-hover); }
+  .image-inspector button:hover:not(:disabled):not([aria-disabled='true']), .image-inspector a:hover { background-color: var(--hud-hover); }
   .detector-segment:hover .detector-color { opacity: 1; transform: translateY(-2px); }
   .image-inspector input[type='range']:hover::-webkit-slider-thumb { transform: scale(1.2); }
 }
@@ -129,9 +127,7 @@
   .inspector-topbar { padding: 0 8px; }
   .image-inspector .panel-tabs button { padding: 10px; gap: 5px; font-size: 12px; }
   .inspector-observation-heading strong { font-size: 14px; }
-  .inspector-bottom { padding: 0 16px 8px; }
   .detector-color { height: 30px; }
-  .inspector-reopen { right: 16px; }
 }
 @media (max-height: 650px) and (min-width: 901px) {
   .image-inspector { top: 100px; bottom: 16px; }

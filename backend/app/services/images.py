@@ -95,6 +95,16 @@ class ImageService:
             result.pixels_url = f"{self.api_prefix}/images/{identifier}/pixels"
             return result
 
+    def recrop(self, identifier: str, size_deg: float) -> ImageMetadata:
+        selection = self.store.selection(identifier)
+        center = self.metadata(identifier).image.center
+        requested = {**center.model_dump(), "size_deg": size_deg}
+        identity = {"format_version": 1, "source_url": selection["archive"]["source_url"],
+                    "requested": requested}
+        cropped_id = sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
+        self.store.register(cropped_id, {"archive": selection["archive"], "requested": requested})
+        return self.metadata(cropped_id)
+
     def pixels(self, identifier: str) -> Path:
         self.metadata(identifier)
         return self.store.pixels_path(identifier)

@@ -11,7 +11,7 @@ export default function ImageAppearancePanel({ appearance }) {
   return <PanelContent title={t('inspector.tabs.appearance')}
     footer={<button type="button" onClick={appearance.restore}>{t('inspector.appearance.restore')}</button>}>
     <section className="inspector-section">
-      <h3>{t('inspector.appearance.visual')}<HelpButton label={t('inspector.appearance.visual')} message={t('inspector.help.visual')} /></h3>
+      <h3>{t('inspector.appearance.visual')}</h3>
       <div className="inspector-field-heading"><label htmlFor={id}>{t('inspector.appearance.palette')}</label>
         <HelpButton label={t('inspector.appearance.palette')} message={t('inspector.help.palette')} /></div>
       <Select id={id} label={t('inspector.appearance.palette')} value={appearance.settings.palette}
@@ -19,15 +19,15 @@ export default function ImageAppearancePanel({ appearance }) {
       {appearance.settings.palette === 'color' && <div className="intensity-legend" role="img" aria-label={t('inspector.appearance.legend')}>
         <span>{t('inspector.appearance.faint')}</span><span>{t('inspector.appearance.bright')}</span>
       </div>}
-      <RangeField label={t('inspector.appearance.exposure')} help={t('inspector.help.exposure')} min={-3} max={3} step={0.1}
+      <RangeField label={t('inspector.appearance.exposure')} min={-3} max={3} step={0.1}
         value={appearance.settings.exposure} displayValue={`${number(appearance.settings.exposure, { maximumFractionDigits: 1 })} EV`}
         onChange={(value) => appearance.change('exposure', value)} />
-      <RangeField label={t('inspector.appearance.opacity')} help={t('inspector.help.opacity')} min={0} max={1} step={0.05}
+      <RangeField label={t('inspector.appearance.opacity')} min={0} max={1} step={0.05}
         value={appearance.settings.opacity} displayValue={`${Math.round(appearance.settings.opacity * 100)} %`}
         onChange={(value) => appearance.change('opacity', value)} />
     </section>
     <section className="inspector-section">
-      <h3>{t('inspector.appearance.processing')}<HelpButton label={t('inspector.appearance.processing')} message={t('inspector.help.processing')} /></h3>
+      <h3>{t('inspector.appearance.processing')}</h3>
       {['mask_flags', 'subtract_zodi', 'signal_to_noise'].map((key) => <div className="inspector-toggle" key={key}>
         <label><input type="checkbox" checked={appearance.processing[key]} onChange={(event) => appearance.process(key, event.target.checked)} />
           <span>{t(`inspector.appearance.${key}`)}</span></label>

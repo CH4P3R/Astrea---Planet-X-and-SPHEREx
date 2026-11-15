@@ -34,6 +34,12 @@ class CutoutRequest(SkyPosition):
     size_deg: float
 
 
+class ImageRecropRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    size_deg: float = Field(gt=0, le=0.5)
+
+
 class ObservationTime(BaseModel):
     start_mjd: float | None
     end_mjd: float | None

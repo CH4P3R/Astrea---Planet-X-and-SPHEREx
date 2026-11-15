@@ -10,7 +10,7 @@ import Stars from '../elements/Stars.jsx'
 import HorizonSurface from '../elements/HorizonSurface.jsx'
 
 export default function SkyScene({ observer, fits, stars, surfaceVisible, timestamp, onSkyClick,
-  frameImages, viewport, focusVersion, layers, appearance, frameId }) {
+  frameImages, viewport, focusVersion, layers, appearance, frameId, onImageZoom }) {
   const { gl } = useThree()
   const { setTextureLimit } = fits
   useEffect(() => {
@@ -18,7 +18,8 @@ export default function SkyScene({ observer, fits, stars, surfaceVisible, timest
   }, [gl, setTextureLimit])
   return (
     <>
-      <SkyCameraRig onSkyClick={onSkyClick} images={frameImages} viewport={viewport} focusVersion={focusVersion}
+      <SkyCameraRig onSkyClick={onSkyClick} onImageZoom={onImageZoom} images={frameImages} viewport={viewport} focusVersion={focusVersion}
+        previewActive={Boolean(fits.active)} selectionPending={['searching', 'loading', 'results'].includes(fits.status)}
         focusRequest={fits.focus} timestamp={timestamp} />
       {stars.snapshot && <Stars snapshot={stars.snapshot} timestamp={timestamp} />}
       {layers.map(({ image, pixels, ready }) => image && pixels && <FitsImage key={image.metadata.id}

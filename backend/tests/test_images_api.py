@@ -86,6 +86,41 @@ def search_one(app, **overrides):
     return response.json()["images"][0]
 
 
+def post(app, path, body):
+    async def request():
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            return await client.post(path, json=body)
+
+    return asyncio.run(request())
+
+
+def test_zoom_recrop_keeps_the_observation_and_downloads_a_new_window(backend):
+    app, archive = backend
+    item = search_one(app)
+    response = post(app, f"/api/v1/images/{item['id']}/recrop", {"size_deg": 0.025})
+    assert response.status_code == 200, response.text
+    cropped = response.json()
+    assert cropped["id"] != item["id"]
+    for key in ("observation_id", "detector", "collection", "source_url", "observation"):
+        assert cropped[key] == item[key]
+    assert cropped["requested"]["size_deg"] == 0.025
+    assert len(archive.searches) == 1
+    assert [download["size_deg"] for download in archive.downloads] == [0.1, 0.025]
+    assert archive.downloads[-1]["source_url"] == SOURCE
+    assert post(app, f"/api/v1/images/{item['id']}/recrop", {"size_deg": 0.025}).json()["id"] == cropped["id"]
+    assert len(archive.downloads) == 2
+
+
+@pytest.mark.parametrize("size", [0, -1, 0.51, "invalid"])
+def test_zoom_recrop_rejects_invalid_sizes_without_downloading(backend, size):
+    app, archive = backend
+    item = search_one(app)
+    assert post(app, f"/api/v1/images/{item['id']}/recrop", {"size_deg": size}).status_code == 422
+    assert archive.downloads == []
+
+
 def test_search_only_returns_discovery_and_exact_cutout_selection(backend):
     app, archive = backend
     response = get(app, "/api/v1/images", params={**QUERY, "detector": 2})

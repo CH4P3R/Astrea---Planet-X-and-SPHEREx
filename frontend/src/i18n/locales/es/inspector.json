@@ -117,7 +117,9 @@
     "invalidYear": "Selecciona un año de la misión, desde 2025 hasta el año actual."
   },
   "projection": {
-    "waiting": "Actualizando la posición de la imagen…"
+    "waiting": "Actualizando la posición de la imagen…",
+    "refining": "Cargando un nuevo recorte para el zoom…",
+    "refineFailed": "No se pudo cargar el nuevo recorte. Se conserva la imagen anterior."
   },
   "help": {
     "observationDate": "Fecha en que el satélite obtuvo esta observación, expresada en UTC. Es independiente del reloj del cielo. Durante la comparación corresponde a la imagen visible.",
