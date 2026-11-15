@@ -111,7 +111,7 @@ Encapsula lógica reactiva reutilizable separada de la vista:
 ### `src/services/` y `src/contracts/` — Integración con el Backend
 Aísla toda la comunicación HTTP respecto a los componentes visuales, siguiendo el contrato definido para el servidor FastAPI (`astropy` / `astroquery` / IRSA SIA v2):
 
-- **`contracts/`**: Documentación estructurada (JSDoc / esquemas) de los parámetros de consulta y las respuestas JSON esperadas de `GET /api/frames`, `GET /api/frames/{id}/image` (imágenes PNG de 8 bits reproyectadas con *stretch* uniforme por consulta) y `GET /api/health`.
+- **`contracts/`**: Documentación estructurada (JSDoc / esquemas) de los parámetros de consulta y las respuestas JSON esperadas de `GET /api/frames`, `GET /api/frames/{id}/image` (imágenes PNG de 8 bits reproyectadas con *stretch* uniforme por consulta) y `GET /api/v1/health`.
 - **`services/`**: Funciones de petición HTTP, construcción de URLs de imagen con parámetros de escala/contraste y manejo estandarizado de errores (`4xx`, `502`, `504`). El frontend nunca descarga ni procesa archivos FITS crudos en el navegador.
 
 ---

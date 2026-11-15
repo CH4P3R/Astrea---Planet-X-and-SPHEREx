@@ -229,9 +229,10 @@ Stretch is a **query-level** value (`scale=linear|log|asinh`,
 the pixels of all frames in the query, and every frame image uses it. Per-frame
 autoscaling would normalize away the brightness change of the two variable stars.
 
-### `GET /api/health`
+### `GET /api/v1/health`
 
-`{"status": "ok", "cache_entries": N}`.
+`{"status": "ok"}` — liveness only. It deliberately reports no cache size; the
+count would be a directory walk on every poll.
 
 ## 10. Image pipeline
 
