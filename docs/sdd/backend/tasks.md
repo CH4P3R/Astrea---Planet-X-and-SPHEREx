@@ -11,7 +11,7 @@
 
 ## How to use this file
 
-- Work **top to bottom**. Phases 1–3 are the demo path. Phase 4 is later.
+- Work **top to bottom**. Phases 1–4 are the demo path. Phase 5 is later.
 - Each task is one reviewable change (one PR or commit).
 - Each task follows the module recipe in
   `2026-11-14-astrea-backend-technical-documentation.md` §13:
@@ -99,13 +99,126 @@
   Then update the traceability table in `design.md` §16.
 - **Done when:** every task in Phases 2–3 names at least one requirement ID.
 
-## Phase 2 — Blink (demo path, roadmap step 4)
+## Phase 2 — Box selection on the sky map (image search)
+
+The user drags a rectangle on the 3D sky instead of clicking a single point.
+The backend turns the rectangle into an ICRS centre and a cutout size, then
+runs the existing image search. The geometry stays in the backend, so
+coordinates have a single source of truth (same rule as the click search,
+`POST /images/search`).
+
+**Behaviour:**
+
+- **Input:** the four corner directions of the dragged rectangle, in the
+  scene frame (+X east, +Y up, −Z north), plus the same `observer`, `at`,
+  `mode` and filters (`detector`, `limit`, `start_time`, `end_time`) as the
+  click search.
+- **Centre:** the normalised mean of the four corners' ICRS unit vectors.
+- **Size:** the side of the north-aligned square that encloses the box in the
+  tangent plane at the centre: `size_deg = 2 · max(|Δlon|, |Δlat|)` over the
+  corners. A box rotated relative to north therefore gets a larger square
+  that still covers all of it.
+- **Limits:** the result must satisfy the existing `size_deg` rule
+  (`0 < size ≤ 0.5°`):
+  - A larger box returns 422 with the selected size and the maximum.
+  - A box smaller than one SPHEREx pixel (6.15″) returns 422 asking the user
+    to drag a larger box or click instead.
+- **Search semantics:** unchanged. The search finds exposures that contain
+  the box **centre**. Each cutout is the square above, so near an
+  exposure edge the cutout may be clipped (`width`/`height` in the metadata
+  are authoritative). Exposures that touch the box but not its centre are
+  out of scope (task 5.7).
+
+### [ ] 2.1 Shared sky-direction geometry
+
+- **Changes:** `services/image_geometry.py`:
+  - `directions_to_icrs(directions, observer, at) -> SkyCoord`: a vectorised
+    form of today's `click_to_icrs` logic. It validates that each vector is
+    finite and non-zero, then converts AltAz → ICRS. `click_to_icrs` becomes
+    a one-line wrapper with unchanged behaviour.
+  - `box_selection(corners: SkyCoord) -> BoxGeometry(center, size_deg, corners)`,
+    a pure function:
+    - centre as above;
+    - offsets via `center.skyoffset_frame()`;
+    - `SelectionTooLarge` / `SelectionTooSmall` (both `ValueError`
+      subclasses) when the size is outside the limits.
+- **Done when:**
+  - The click search behaves identically (existing tests unchanged).
+  - `box_selection` handles the RA 0°/360° wrap, Dec ±89.9° and boxes
+    rotated 45°.
+- **Tests:** `tests/test_sky.py` (or a new `tests/test_box_selection.py`):
+  - **Round trip:** build four ICRS corners around a known centre, turn them
+    into scene directions with `calculate_sky`, recover the centre within 1″
+    and the size within 1 %.
+  - **Edge cases:** an RA wrap box centred at 359.99°, a box near the pole,
+    and a 45°-rotated box (size = side × √2).
+  - **Limits:** too large → `SelectionTooLarge`; corners closer than 6.15″
+    → `SelectionTooSmall`; zero or non-finite vectors are rejected.
+- **Refs:** G1, G7; D3, D6, D8.
+
+### [ ] 2.2 Box search schema, route and errors
+
+- **Changes:**
+  - `schemas/sky.py`: `BoxSearchRequest(ProjectionRequest)`:
+    - `corners`: exactly four `direction` vectors, each component in [−1, 1];
+    - `detector?`, `limit`, `start_time?`, `end_time?`, with the same rules
+      as `ClickSearchRequest`;
+    - `extra="forbid"`, no NaN/∞.
+  - `schemas/images.py`:
+    - `BoxSelection {center: SkyPosition, size_deg, corners: list[SkyPosition]}`;
+    - `BoxSearchResponse(ImageSearchResponse)` adds `selection: BoxSelection`.
+      The existing response models are unchanged.
+  - `api/v1/endpoints/images.py`: `POST /api/v1/images/search-box`. It runs
+    `directions_to_icrs`, then `box_selection`, then
+    `ImageService.search(ImageSearchQuery(ra_deg, dec_deg, size_deg, …))`,
+    and returns the result with `selection`.
+  - `api/errors.py`:
+    - `SelectionTooLarge` → 422: "The selected box spans N′; the maximum is
+      30′. Zoom in or drag a smaller box."
+    - `SelectionTooSmall` → 422: "The selected box is smaller than one pixel.
+      Drag a larger box or click instead."
+    - IERS errors keep their existing 422.
+- **Done when:**
+  - Searching by box returns the same `images` as `GET /images` with the
+    computed centre and size.
+  - IDs match, because they are built from the same `requested` geometry.
+  - No FITS is downloaded during the search.
+- **Tests:** `tests/test_images_api.py`, using the `FakeArchive`:
+  - The archive receives the computed centre (±1e-6°) and `size_deg`.
+  - `selection` is echoed back in the response.
+  - Loading a returned ID works exactly as for click results.
+  - Too large / too small → 422 with the messages above, and the archive is
+    never contacted.
+  - Malformed `corners` (3 or 5 vectors, a zero vector, NaN) → 422.
+  - OpenAPI lists the new route.
+- **Refs:** G1, G7; D1, D6.
+
+### [ ] 2.3 Box selection documentation and frontend contract
+
+- **Changes:**
+  - `API.md`: add a section "Box selection on the sky" with the request,
+    the response, the limits and the search semantics.
+  - Describe the frontend side:
+    1. On drag end, compute the four screen-corner rays with
+       `skyDirectionAtPointer`.
+    2. Rotate each by `camera.quaternion`, exactly as for the click.
+    3. Reject the box if any corner falls off the sky disc.
+    4. Send the corners in drag order.
+    5. Draw the returned `selection.corners`.
+    6. Load results exactly as for a click.
+  - `design.md` §4.1 (route table), §4.5 (geometry) and §6.2 (schemas).
+  - Technical documentation §4.2 (a new "search by box" flow) and §14.
+- **Done when:** the frontend team can implement box selection from `API.md`
+  alone.
+- **Refs:** D1.
+
+## Phase 3 — Blink (demo path, roadmap step 4)
 
 Design: Blink spec §3–§6. All frames reuse the existing image pipeline. A
 blink frame is an image cutout plus `subtract_zodi` and `mask_flags`,
 resampled onto a shared grid.
 
-### [ ] 2.1 Full search without a limit
+### [ ] 3.1 Full search without a limit
 
 - **Changes:**
   - `IrsaClient.search_all(*, ra_deg, dec_deg, detector=None, start_mjd=None, end_mjd=None) -> list[ArchiveImage]`
@@ -119,7 +232,7 @@ resampled onto a shared grid.
   `SearchTooBroad` at the cap.
 - **Refs:** G1; Blink spec §3.1.
 
-### [ ] 2.2 Frame selection (pure)
+### [ ] 3.2 Frame selection (pure)
 
 - **Changes:** `services/frame_selection.py`:
   - `detector_counts(rows) -> dict[int, int]`
@@ -133,7 +246,7 @@ resampled onto a shared grid.
   rows than `max_frames`, a requested detector with no rows.
 - **Refs:** G2; Blink spec §5.2.
 
-### [ ] 2.3 Reprojection onto a common grid (pure)
+### [ ] 3.3 Reprojection onto a common grid (pure)
 
 - **Changes:**
   - Add `reproject>=0.13` to `requirements.txt`.
@@ -151,7 +264,7 @@ resampled onto a shared grid.
   - 0.2° → 118×118.
 - **Refs:** G2; Blink spec §5.6.
 
-### [ ] 2.4 Blink schemas and service
+### [ ] 3.4 Blink schemas and service
 
 - **Changes:**
   - `schemas/blink.py`: `BlinkQuery`, `BlinkFrame`, `BlinkGrid`,
@@ -172,7 +285,7 @@ resampled onto a shared grid.
 - **Tests:** `tests/test_blink_api.py`, using a fake archive (pattern from `test_images_api.py`).
 - **Refs:** G1, G2; Blink spec §4.1, §5.
 
-### [ ] 2.5 Blink frame pixels
+### [ ] 3.5 Blink frame pixels
 
 - **Changes:**
   - Add `blink_cache_dir` to `Settings`, default `backend/data/blink/`, and
@@ -192,7 +305,7 @@ resampled onto a shared grid.
 - **Tests:** in `test_blink_api.py`: round trip, cache hit, 404, 502/504 mapping, masked pixels are NaN.
 - **Refs:** G2, G3; D3, D5.
 
-### [ ] 2.6 Suggested stretch and prefetch
+### [ ] 3.6 Suggested stretch and prefetch
 
 - **Changes:**
   - Once the reference frame (median epoch) is cached, `BlinkResponse.suggested_stretch`
@@ -210,7 +323,7 @@ resampled onto a shared grid.
   - Prefetch runs the fetcher once per frame.
 - **Refs:** G2; Blink spec §4.1.
 
-### [ ] 2.7 Blink documentation
+### [ ] 3.7 Blink documentation
 
 - **Changes:**
   - Add a "Blink" section to `API.md`.
@@ -220,9 +333,9 @@ resampled onto a shared grid.
     module to `design.md` §4 and §14.
 - **Done when:** the frontend team can implement blink from `API.md` alone.
 
-## Phase 3 — Pre-warm and acceptance (roadmap step 5)
+## Phase 4 — Pre-warm and acceptance (roadmap step 5)
 
-### [ ] 3.1 Acceptance targets
+### [ ] 4.1 Acceptance targets
 
 - **Changes:**
   - `backend/targets.yaml`: the five targets with ICRS J2000 position, proper
@@ -232,7 +345,7 @@ resampled onto a shared grid.
 - **Done when:** each value has a source noted in a YAML comment.
 - **Refs:** G4, G5.
 
-### [ ] 3.2 Target propagation and route
+### [ ] 4.2 Target propagation and route
 
 - **Changes:**
   - Add `pyyaml` to `requirements.txt`.
@@ -244,7 +357,7 @@ resampled onto a shared grid.
 - **Tests:** `tests/test_targets.py`.
 - **Refs:** G4.
 
-### [ ] 3.3 Warm command
+### [ ] 4.3 Warm command
 
 - **Changes:**
   - `app/warm.py`: `python -m app.warm targets.yaml [--only NAME] [--fov 0.1] [--max-frames 12] [--offline]`.
@@ -259,7 +372,7 @@ resampled onto a shared grid.
 - **Tests:** `tests/test_warm.py`: report format, exit codes, offline mode raises on network use.
 - **Refs:** G3, G4; anti-goal "demo dies because IRSA is slow".
 
-### [ ] 3.4 Acceptance run (manual)
+### [ ] 4.4 Acceptance run (manual)
 
 - **Steps:**
   1. Run `warm` on the five targets.
@@ -275,29 +388,31 @@ resampled onto a shared grid.
   per-target `detector`. Record the decision.
 - **Refs:** G5; product spec §13.
 
-## Phase 4 — Later
+## Phase 5 — Later
 
 | ID | Task | Notes | Refs |
 | --- | --- | --- | --- |
-| [ ] 4.1 | Pagination for `/images` | Cursor on `(t_min, url)`; `has_more` already exists | roadmap step 7 |
-| [ ] 4.2 | Spectra at a sky point | Read `WCS-WAVE` by ranges; wavelength and bandwidth at the target for each frame | roadmap step 6 |
-| [ ] 4.3 | Cache eviction and disk quota | LRU by access time over `image-cutouts/` and `blink/`; size limit in `Settings` | design §7 |
-| [ ] 4.4 | Multi-worker safety | File locks (or a shared store) in place of in-process locks | roadmap step 9 |
-| [ ] 4.5 | Gaia DR3 / WISE overlays | New `integrations/` client following the `catalog.py` pattern | roadmap step 10 |
-| [ ] 4.6 | Settings for the remaining module constants | Move `MAX_SEARCH_ROWS`, `REQUEST_SECONDS`, `MAX_LAYOUTS` and the retry delays into `Settings` | design §11 |
+| [ ] 5.1 | Pagination for `/images` | Cursor on `(t_min, url)`; `has_more` already exists | roadmap step 7 |
+| [ ] 5.2 | Spectra at a sky point | Read `WCS-WAVE` by ranges; wavelength and bandwidth at the target for each frame | roadmap step 6 |
+| [ ] 5.3 | Cache eviction and disk quota | LRU by access time over `image-cutouts/` and `blink/`; size limit in `Settings` | design §7 |
+| [ ] 5.4 | Multi-worker safety | File locks (or a shared store) in place of in-process locks | roadmap step 9 |
+| [ ] 5.5 | Gaia DR3 / WISE overlays | New `integrations/` client following the `catalog.py` pattern | roadmap step 10 |
+| [ ] 5.6 | Settings for the remaining module constants | Move `MAX_SEARCH_ROWS`, `REQUEST_SECONDS`, `MAX_LAYOUTS` and the retry delays into `Settings` | design §11 |
+| [ ] 5.7 | Box search by overlap | Also return exposures that intersect the box but not its centre (polygon `s_region` test or SIA `POLYGON`), with coverage per result | Phase 2 |
 
 ## Dependency graph
 
 ```mermaid
 flowchart LR
-    T11[1.1 env settings] --> T25
+    T11[1.1 env settings] --> T35
     T14[1.4 requirements.md]
-    T21[2.1 search_all] --> T24
-    T22[2.2 selection] --> T24
-    T23[2.3 reprojection] --> T25
-    T24[2.4 blink service] --> T25[2.5 frame pixels] --> T26[2.6 stretch + prefetch] --> T27[2.7 docs]
-    T31[3.1 targets.yaml] --> T32[3.2 propagation] --> T33[3.3 warm]
-    T26 --> T33 --> T34[3.4 acceptance]
+    T21[2.1 box geometry] --> T22[2.2 search-box route] --> T23[2.3 box docs]
+    T31[3.1 search_all] --> T34
+    T32[3.2 selection] --> T34
+    T33[3.3 reprojection] --> T35
+    T34[3.4 blink service] --> T35[3.5 frame pixels] --> T36[3.6 stretch + prefetch] --> T37[3.7 docs]
+    T41[4.1 targets.yaml] --> T42[4.2 propagation] --> T43[4.3 warm]
+    T36 --> T43 --> T44[4.4 acceptance]
 ```
 
-Tasks 2.1, 2.2, 2.3, 3.1 and 1.x can start in parallel.
+Tasks 1.x, 2.1, 3.1, 3.2, 3.3 and 4.1 can start in parallel.
