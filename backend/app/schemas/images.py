@@ -85,3 +85,31 @@ class ImageDataMetadata(BaseModel):
 
 class ImageMetadata(ImageSummary):
     image: ImageDataMetadata
+
+
+PlaneName = Literal["flags", "zodi", "variance"]
+
+
+class FlagBit(BaseModel):
+    bit: int = Field(description="Bit position: a sample carries the flag when (value >> bit) & 1 is 1.")
+    name: str
+    description: str | None
+
+
+class PlaneMetadata(BaseModel):
+    """An extra plane on exactly the same pixel grid as the image's pixels."""
+
+    image_id: str
+    plane: PlaneName
+    extension: str = Field(description="FITS extension the plane was read from.")
+    width: int
+    height: int
+    dtype: Literal["int32", "float32"]
+    byte_order: Literal["little"]
+    array_order: Literal["C"]
+    pixel_origin: Literal["lower-left"]
+    unit: str | None = Field(description="BUNIT of the extension when it states one.")
+    flag_bits: list[FlagBit] = Field(description="Bit definitions from the file; empty except for flags.")
+    masked_flags: list[str] = Field(description="Flag names that mask_flags=true rejects in this file; empty except for flags.")
+    masked_bits: int = Field(description="Bitmask of masked_flags: a sample is rejected when (value & masked_bits) != 0.")
+    pixels_url: str

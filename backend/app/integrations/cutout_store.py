@@ -55,17 +55,21 @@ class CutoutStore:
         except (OSError, ValueError) as error:
             raise CacheError("Could not read a saved selection") from error
 
-    def metadata(self, identifier: str) -> dict | None:
-        if not self.pixels_path(identifier).is_file():
+    def _completed(self, binary: Path, description: Path) -> dict | None:
+        """JSON written after its binary; absent or unreadable means "not cached"."""
+        if not binary.is_file():
             return None
         try:
-            return json.loads(self._path(identifier, "metadata.json").read_text())
+            return json.loads(description.read_text())
         except FileNotFoundError:
             return None
         except json.JSONDecodeError:
             return None
         except OSError as error:
             raise CacheError("Could not read cached image metadata") from error
+
+    def metadata(self, identifier: str) -> dict | None:
+        return self._completed(self.pixels_path(identifier), self._path(identifier, "metadata.json"))
 
     def pixels_path(self, identifier: str) -> Path:
         return self._path(identifier, "pixels.bin")
@@ -74,3 +78,14 @@ class CutoutStore:
         self._write(self.pixels_path(identifier), pixels)
         # Metadata is the completion marker: readers never use a partial binary.
         self._write_json(self._path(identifier, "metadata.json"), metadata)
+
+    # Extra planes (flags, zodi, variance) sit next to pixels.bin, on the same grid.
+    def plane_path(self, identifier: str, plane: str) -> Path:
+        return self._path(identifier, f"{plane}.bin")
+
+    def plane_metadata(self, identifier: str, plane: str) -> dict | None:
+        return self._completed(self.plane_path(identifier, plane), self._path(identifier, f"{plane}.json"))
+
+    def save_plane(self, identifier: str, plane: str, metadata: dict, pixels: bytes) -> None:
+        self._write(self.plane_path(identifier, plane), pixels)
+        self._write_json(self._path(identifier, f"{plane}.json"), metadata)

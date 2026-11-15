@@ -6,6 +6,10 @@ from astropy.wcs import WCS
 import numpy as np
 from app.services.sky import horizon_vectors, observation_context
 
+class MeshError(ValueError):
+    """The image WCS cannot be meshed within the supported accuracy."""
+
+
 def unit_vectors(coords):
     return coords.icrs.cartesian.xyz.value.T
 
@@ -20,7 +24,7 @@ def build_mesh(wcs, width, height):
         coords = wcs.pixel_to_world(uu.ravel() * width - 0.5, vv.ravel() * height - 0.5).icrs
         vectors = unit_vectors(coords)
         if not np.all(np.isfinite(vectors)):
-            raise ValueError("The image WCS contains invalid directions.")
+            raise MeshError("The image WCS contains invalid directions.")
         cells = np.arange((segments + 1) ** 2).reshape(segments + 1, segments + 1)
         a, b, c, d = (part.ravel() for part in (cells[:-1, :-1], cells[:-1, 1:], cells[1:, :-1], cells[1:, 1:]))
         triangles = np.concatenate((np.stack((a, b, c), -1), np.stack((b, d, c), -1)))
@@ -34,12 +38,12 @@ def build_mesh(wcs, width, height):
             interpolated = SkyCoord(x=average[:, 0], y=average[:, 1], z=average[:, 2], representation_type="cartesian", frame="icrs")
             px, py = wcs.world_to_pixel(interpolated)
             if not np.all(np.isfinite(px)) or not np.all(np.isfinite(py)):
-                raise ValueError("The image WCS could not be inverted reliably.")
+                raise MeshError("The image WCS could not be inverted reliably.")
             expected = uv[selected].mean(axis=1) * [width, height] - 0.5
             error = max(error, float(np.max(np.hypot(px - expected[:, 0], py - expected[:, 1]))))
         if np.isfinite(error) and error <= 0.15:
             return coords, uv.astype(float).ravel().tolist(), triangles.ravel().tolist(), error, segments
-    raise ValueError("This image's distortion requires a finer mesh than the supported limit.")
+    raise MeshError("This image's distortion requires a finer mesh than the supported limit.")
 
 def click_to_icrs(direction, observer, at):
     vector = np.asarray(direction, dtype=float)

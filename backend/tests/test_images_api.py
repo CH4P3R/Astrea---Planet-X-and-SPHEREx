@@ -252,6 +252,8 @@ def test_openapi_describes_routes_and_binary_response(backend):
     assert set(paths) == {
         "/api/v1/images", "/api/v1/images/{image_id}",
         "/api/v1/images/{image_id}/pixels",
+        "/api/v1/images/{image_id}/planes/{plane}",
+        "/api/v1/images/{image_id}/planes/{plane}/pixels",
         "/api/v1/images/search", "/api/v1/images/load/{image_id}",
         "/api/v1/images/{image_id}/projection",
         "/api/v1/stars", "/api/v1/star-catalog", "/api/v1/sky",
@@ -294,6 +296,20 @@ def test_click_load_pixels_and_projection_flow(backend):
         assert len(geometry["directions"][0]) // 3 == len(geometry["uv"]) // 2
         assert geometry["mesh_error_pixels"] <= 0.15
         assert len(archive.downloads) == 1
+
+
+def test_unprojectable_wcs_is_a_clear_422(backend, monkeypatch):
+    from app.services import image_geometry
+    app, _ = backend
+    item = search_one(app)
+
+    def too_distorted(*args, **kwargs):
+        raise image_geometry.MeshError("This image's distortion requires a finer mesh than the supported limit.")
+    monkeypatch.setattr(image_geometry, "build_mesh", too_distorted)
+    request = {"observer": {"latitude_deg": 14, "longitude_deg": -89}, "at": "2025-01-01T00:00:00Z", "mode": "paused"}
+    response = post(app, f"/api/v1/images/{item['id']}/projection", json=request)
+    assert response.status_code == 422
+    assert response.json() == {"detail": "This image's WCS cannot be projected accurately. Try a smaller size."}
 
 
 def test_star_routes_version_and_sky(backend):
