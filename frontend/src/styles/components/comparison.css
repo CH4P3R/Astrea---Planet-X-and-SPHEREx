@@ -1,27 +1,4 @@
-/* Compare uses one scroll surface so its results grow with the panel content. */
-.image-inspector[data-active-tab='compare'] .inspector-surface {
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior-y: contain;
-  scrollbar-gutter: stable;
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) transparent;
-}
-.image-inspector[data-active-tab='compare'] .inspector-summary {
-  max-height: none;
-  overflow: visible;
-}
-.image-inspector[data-active-tab='compare'] .inspector-panels,
-.image-inspector[data-active-tab='compare'] .inspector-panels > [role='tabpanel']:not([hidden]),
-.image-inspector[data-active-tab='compare'] .context-content,
-.image-inspector[data-active-tab='compare'] .context-panel-scroll {
-  flex: 0 0 auto;
-  max-height: none;
-}
-.image-inspector[data-active-tab='compare'] .context-panel-scroll {
-  overflow: visible;
-  scrollbar-gutter: auto;
-}
+/* Use the shared inspector scroll layout to keep the detector selector fixed. */
 .comparison-player { padding: 8px 0 20px; }
 .comparison-browser {
   padding: 16px;
