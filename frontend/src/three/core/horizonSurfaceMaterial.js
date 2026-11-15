@@ -10,11 +10,13 @@ export const horizonVertexShader = `
 export const horizonFragmentShader = `
   uniform float groundHeight;
   uniform float surfaceOpacity;
+  uniform float lineScale;
   varying vec3 skyDirection;
 
   float stroke(float distanceToLine, float width) {
-    float aa = max(fwidth(distanceToLine), 0.001);
-    return 1.0 - smoothstep(width, width + aa, abs(distanceToLine));
+    float scaledWidth = width * lineScale;
+    float aa = max(fwidth(distanceToLine), 0.001 * lineScale);
+    return 1.0 - smoothstep(scaledWidth, scaledWidth + aa, abs(distanceToLine));
   }
 
   float grid(vec2 p, float spacing) {

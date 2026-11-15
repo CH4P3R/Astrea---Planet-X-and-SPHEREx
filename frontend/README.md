@@ -85,6 +85,14 @@ al mirar hacia el nadir, donde queda el 15 % de la opacidad base de 0,28.
 El control **Mostrar superficie central**, en **Aspecto del cielo**, permite
 ocultar la guía. Está activada inicialmente y permite explorar el cielo inferior.
 
+Al ampliar, el grosor de las líneas se compensa con el inverso del zoom para
+evitar barras cada vez más anchas. La guía pierde opacidad suavemente entre 1×
+y 8× y queda oculta desde 8×, dejando libre la inspección de recortes FITS.
+Al alejar la vista reaparece de forma gradual. `baseOrthographicZoom`, una función
+propia, calcula el zoom relativo al encuadre inicial; `MathUtils.smoothstep`, de
+Three.js, controla la transición de opacidad. El ajuste se aplica a cuadrícula,
+anillos y marcas centrales, y se combina con la atenuación por inclinación.
+
 La referencia utiliza perspectiva; aquí el suelo se adapta a la proyección
 ortográfica del cielo. `horizonSurfaceMaterial.js` calcula la intersección de
 cada dirección celeste con el plano Y = −1 y dibuja allí el patrón del suelo.
@@ -95,8 +103,9 @@ el plano representado queda separado del observador y el shader utiliza la
 profundidad normal. Esto evita el disco superpuesto y los cortes de un plano
 que atraviesa el volumen de la cámara ortográfica.
 
-`useFrame`, de React Three Fiber, actualiza la opacidad con `getWorldDirection`,
-de la cámara Three.js. La guía se dibuja antes de las etiquetas y del contenido
+`useFrame`, de React Three Fiber, actualiza el grosor y la opacidad según el zoom
+y la orientación obtenida con `getWorldDirection`, de la cámara Three.js.
+La guía se dibuja antes de las etiquetas y del contenido
 astronómico, sin escribir profundidad ni interceptar clics.
 
 La integración utiliza React, Three.js, React Three Fiber y las API del navegador

@@ -181,6 +181,7 @@ La búsqueda mediante un punto del cielo utiliza `POST /api/v1/images/search` y 
 - «Mostrar superficie central» es un checkbox nativo de aplicación inmediata, activado por defecto. Oculta o muestra la guía horizontal transparente situada bajo el observador, formada por cuadrícula y anillos.
 - La superficie es atravesable y permite ver el hemisferio inferior. No intercepta clics ni restringe la cámara. Su visibilidad es independiente de la ubicación y de la carga de estrellas.
 - La guía sigue el suelo del prototipo de referencia: plano en Y = −1, detalle atenuado por distancia y menor opacidad al mirar hacia abajo. Se adapta a la proyección ortográfica mediante las direcciones del cielo y solo aparece bajo el horizonte. No se debe volver a forzar la profundidad de un disco relleno, porque produce superposiciones al girar.
+- Al ampliar, cuadrícula, anillos y marcas compensan su grosor con el inverso del zoom y se desvanecen suavemente entre 1× y 8×. Desde 8× quedan ocultos para facilitar la inspección de FITS; reaparecen al alejar la vista. Esta adaptación es automática y respeta el control de visibilidad.
 
 ### Navegación de la cámara
 
