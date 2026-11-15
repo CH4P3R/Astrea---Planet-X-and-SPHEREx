@@ -13,6 +13,10 @@
   --button-surface: transparent;
 }
 .context-panel .input-help:focus-visible { color: #e1e7ef; }
+@media (max-width: 1440px), (max-height: 800px) {
+  .context-panel .input-field { margin: 8px 0; }
+  .context-panel .input-field label { margin-bottom: 6px; }
+}
 @media (hover: hover) {
   .context-panel .input-help:hover { color: #e1e7ef; }
 }

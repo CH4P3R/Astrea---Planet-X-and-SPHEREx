@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from 'react'
+import { anchoredPanelPosition, availablePanelBounds } from '../components/common/panelPosition.js'
 
 export default function useAnchoredPanel(anchorId, visible) {
   const panelRef = useRef(null)
@@ -9,6 +10,8 @@ export default function useAnchoredPanel(anchorId, visible) {
     if (!visible || !panel || !anchor) return
 
     const viewport = window.visualViewport
+    const root = panel.closest('.app-viewport')
+    const obstacles = [...(root?.querySelectorAll('.sky-clock, .language-region') ?? [])]
     let frame = null
 
     function position() {
@@ -17,20 +20,14 @@ export default function useAnchoredPanel(anchorId, visible) {
       const arrowInset = parseFloat(styles.getPropertyValue('--panel-arrow-inset'))
       const viewportTop = viewport?.offsetTop ?? 0
       const viewportHeight = viewport?.height ?? window.innerHeight
-      const availableHeight = Math.max(0, viewportHeight - gap * 2)
-      panel.style.setProperty('--panel-available-height', `${availableHeight}px`)
+      const bounds = availablePanelBounds({ top: viewportTop, height: viewportHeight }, panel.getBoundingClientRect(),
+        obstacles.map((element) => element.getBoundingClientRect()), gap)
+      panel.style.setProperty('--panel-available-height', `${bounds.height}px`)
 
       const anchorBounds = anchor.getBoundingClientRect()
       const height = panel.offsetHeight
-      const minTop = viewportTop + gap
-      const maxTop = Math.max(minTop, viewportTop + viewportHeight - gap - height)
-      const inset = Math.min(arrowInset, height / 2)
-      const anchorCenter = anchorBounds.top + anchorBounds.height / 2
-      const centeredTop = viewportTop + (viewportHeight - height) / 2
-      const alignedTop = Math.max(anchorCenter - height + inset, Math.min(centeredTop, anchorCenter - inset))
-      const top = Math.max(minTop, Math.min(alignedTop, maxTop))
+      const { top, arrowY } = anchoredPanelPosition(bounds, anchorBounds, height, arrowInset)
       const parentTop = panel.offsetParent.getBoundingClientRect().top
-      const arrowY = Math.max(inset, Math.min(anchorCenter - top, height - inset))
 
       panel.style.setProperty('--panel-offset-y', `${top - parentTop}px`)
       panel.style.setProperty('--panel-pointer-y', `${arrowY}px`)
@@ -45,6 +42,9 @@ export default function useAnchoredPanel(anchorId, visible) {
     const observer = new ResizeObserver(schedulePosition)
     observer.observe(panel)
     observer.observe(anchor)
+    obstacles.forEach((element) => observer.observe(element))
+    const changes = new MutationObserver(schedulePosition)
+    if (root) changes.observe(root, { attributes: true, attributeFilter: ['data-inspector-open'] })
     window.addEventListener('resize', schedulePosition)
     window.addEventListener('scroll', schedulePosition, true)
     viewport?.addEventListener('resize', schedulePosition)
@@ -52,6 +52,7 @@ export default function useAnchoredPanel(anchorId, visible) {
 
     return () => {
       observer.disconnect()
+      changes.disconnect()
       window.cancelAnimationFrame(frame)
       window.removeEventListener('resize', schedulePosition)
       window.removeEventListener('scroll', schedulePosition, true)

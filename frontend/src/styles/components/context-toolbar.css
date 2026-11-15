@@ -1,7 +1,7 @@
 .sky-clock {
   position: absolute;
-  top: 32px;
-  left: 48px;
+  top: max(var(--ui-edge-y), env(safe-area-inset-top));
+  left: max(var(--ui-edge-x), env(safe-area-inset-left));
   color: #f5f7fb;
   text-shadow: 0 2px 12px #060c18;
   font-variant-numeric: tabular-nums;
@@ -14,7 +14,7 @@
 .context-toolbar {
   --toolbar-top: clamp(150px, 29dvh, 310px);
   position: absolute;
-  left: 48px;
+  left: max(var(--ui-edge-x), env(safe-area-inset-left));
   top: var(--toolbar-top);
   display: flex;
   align-items: flex-start;
@@ -25,6 +25,7 @@
   pointer-events: none;
   --rail-width: 88px;
   --tool-height: 72px;
+  --panel-gap: 26px;
 }
 
 .context-rail {
@@ -32,7 +33,7 @@
   gap: 12px;
   padding: 16px 12px;
   width: var(--rail-width);
-  max-height: max(48px, calc(100dvh - var(--toolbar-top) - 108px - env(safe-area-inset-bottom)));
+  max-height: max(44px, calc(100dvh - var(--toolbar-top) - var(--ui-edge-y) - 44px - var(--ui-gap) - env(safe-area-inset-bottom)));
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--scrollbar-thumb) transparent;
@@ -62,8 +63,8 @@
 
 .context-panels {
   position: relative;
-  width: min(330px, calc(100vw - 190px));
-  margin-left: 26px;
+  width: min(330px, calc(100vw - var(--ui-edge-x) - var(--ui-edge-x) - var(--rail-width) - var(--panel-gap) - env(safe-area-inset-left) - env(safe-area-inset-right)));
+  margin-left: var(--panel-gap);
   pointer-events: none;
 }
 .context-panel {
@@ -280,13 +281,39 @@
   .sky-surface-toggle input::after { display: none; }
 }
 
+@media (max-width: 1440px), (max-height: 800px) {
+  .sky-clock strong { font-size: clamp(20px, 3dvh, 24px); }
+  .sky-clock span { font-size: 14px; }
+  .context-toolbar {
+    --toolbar-top: max(calc(var(--ui-edge-y) + 84px), min(24dvh, 190px));
+    --rail-width: clamp(60px, 5.2vw, 72px);
+    --tool-height: clamp(44px, 7.3dvh, 60px);
+    --panel-gap: clamp(12px, 1.5vw, 20px);
+  }
+  .context-rail { padding: 10px 8px; gap: 8px; border-radius: 16px; }
+  .context-trigger svg { width: 30px; height: 30px; }
+  .context-panel { --panel-viewport-gap: 12px; --panel-arrow-inset: 26px; }
+  .context-panel-surface::before { border-width: 10px; }
+  .context-panel-header, .context-panel-footer { padding: 12px; }
+  .context-panel-header { padding-bottom: 6px; flex-shrink: 1; min-height: 44px; overflow-y: auto; }
+  .context-panel-footer { padding-top: 6px; }
+  .context-panel-scroll { padding: 0 12px 6px; }
+  .context-panel-scroll:not(:empty) { min-height: 44px; }
+  .context-panel-scroll:last-child { padding-bottom: 12px; }
+  .context-panel h2 { margin-bottom: 8px; }
+  .context-panel p { margin: 8px 0; }
+  .context-panel label { margin: 8px 0; }
+  .context-panel button, .context-panel input:not([type='checkbox']) { min-height: 44px; padding: 10px; margin: 4px 0; }
+  .language-select .select-trigger { padding: 10px; }
+}
+
 @media (max-width: 600px) {
   .sky-clock { top: 24px; left: 20px; }
   .sky-clock strong { font-size: 22px; }
-  .context-toolbar { left: 16px; --toolbar-top: 160px; --rail-width: 64px; --tool-height: 58px; }
+  .context-toolbar { left: max(16px, env(safe-area-inset-left)); --toolbar-top: clamp(112px, 20dvh, 160px); --rail-width: 64px; --tool-height: clamp(44px, 7dvh, 58px); --panel-gap: 18px; }
   .context-rail { padding: 12px 6px; gap: 10px; border-radius: 16px; }
   .context-trigger svg { width: 30px; height: 30px; }
-  .context-panels { width: calc(100vw - 114px); margin-left: 18px; }
+  .context-panels { width: calc(100vw - 114px - env(safe-area-inset-left) - env(safe-area-inset-right)); }
   .context-panel { --panel-viewport-gap: 16px; --panel-arrow-inset: 30px; }
   .context-panel-surface::before { border-width: 10px; }
   .context-panel-header, .context-panel-footer { padding: 12px; }

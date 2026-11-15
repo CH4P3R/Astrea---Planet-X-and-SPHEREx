@@ -1,8 +1,8 @@
 .image-inspector {
   position: absolute;
   top: clamp(128px, 16dvh, 176px);
-  right: 32px;
-  bottom: 32px;
+  right: max(var(--ui-edge-y), env(safe-area-inset-right));
+  bottom: max(var(--ui-edge-y), env(safe-area-inset-bottom));
   width: clamp(360px, 46vw, 680px);
   display: flex;
   flex-direction: column;
@@ -118,6 +118,25 @@
   .detector-segment:hover .detector-color { opacity: 1; transform: translateY(-2px); }
   .image-inspector input[type='range']:hover::-webkit-slider-thumb { transform: scale(1.2); }
 }
+@media (max-width: 1440px), (max-height: 800px) {
+  .image-inspector { top: clamp(96px, 14dvh, 128px); width: clamp(360px, 42vw, 560px); }
+  .inspector-topbar { padding: 0 8px; gap: 8px; }
+  .panel-tabs { gap: 3px; }
+  .inspector-summary { padding: 12px 16px 4px; max-height: 42%; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
+  .inspector-panels .context-panel-scroll { padding: 0 16px 12px; }
+  .inspector-panels .context-panel-footer { padding: 8px 16px; }
+  .inspector-section + .inspector-section { margin-top: 16px; }
+  .image-inspector h3 { margin: 8px 0; }
+  .metadata-row { padding: 6px 0; }
+  .image-inspector p, .metadata-row, .inspector-toggle, .inspector-field-heading,
+  .image-inspector .input-field label { font-size: 14px; }
+  .image-inspector button:not(.input-help), .image-inspector a { min-height: 44px; font-size: 14px; padding: 8px 10px; }
+  .image-inspector .inspector-close { min-width: 44px; }
+  .image-inspector .panel-tabs button { padding: 8px 10px; gap: 5px; }
+  .inspector-toggle label { min-height: 44px; }
+  .detector-color { height: 32px; }
+  .detector-segment { min-height: 44px; }
+}
 @media (max-width: 900px) {
   .app-viewport[data-inspector-open='true'] .language-region { top: 24px; right: 16px; bottom: auto; left: auto; }
   .app-viewport[data-inspector-open='true'] .context-rail { max-height: max(48px, calc(46dvh - var(--toolbar-top) - 32px)); }
@@ -125,7 +144,7 @@
   .inspector-summary { padding: 12px 16px 4px; max-height: 40%; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
   .inspector-panels .context-panel-scroll, .inspector-panels .context-panel-footer { padding-left: 16px; padding-right: 16px; }
   .inspector-topbar { padding: 0 8px; }
-  .image-inspector .panel-tabs button { padding: 10px; gap: 5px; font-size: 12px; }
+  .image-inspector .panel-tabs button { padding: 8px; gap: 5px; font-size: 14px; }
   .inspector-observation-heading strong { font-size: 14px; }
   .detector-color { height: 30px; }
 }
