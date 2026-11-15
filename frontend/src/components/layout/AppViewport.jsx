@@ -32,6 +32,7 @@ export default function AppViewport() {
   const [tab, setTab] = useState('data')
   const [dismissedId, setDismissedId] = useState(null)
   const [focusVersion, setFocusVersion] = useState(0)
+  const [searchDirection, setSearchDirection] = useState(null)
   const activeId = fits.active?.metadata.id
   const inspectorOpen = Boolean(activeId && dismissedId !== activeId)
   const searchPending = fits.preparing || (!fits.active && ['searching', 'loading', 'results', 'error'].includes(fits.status))
@@ -68,6 +69,7 @@ export default function AppViewport() {
       return
     }
     setNotice(null)
+    setSearchDirection(direction)
     open('search')
     search(direction)
   }, [observer, size, search, open, activeId])
@@ -83,7 +85,8 @@ export default function AppViewport() {
         <Canvas orthographic camera={{ position: [0, 0, 0], near: 0.01, far: 250 }}>
           <SkyScene observer={observer} fits={fits} stars={stars} surfaceVisible={surfaceVisible}
             timestamp={clock.timestamp} onSkyClick={onSkyClick} frameImages={frameImages} viewport={viewport} focusVersion={focusVersion}
-            primary={primaryProjection} secondary={secondaryProjection} appearance={appearance} frame={playback.frame} />
+            primary={primaryProjection} secondary={secondaryProjection} appearance={appearance} frame={playback.frame}
+            searchDirection={searchDirection} />
         </Canvas>
       </div>
       <div className="ui-layer">

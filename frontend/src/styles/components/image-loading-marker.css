@@ -1,0 +1,53 @@
+.image-loading-marker {
+  width: min(240px, 65vw);
+  color: #fcfafe;
+  text-align: center;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 250ms ease, visibility 250ms;
+}
+
+.image-loading-marker[data-active='true'] {
+  opacity: 1;
+  visibility: visible;
+}
+
+.image-loading-marker__logo {
+  width: 100%;
+  aspect-ratio: 1186 / 583;
+  margin-bottom: 10px;
+  background: linear-gradient(100deg,
+    rgb(163 138 208 / 22%) 35%,
+    rgb(210 200 233 / 65%) 47%,
+    rgb(240 237 249 / 90%) 50%,
+    rgb(210 200 233 / 65%) 53%,
+    rgb(163 138 208 / 22%) 65%);
+  background-size: 300% 100%;
+  background-position: 100% 0;
+  -webkit-mask: var(--astrea-logo-mask) center / contain no-repeat;
+  mask: var(--astrea-logo-mask) center / contain no-repeat;
+  animation: astrea-logo-shimmer 2.4s ease-in-out infinite;
+  animation-play-state: paused;
+}
+
+.image-loading-marker[data-active='true'] .image-loading-marker__logo { animation-play-state: running; }
+
+.image-loading-marker span {
+  display: block;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: #c9c2d8;
+  text-shadow: 0 1px 6px #060c18;
+}
+
+@keyframes astrea-logo-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: 0% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .image-loading-marker { transition: none; }
+  .image-loading-marker__logo { animation: none; background: rgb(210 200 233 / 50%); }
+}
