@@ -235,6 +235,7 @@ El tooltip:
 - Se asocia al elemento mediante `aria-describedby` y utiliza `role="tooltip"`.
 - Puede descartarse con Escape.
 - Se posiciona dentro de la ventana y cambia de lado si falta espacio.
+- Su ancho se ajusta al contenido, con un máximo de 280 px (190 px en la variante compacta) y sin superar el ancho de la ventana menos 24 px. Los textos largos se distribuyen en varias líneas.
 - Se renderiza mediante un portal fuera del área desplazable para evitar recortes por `overflow`.
 - No contiene acciones interactivas ni intercepta el ratón.
 
