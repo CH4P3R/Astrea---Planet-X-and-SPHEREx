@@ -12,7 +12,8 @@ export default function OnboardingTour({ index, scopeRef, onChange, onFinish, im
   const step = tourSteps[index]
 
   useLayoutEffect(() => {
-    titleRef.current?.focus({ preventScroll: !tourOptions.scrollTo })
+    const highlightedTab = scopeRef.current?.querySelector('[role="tab"][data-highlighted="true"]')
+    if (document.activeElement !== highlightedTab) titleRef.current?.focus({ preventScroll: !tourOptions.scrollTo })
     let animation
     const measure = () => {
       const view = window.visualViewport
@@ -80,10 +81,23 @@ export default function OnboardingTour({ index, scopeRef, onChange, onFinish, im
     <section ref={cardRef} className="tour-card" style={geometry ? { left: geometry.left, top: geometry.top } : undefined}>
       <header>
         <span>{t('onboarding.title')} · {t('onboarding.progress', { current: index + 1, total: tourSteps.length })}</span>
-        <h2 id="tour-heading" ref={titleRef} tabIndex={-1}>{t(`onboarding.${step.id}.title`)}</h2>
+        <div className="tour-heading">
+          <h2 id="tour-heading" ref={titleRef} tabIndex={-1}>{t(`onboarding.${step.id}.title`)}</h2>
+          {step.tab && <span className="tour-location">{t('onboarding.inspector')}</span>}
+        </div>
       </header>
       <div className="tour-description">
-        <p id="tour-description">{t(`onboarding.${step.id}.body`)}</p>
+        <p id="tour-description" className="tour-summary">{t(`onboarding.${step.id}.summary`)}</p>
+        <section aria-labelledby="tour-actions-title">
+          <h3 id="tour-actions-title" className="tour-actions-title">{t('onboarding.try')}</h3>
+          <ol className="tour-actions">
+            {Array.from({ length: step.actionCount ?? 2 }, (_, action) => <li key={action}>
+              <strong>{t(`onboarding.${step.id}.actions.${action + 1}.title`)}</strong>
+              <span>{t(`onboarding.${step.id}.actions.${action + 1}.description`)}</span>
+            </li>)}
+          </ol>
+        </section>
+        <p className="tour-note">{t(`onboarding.${step.id}.note`)}</p>
         {step.tab && loading && <p role="status">{t('onboarding.loading')}</p>}
         {step.tab && error && <p role="alert">{t(error)}</p>}
         {step.tab && !imageReady && !loading && <button type="button" onClick={onLoad}>{t('onboarding.load')}</button>}

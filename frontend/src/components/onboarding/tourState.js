@@ -9,7 +9,7 @@ export const tourSteps = [
   { id: 'sky', target: '[data-tour-panel="sky"]', panel: 'sky' },
   { id: 'data', target: '.image-inspector', tab: 'data' },
   { id: 'appearance', target: '.image-inspector', tab: 'appearance' },
-  { id: 'compare', target: '.image-inspector', tab: 'compare' },
+  { id: 'compare', target: '.image-inspector', tab: 'compare', actionCount: 3 },
 ]
 
 export function shouldStartTour(storage) {

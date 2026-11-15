@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { saveTourStatus, shouldStartTour, tourOptions, tourPosition, tourSteps, tourStorageKey } from '../src/components/onboarding/tourState.js'
+import { resources } from '../src/i18n/resources.js'
 
 test('first visit starts the tour and completed or skipped visits do not', () => {
   const values = new Map()
@@ -48,4 +49,23 @@ test('tour card fits desktop, narrow and short viewports including missing ancho
 test('card chooses free space beside an anchor when it fits', () => {
   assert.deepEqual(tourPosition({ left: 24, top: 100, right: 120, bottom: 400 },
     { width: 360, height: 280 }, { width: 1366, height: 768 }), { left: 136, top: 100 })
+})
+
+test('each tour step has a short summary, two or three actions and a secondary note', () => {
+  for (const language of ['es', 'en']) {
+    for (const step of tourSteps) {
+      const content = resources[language].onboarding[step.id]
+      const count = step.actionCount ?? 2
+      assert.ok(count >= 2 && count <= 3)
+      assert.ok(content.summary.length > 0 && content.summary.length <= 160)
+      assert.ok(content.note.length > 0 && content.note.length <= 160)
+      assert.equal(Object.keys(content.actions).length, count)
+      assert.equal(content.body, undefined)
+      for (let index = 1; index <= count; index += 1) {
+        const action = content.actions[index]
+        assert.ok(action.title.length > 0 && action.title.length <= 70)
+        assert.ok(action.description.length > 0 && action.description.length <= 120)
+      }
+    }
+  }
 })

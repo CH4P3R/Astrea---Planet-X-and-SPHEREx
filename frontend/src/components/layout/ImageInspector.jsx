@@ -10,7 +10,7 @@ import ImageComparisonPanel from '../blink-hud/ImageComparisonPanel.jsx'
 import useTranslation from '../../i18n/useTranslation.js'
 
 export default function ImageInspector({ open, onClose, tab, onTabChange, fits, displayed,
-  appearance, comparison, playback, reason, primaryProjection, frames, projections, onCenter, tutorial = false }) {
+  appearance, comparison, playback, reason, primaryProjection, frames, projections, onCenter, highlightedTab }) {
   const { t } = useTranslation()
   const id = useId()
   if (!fits.active || !open) return null
@@ -20,16 +20,13 @@ export default function ImageInspector({ open, onClose, tab, onTabChange, fits, 
   return <>
     <aside className="image-inspector" data-open={open} data-active-tab={tab} inert={!open} aria-hidden={!open} aria-label={t('inspector.title')} data-image-obstacle data-select-obstacle>
       <div className="inspector-topbar">
-        <Tabs id={id} label={t('inspector.title')} items={items} value={tab} onChange={onTabChange} />
+        <Tabs id={id} label={t('inspector.title')} items={items} value={tab} onChange={onTabChange} highlighted={highlightedTab} />
         <Tooltip message={t('inspector.actions.close')} inline><button type="button" className="inspector-close"
           onClick={onClose}
           aria-label={t('inspector.actions.close')}><InspectorIcon name="close" /></button></Tooltip>
       </div>
       <div className="inspector-surface">
         <header className="inspector-summary">
-          {tutorial && <p className="context-note">{t('onboarding.realData')}<br />
-            <a href={`/api/v1/images/onboarding/${metadata.id}/fits`} target="_blank" rel="noreferrer">{t('onboarding.download')}</a>
-          </p>}
           <div className="inspector-observation-heading">
             <div><span className="context-note">{t('inspector.observation')}{comparison.observations.length ? ` · ${playback.frame}` : ''}</span>
               <strong><ObservationDate value={metadata.observation.start_utc} /></strong></div>

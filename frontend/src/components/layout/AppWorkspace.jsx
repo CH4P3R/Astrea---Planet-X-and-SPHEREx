@@ -112,11 +112,15 @@ export default function AppWorkspace({ tutorial = false, suspended = false, onSt
         <ContextToolbar clock={clock} location={location} fits={fits} menu={tourMenu}
           stars={stars} surfaceVisible={surfaceVisible} setSurfaceVisible={setSurfaceVisible}
           idPrefix={tutorial ? 'tutorial-' : ''} initialCoordinates={tutorial ? barnardQuery : undefined} />
-        <LanguageSelect onStartTour={onStartTour ? () => { playback.pause(); onStartTour() } : undefined} />
+        <LanguageSelect suspended={suspended} onStartTour={onStartTour ? () => { playback.pause(); onStartTour() } : undefined} />
         <ImageInspector open={inspectorOpen} tab={tab} fits={fits} displayed={displayed} appearance={appearance}
           comparison={comparison} playback={playback} reason={t(reason)} primaryProjection={primaryProjection} frames={frames} projections={projections}
-          tutorial={tutorial}
-          onTabChange={(value) => { playback.pause(); setTab(value) }}
+          highlightedTab={tutorial ? tourSteps[tourIndex].tab : undefined}
+          onTabChange={(value) => {
+            const nextStep = tourSteps.findIndex((step) => step.tab === value)
+            if (tutorial && tourSteps[tourIndex].tab && nextStep >= 0) changeTourStep(nextStep)
+            else { playback.pause(); setTab(value) }
+          }}
           onClose={() => { playback.pause(); fits.reset(); setTab('data'); open(null)
             requestAnimationFrame(() => rootRef.current?.focus({ preventScroll: true })) }}
           onCenter={() => { fits.refine(1); setFocusVersion((value) => value + 1) }} />
