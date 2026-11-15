@@ -5,28 +5,26 @@ import TimeControls from './TimeControls.jsx'
 import LocationControls from './LocationControls.jsx'
 import FitsControls from './FitsControls.jsx'
 import SkyControls from './SkyControls.jsx'
+import useTranslation from '../../i18n/useTranslation.js'
 
-const options = [
-  { id: 'time', label: 'Tiempo' },
-  { id: 'location', label: 'Ubicación' },
-  { id: 'search', label: 'Preparación' },
-  { id: 'sky', label: 'Aspecto del cielo' },
-]
+const sections = ['time', 'location', 'search', 'sky']
 export default function ContextToolbar({ clock, location, fits, menu, stars, surfaceVisible, setSurfaceVisible }) {
+  const { t, date } = useTranslation()
+  const options = sections.map((id) => ({ id, label: t(`${id}.title`) }))
   const { active, hint, keepOpen, preview, leave } = menu
 
   return <>
-    <div className="sky-clock" aria-label="Hora local del cielo mostrado">
+    <div className="sky-clock" aria-label={t('common.localTime')} data-select-obstacle>
       <time dateTime={new Date(clock.timestamp).toISOString()}>
-        <strong>{new Date(clock.timestamp).toLocaleTimeString('es', { hour: 'numeric', minute: '2-digit', second: '2-digit' })}</strong>
-        <span>{new Date(clock.timestamp).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+        <strong>{date(clock.timestamp, { hour: 'numeric', minute: '2-digit', second: '2-digit' })}</strong>
+        <span>{date(clock.timestamp, { day: 'numeric', month: 'short', year: 'numeric' })}</span>
       </time>
     </div>
     <div className="context-toolbar" onPointerEnter={keepOpen} onPointerLeave={leave}
       onFocus={keepOpen} onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) leave()
       }}>
-      <nav className="context-rail" aria-label="Contexto y preparación">
+      <nav className="context-rail" aria-label={t('common.navigation')} data-select-obstacle>
         {options.map(({ id, label }) => <div className="context-tool" key={id}>
           <Tooltip message={label} open={hint === id} compact>
           <button id={`context-trigger-${id}`} type="button" className={`context-trigger${active === id ? ' is-active' : ''}`}
@@ -45,7 +43,7 @@ export default function ContextToolbar({ clock, location, fits, menu, stars, sur
           label={label} visible={active === id}>
           {id === 'time' && <TimeControls clock={clock} />}
           {id === 'location' && <LocationControls {...location} />}
-          {id === 'search' && <FitsControls fits={fits} observer={location.observer} />}
+          {id === 'search' && <FitsControls fits={fits} observer={location.observer} visible={active === id} />}
           {id === 'sky' && <SkyControls stars={stars} surfaceVisible={surfaceVisible} setSurfaceVisible={setSurfaceVisible} />}
         </ContextPanel>)}
       </div>

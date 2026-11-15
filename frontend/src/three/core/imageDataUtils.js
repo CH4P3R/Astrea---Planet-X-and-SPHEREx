@@ -1,19 +1,21 @@
+import { LocalizedError } from '../../i18n/messages.js'
+
 export function validateImage(image, maxTextureSize) {
   const { width, height, dtype, byte_order: byteOrder, array_order: order, pixel_origin: origin } = image
   if (!Number.isSafeInteger(width) || !Number.isSafeInteger(height) || width < 1 || height < 1
-    || !Number.isSafeInteger(width * height)) throw new Error('Dimensiones de imagen inválidas')
+    || !Number.isSafeInteger(width * height)) throw new LocalizedError('errors.image.dimensions')
   if (width > maxTextureSize || height > maxTextureSize) {
-    throw new Error(`El recorte mide ${width} × ${height} px; tu GPU admite hasta ${maxTextureSize} px por lado. Prueba una región menor.`)
+    throw new LocalizedError('errors.image.gpuLimit', { width, height, maxTextureSize })
   }
   if (!['float32', 'float64'].includes(dtype) || byteOrder !== 'little' || order !== 'C' || origin !== 'lower-left') {
-    throw new Error('Formato de píxeles no compatible')
+    throw new LocalizedError('errors.image.format')
   }
 }
 
 export function decodePixels(buffer, image) {
   const count = image.width * image.height
   const bytes = image.dtype === 'float64' ? 8 : 4
-  if (buffer.byteLength !== count * bytes) throw new Error('La longitud de los píxeles no coincide con los metadatos')
+  if (buffer.byteLength !== count * bytes) throw new LocalizedError('errors.image.length')
   const view = new DataView(buffer)
   const values = new Float32Array(count)
   const sample = []

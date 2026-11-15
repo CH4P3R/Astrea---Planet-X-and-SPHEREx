@@ -46,6 +46,7 @@ export default function useAnchoredPanel(anchorId, visible) {
     observer.observe(panel)
     observer.observe(anchor)
     window.addEventListener('resize', schedulePosition)
+    window.addEventListener('scroll', schedulePosition, true)
     viewport?.addEventListener('resize', schedulePosition)
     viewport?.addEventListener('scroll', schedulePosition)
 
@@ -53,6 +54,7 @@ export default function useAnchoredPanel(anchorId, visible) {
       observer.disconnect()
       window.cancelAnimationFrame(frame)
       window.removeEventListener('resize', schedulePosition)
+      window.removeEventListener('scroll', schedulePosition, true)
       viewport?.removeEventListener('resize', schedulePosition)
       viewport?.removeEventListener('scroll', schedulePosition)
     }

@@ -1,5 +1,6 @@
 import { SKY } from '../config/sky.js'
 import { prepareSkySnapshot } from '../three/core/starDataUtils.js'
+import { apiError } from '../i18n/messages.js'
 
 export async function loadSky(context, signal) {
   const response = await fetch('/api/v1/sky', {
@@ -10,7 +11,7 @@ export async function loadSky(context, signal) {
   })
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
-    throw new Error(typeof error.detail === 'string' ? error.detail : `Error de la API (${response.status})`)
+    throw apiError(response.status, error.detail)
   }
   // JSON includes the render metadata in exactly the same order as the directions
   return prepareSkySnapshot(await response.json())

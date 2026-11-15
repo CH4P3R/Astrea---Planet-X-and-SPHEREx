@@ -1,0 +1,41 @@
+{
+  "unexpected": "The operation could not be completed. Please try again.",
+  "network": "Could not connect to the server. Check your connection and try again.",
+  "api": "API error ({{status}}). Please try again.",
+  "http": {
+    "400": "The request is invalid. Check the inputs and try again.",
+    "404": "The requested resource is no longer available. Repeat the search.",
+    "413": "The cutout is too large. Try a smaller region.",
+    "422": "The inputs could not be processed. Check the coordinates, size and date.",
+    "502": "The astronomy data service could not complete the request. Please try again.",
+    "503": "The service is temporarily unavailable. Please try again.",
+    "504": "The service took too long to respond. Please try again."
+  },
+  "server": {
+    "catalog": "The star catalog could not be retrieved. Please try again.",
+    "earthOrientation": "This date is outside the available Earth-orientation data. Choose a recent date or request an update to the server's IERS data.",
+    "unknownImage": "The image is unavailable. Run an image search first.",
+    "searchTooBroad": "There are too many archive matches for this query. The search needs a narrower date range.",
+    "archiveTimeout": "IRSA took too long to respond. Please try again.",
+    "archive": "IRSA data could not be retrieved. Please try again.",
+    "invalidFits": "IRSA returned an unsupported or invalid FITS image.",
+    "mesh": "This image's WCS cannot be projected accurately. Try a smaller size.",
+    "cache": "The local image cache is unavailable.",
+    "catalogChanged": "The star catalog has changed. Reload the stars.",
+    "noStars": "No catalog stars match this magnitude limit."
+  },
+  "image": {
+    "dimensions": "Invalid image dimensions.",
+    "gpuLimit": "The cutout is {{width}} × {{height}} px; your GPU supports up to {{maxTextureSize}} px per side. Try a smaller region.",
+    "format": "Unsupported pixel format.",
+    "length": "The pixel data length does not match the metadata.",
+    "projection": "Could not update the projection: {{reason}}"
+  },
+  "sky": {
+    "metadata": "The sky metadata is invalid.",
+    "directions": "The directions do not match the star catalog.",
+    "direction": "The sky contains an invalid direction.",
+    "expiredResponse": "The sky response has expired. Reload the stars.",
+    "expired": "The sky has expired. Reload the stars."
+  }
+}

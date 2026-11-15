@@ -7,10 +7,14 @@ import useSkyClock from '../../hooks/useSkyClock.js'
 import useFitsImage from '../../hooks/useFitsImage.js'
 import useContextMenu from '../../hooks/useContextMenu.js'
 import Tooltip from '../common/Tooltip.jsx'
+import StatusNotice from '../common/StatusNotice.jsx'
 import { cutoutSizeError } from '../../config/search.js'
 import useStars from '../../hooks/useStars.js'
+import useTranslation from '../../i18n/useTranslation.js'
+import LanguageSelect from '../controls/LanguageSelect.jsx'
 
 export default function AppViewport() {
+  const { t } = useTranslation()
   const location = useObserver()
   const clock = useSkyClock()
   const fits = useFitsImage(location.observer, clock.context)
@@ -37,13 +41,13 @@ export default function AppViewport() {
   }, [observer, size, search, open])
   const locating = location.status === 'loading'
   const noticeMessage = notice?.reason === 'location' && !observer
-    ? locating ? 'Obteniendo tu ubicación. Cuando termine, vuelve a pulsar el punto del cielo.'
-      : location.error || 'Define latitud y longitud en Ubicación para buscar al pulsar el cielo.'
+    ? locating ? 'location.notices.locating'
+      : location.error || 'location.notices.required'
     : notice?.reason === 'size' ? cutoutSizeError(size) : ''
 
   return (
-    <main className="app-viewport" aria-label="Bóveda celeste tridimensional">
-      <div className="scene-layer" aria-label="Esfera celeste y direcciones del horizonte local">
+    <main className="app-viewport" aria-label={t('common.viewport')}>
+      <div className="scene-layer" aria-label={t('common.scene')}>
         <Canvas orthographic camera={{ position: [0, 0, 0], near: 0.01, far: 250 }}>
           <SkyScene observer={observer} fits={fits} stars={stars} surfaceVisible={surfaceVisible}
             timestamp={clock.timestamp} onSkyClick={onSkyClick} />
@@ -52,7 +56,11 @@ export default function AppViewport() {
       <div className="ui-layer">
         <ContextToolbar clock={clock} location={location} fits={fits} menu={menu}
           stars={stars} surfaceVisible={surfaceVisible} setSurfaceVisible={setSurfaceVisible} />
-        {notice && <Tooltip key={notice.id} point={notice.point} message={noticeMessage} open
+        <LanguageSelect />
+        <div className="status-region">
+          <StatusNotice notice={fits.notice} />
+        </div>
+        {notice && <Tooltip key={notice.id} point={notice.point} message={t(noticeMessage)} open
           tone={notice.reason === 'location' && locating ? 'info' : 'error'} />}
       </div>
     </main>

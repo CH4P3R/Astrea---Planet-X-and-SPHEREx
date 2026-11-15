@@ -10,6 +10,14 @@
   --border: #35475d;
   --panel: rgb(12 23 39 / 90%);
   --accent: #8dd6ca;
+  --hud-surface: #111722;
+  --hud-text: #e1e7ef;
+  --hud-field: #1a2331;
+  --hud-hover: #253247;
+  --hud-muted: #a5b4c8;
+  --hud-focus: #a9d9ff;
+  --z-status: 3;
+  --z-select: 25;
   --motion-duration: 360ms;
   --motion-exit: 180ms;
   --motion-tooltip: 140ms;

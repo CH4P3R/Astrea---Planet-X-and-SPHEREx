@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadMetadata, loadPixels, loadProjection, observerContext, searchImages, searchCoordinates } from '../services/images.js'
 import { coordinateError, cutoutSizeError, DEFAULT_CUTOUT_SIZE } from '../config/search.js'
 import { decodePixels, validateImage } from '../three/core/imageDataUtils.js'
+import { errorMessage } from '../i18n/messages.js'
 
-const emptyState = { status: 'idle', images: [], error: '', active: null, hasMore: false, query: null }
+const emptyState = { status: 'idle', images: [], error: '', active: null, hasMore: false, query: null, notice: null }
 
 export default function useFitsImage(observer, timeContext) {
   const [state, setState] = useState(emptyState)
@@ -36,18 +37,23 @@ export default function useFitsImage(observer, timeContext) {
     controller.current = job
     setPreparing(false)
     setFocus(null)
-    setState({ ...emptyState, status: 'searching' })
+    setState({ ...emptyState, status: 'searching',
+      notice: { status: 'loading', message: 'search.notices.searching' } })
     try {
       const result = await request(job.signal)
-      if (!job.signal.aborted) setState({ ...emptyState, status: 'results', images: result.images,
-        hasMore: result.has_more, query: result.query })
+      if (!job.signal.aborted) {
+        const count = result.images.length
+        const message = { key: result.has_more ? 'search.notices.foundMore' : 'search.notices.found', values: { count } }
+        setState({ ...emptyState, status: 'results', images: result.images,
+          hasMore: result.has_more, query: result.query, notice: { status: 'success', message } })
+      }
     } catch (error) {
-      if (!job.signal.aborted) setState({ ...emptyState, status: 'error', error: error.message })
+      if (!job.signal.aborted) setState({ ...emptyState, status: 'error', error: errorMessage(error) })
     }
   }, [])
 
   const search = useCallback((direction) => {
-    const error = cutoutSizeError(size) || (!observer ? 'Define tu ubicación para buscar al pulsar el cielo.' : '')
+    const error = cutoutSizeError(size) || (!observer ? 'location.notices.required' : '')
     if (error) {
       setState((previous) => ({ ...previous, error }))
       return
@@ -72,6 +78,7 @@ export default function useFitsImage(observer, timeContext) {
     controller.current = job
     setPreparing(false)
     setState((previous) => ({ ...previous, status: 'loading', error: '', active: null,
+      notice: { status: 'loading', message: 'search.notices.loading' },
       loadObserver: observer, loadTime: timeContext }))
     try {
       const metadata = await loadMetadata(id, job.signal)
@@ -81,23 +88,25 @@ export default function useFitsImage(observer, timeContext) {
       ])
       if (job.signal.aborted) return
       const pixels = decodePixels(buffer, metadata.image)
-      setState((previous) => ({ ...previous, status: 'ready', active: { metadata, pixels, projection, observer, timeContext } }))
+      setState((previous) => ({ ...previous, status: 'ready', active: { metadata, pixels, projection, observer, timeContext },
+        notice: { status: 'success', message: 'search.notices.loaded' } }))
       setFocus({ direction: projection.center_directions[0], size: metadata.requested.size_deg ?? size / 60 })
     } catch (error) {
       if (!job.signal.aborted) {
         job.abort()
-        setState((previous) => ({ ...previous, status: 'error', error: error.message, active: null }))
+        setState((previous) => ({ ...previous, status: 'error', error: errorMessage(error), active: null, notice: null }))
       }
     }
   }, [observer, size, timeContext])
 
   const projectionError = useCallback((error) => {
-    setState((previous) => ({ ...previous, error: `No se pudo actualizar la proyección: ${error.message}` }))
+    setState((previous) => ({ ...previous,
+      error: { key: 'errors.image.projection', values: { reason: errorMessage(error) } } }))
   }, [])
 
   const currentContext = state.loadObserver === observer && state.loadTime === timeContext
   const visible = !currentContext && ['loading', 'ready'].includes(state.status)
-    ? { ...state, status: 'results', active: null } : state
+    ? { ...state, status: 'results', active: null, notice: null } : state
   return { ...visible, size, setSize, preparing, beginPreparation, cancelPreparation,
     search, searchByCoordinates, load, reset, focus: visible.active ? focus : null, setTextureLimit, projectionError }
 }

@@ -14,6 +14,8 @@ Aspecto del cielo muestra el estado del catálogo estelar y permite ocultar la s
 - La barra principal es vertical, a la izquierda. Orden: Tiempo, Ubicación, Preparación y Aspecto del cielo.
 - Cada opción se representa con un icono; su nombre aparece en un tooltip. El panel asociado se abre a la derecha de la barra.
 - La hora y la fecha local permanecen visibles arriba a la izquierda, independientemente del panel abierto.
+- El selector de idioma permanece abajo a la izquierda con el icono `GlobalLine` y el código ES/EN. La barra conserva espacio inferior para este control y permite scroll cuando la altura es reducida.
+- Los avisos de actividad aparecen arriba a la derecha, independientes del panel abierto. En ventanas estrechas se sitúan debajo de la franja del reloj para evitar superposiciones.
 - Los iconos principales proceden de [Flujo 1/svg.md](Flujo%201/svg.md), adaptados a React y con `currentColor`.
 - La capa general utiliza `pointer-events: none`; solo los controles interactivos recuperan `pointer-events: auto`. El espacio libre permite operar la escena.
 - Las piezas compartidas deben reutilizarse. La apertura, el posicionamiento y el tooltip no se implementan de nuevo para cada opción.
@@ -72,7 +74,7 @@ Mientras el panel activo es persistente, hacer hover sobre otro icono no lo sust
 
 Para un flujo nuevo, definir primero qué estado requiere atención, qué acción lo completa y cómo se cancela. No utilizar un cierre genérico por hover para todas las funciones.
 
-El tamaño del recorte es un parámetro de aplicación inmediata: modificarlo no inicia una tarea pendiente ni requiere un botón de confirmación. El clic válido en la escena abre Preparación automáticamente para mostrar el progreso y los resultados.
+El tamaño del recorte es un parámetro de aplicación inmediata: modificarlo no inicia una tarea pendiente ni requiere un botón de confirmación. El clic válido en la escena abre Preparación automáticamente para mantener accesibles la cancelación y los resultados; el progreso se muestra en el aviso superior derecho.
 
 ## 5. Posición, límites y flecha
 
@@ -110,7 +112,7 @@ El pie permanece dentro del panel y fuera del cuerpo desplazable. No situar una 
 
 Aplicación en el flujo 1:
 
-- **Preparación:** tamaño compartido y estado en el encabezado; campos RA/Dec y observaciones en el cuerpo; búsqueda manual, cancelación o limpieza en el pie, según el estado. La lista se desplaza sin arrastrar fuera de vista las acciones.
+- **Preparación:** tamaño compartido e instrucciones pertinentes en el encabezado; campos RA/Dec y observaciones en el cuerpo; búsqueda manual, cancelación o limpieza en el pie, según el estado. La lista se desplaza sin arrastrar fuera de vista las acciones. El progreso de búsqueda y carga pertenece al aviso superior derecho.
 - **Tiempo:** estado en el encabezado; fecha personalizada y referencias temporales en el cuerpo; control del reloj y aplicación de fecha en el pie.
 - **Ubicación:** contexto del observador en el encabezado; coordenadas manuales y errores en el cuerpo; ubicación del dispositivo y aplicación manual en el pie.
 - **Aspecto del cielo:** estado de las estrellas en el encabezado; visibilidad de la superficie central y errores en el cuerpo; reintento de carga en el pie cuando falla.
@@ -163,6 +165,21 @@ El tamaño admitido es de 0,1 a 30 minutos de arco. Representa el lado angular d
 Las coordenadas manuales son ICRS en grados decimales: RA desde 0 hasta menos de 360 y Dec entre −90 y 90, incluidos ambos polos. La búsqueda manual utiliza `GET /api/v1/images` y convierte el tamaño de minutos de arco a grados. No requiere ubicación terrestre para consultar las observaciones. Para colocar una imagen en el cielo local, la selección de la observación sí requiere un observador y explica ese requisito con un tooltip.
 
 La búsqueda mediante un punto del cielo utiliza `POST /api/v1/images/search` y necesita la ubicación del observador. La latitud y longitud de Ubicación describen una posición terrestre; no son RA/Dec.
+
+### Avisos reutilizables de actividad
+
+- Utilizar `StatusNotice` para comunicar el progreso y la finalización de una tarea. Su posición la define `.status-region` en la capa HUD; no depende de Preparación ni de que el panel permanezca visible.
+- Mantener la superficie sólida oscura, sin borde decorativo, con esquinas redondeadas y los colores compartidos `--hud-surface` y `--hud-text`. Los SVG `Loading2Line` y `CheckRounded` utilizan `currentColor` y reproducen los iconos proporcionados para este aviso.
+- Durante la consulta, mostrar «Buscando observaciones…». Al finalizar, sustituir el indicador por la marca de comprobación y el recuento de imágenes devuelto por IRSA, incluido cero y el singular. Si `has_more` es verdadero, indicar «Más de N imágenes encontradas en IRSA»: el límite actual de 20 resultados no representa el total del archivo.
+- La carga de la imagen elegida utiliza el mismo componente con «Cargando imagen…» y «Imagen cargada». No repetir los indicadores de progreso dentro de Preparación. La cancelación y los errores siguen disponibles en el panel.
+- La tarjeta entra desde fuera del borde superior y termina en la esquina superior derecha: 700 ms con desaceleración suave, sin rebote. El resultado permanece 3.200 ms y sale hacia arriba en 500 ms; la opacidad cambia en 420 ms. Estas duraciones locales dan al aviso un movimiento más pausado que el de los controles. No desmontar ni vaciar la superficie antes de completar la salida.
+- El indicador gira continuamente en 1.800 ms y pulsa suavemente entre escala 1 y 1,08 en 2.400 ms. La marca de comprobación aparece suavemente en 500 ms. Giro, escala y desplazamiento de la tarjeta se aplican a capas distintas, sin escalar el texto.
+- Cancelar o fallar una operación retira el aviso. Una operación nueva sustituye la anterior; sus temporizadores no pueden ocultar el aviso nuevo. Las respuestas canceladas no producen confirmaciones.
+- El aviso no intercepta clics ni mueve el foco. Una región `role="status"`, con anuncio cortés y atómico, comunica los cambios sin leer los SVG. Con `prefers-reduced-motion`, se eliminan los desplazamientos, giros y pulsaciones; se conserva el tiempo para leer el resultado.
+
+`StatusNotice` recibe `notice`: un objeto estable `{ status, message }` o `null` para cerrar. Los estados actuales son `loading` y `success`. Mantener el mismo objeto mientras no cambie la notificación y crear uno nuevo para cada operación o actualización permite repetir tareas con el mismo mensaje. `duration` configura la permanencia del resultado en milisegundos; su valor predeterminado es 3200 y un valor menor o igual a cero desactiva el cierre automático. La carga permanece visible hasta que cambie `notice`.
+
+`useState` y `useEffect`, de React, conservan el contenido de salida y coordinan el temporizador; `setTimeout` y `clearTimeout` son API del navegador. Las animaciones son CSS nativo. El componente no consulta la API ni calcula resultados; `useFitsImage` aporta los mensajes según la operación real. No se requieren dependencias nuevas.
 
 ### Ubicación automática y avisos sobre la escena
 
@@ -230,7 +247,7 @@ La ayuda debe explicar qué representa el dato, sus unidades y, cuando sea útil
 | Longitud | Posición este/oeste de Greenwich, grados decimales y signo |
 | RA y Dec | Posición del punto en el cielo en ICRS, grados decimales y rangos; distinguirlas de latitud/longitud terrestres |
 
-La descripción se vincula tanto al campo como al botón de ayuda. Usar lenguaje accesible, español con ortografía correcta y textos breves. Los identificadores y nombres de archivos permanecen en ASCII.
+La descripción se vincula tanto al campo como al botón de ayuda. Usar lenguaje accesible, ortografía correcta y textos breves en el idioma seleccionado. Los textos visibles, ayudas y etiquetas accesibles se obtienen de los catálogos ES/EN de `src/i18n/locales/`. Los identificadores y nombres de archivos permanecen en ASCII.
 
 ## 10. Microinteracciones y accesibilidad
 
@@ -241,6 +258,8 @@ Las transiciones suaves forman parte del diseño, no son un añadido opcional. D
 | Movimiento principal | 360 ms, `cubic-bezier(0.34, 1.56, 0.64, 1)` |
 | Salida y opacidad del panel | 180 ms |
 | Tooltip | 140 ms, opacidad y escala breve |
+| Aviso de actividad | Entrada superior de 700 ms, resultado visible 3.200 ms y salida superior de 500 ms; opacidad de 420 ms |
+| Icono de carga del aviso | Giro de 1.800 ms y pulso de 2.400 ms, escala máxima 1,08 |
 | Fondo del botón con hover o foco | Escala `1.025` |
 | Fondo del botón al pulsar | Escala `0.985` |
 | Superficie del panel al entrar o salir | Desplazamiento horizontal de 8 px y cambio de opacidad |
@@ -267,6 +286,12 @@ Las rutas de esta tabla son relativas a `frontend/`.
 | `src/components/common/PanelContent.jsx` | Distribución por `title`, `header`, cuerpo en `children` y acciones en `footer` |
 | `src/components/common/Tooltip.jsx` | Información o error mediante `message` y `tone`; admite `compact`, `placement`, `id`, apertura controlada con `open` y ancla virtual `point` para el clic en la escena |
 | `src/components/common/InputField.jsx` | Campo nativo con `label`, `help`, identificador y propiedades de entrada |
+| `src/components/common/Select.jsx` | Selector personalizado controlado, opciones habilitadas/deshabilitadas, teclado y portal con posición adaptable |
+| `src/components/controls/LanguageSelect.jsx` | Idioma abajo a la izquierda, icono global y abreviatura del idioma actual |
+| `src/hooks/useSelectPosition.js` | Medición y adaptación del select a ventana, límites y controles cercanos |
+| `src/i18n/` | Catálogos por idioma/sección, proveedor React, formatos locales y errores traducibles |
+| `src/components/common/StatusNotice.jsx` | Aviso reutilizable con `notice` y `duration`, progreso persistente, resultado temporal y salida animada |
+| `src/components/common/StatusIcons.jsx` | Iconos `Loading2Line` y `CheckRounded`, reutilizables y decorativos por defecto |
 | `src/hooks/useContextMenu.js` | Apertura y cierre diferidos; persistencia por `persistentIds` |
 | `src/hooks/useAnchoredPanel.js` | Medición, centrado, límites y posición de la flecha |
 | `src/hooks/useTooltipPosition.js` | Posición del tooltip y adaptación al espacio visible |
@@ -274,16 +299,24 @@ Las rutas de esta tabla son relativas a `frontend/`.
 | `src/hooks/useObserver.js` | Solicitud automática de ubicación, reintento y prioridad de la entrada manual |
 | `src/hooks/useStars.js` | Carga, renovación y cancelación del cielo estelar según ubicación y tiempo |
 | `src/components/controls/SkyControls.jsx` | Estado de las estrellas, reintento y visibilidad de la superficie central |
-| `src/hooks/useFitsImage.js` | Tamaño compartido de aplicación inmediata y consultas por clic o RA/Dec |
+| `src/hooks/useFitsImage.js` | Tamaño compartido, consultas por clic o RA/Dec y avisos de búsqueda/carga vinculados a la operación vigente |
 | `src/config/search.js` | Tamaño inicial de 7 minutos de arco y validación de tamaño y coordenadas |
 | `src/styles/base/variables.css` | Variables globales de movimiento y scroll |
 | `src/styles/components/context-toolbar.css` | Barra, paneles, distribución, límites, scroll y estados visuales |
 | `src/styles/components/tooltip.css` | Variantes y animación del tooltip |
 | `src/styles/components/input-field.css` | Distribución del campo y botón de ayuda |
+| `src/styles/components/status-notice.css` | Superficie, entrada/salida, giro y pulso del aviso de actividad |
+| `src/styles/layout/viewport.css` | Capas de la escena y anclaje adaptable de los avisos superiores |
 
 Los componentes y hooks utilizan React; el portal procede de `react-dom`. `ResizeObserver`, `requestAnimationFrame`, `getBoundingClientRect` y `visualViewport` son API del navegador utilizadas para medir y actualizar posiciones. Estos patrones no requieren una biblioteca externa de tooltips o posicionamiento.
 
 La presentación se define en hojas CSS importadas desde `src/styles/main.css`. Los hooks comunican las mediciones dinámicas mediante propiedades CSS personalizadas; no trasladar colores, espaciados estáticos ni bloques de estilos al JSX.
+
+### Selectores e idioma
+
+Reutilizar `Select` en lugar de crear menús independientes. Su lista se abre arriba o abajo según el espacio visible y los obstáculos declarados; puede ajustarse horizontalmente manteniendo el anclaje. Si no hay espacio libre suficiente, se superpone al contenido para conservar opciones utilizables. Las listas extensas se desplazan dentro del límite disponible. Se conservan la superficie oscura sin bordes decorativos, la marca de selección, el foco de teclado y las transiciones de salida con `inert`.
+
+El cambio de idioma es inmediato, conserva las tareas y actualiza también errores, avisos, accesibilidad y etiquetas del cielo. El idioma inicial es inglés salvo que exista una preferencia guardada válida. No guardar frases traducidas en el estado. Consultar [Internacionalización y selector compartido](I18N.md) para el contrato del componente y la ampliación de catálogos.
 
 ## 12. Aplicación a nuevas pantallas
 

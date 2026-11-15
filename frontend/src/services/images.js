@@ -1,3 +1,5 @@
+import { apiError } from '../i18n/messages.js'
+
 const API = '/api/v1/images'
 
 async function request(path, { signal, body } = {}) {
@@ -7,8 +9,7 @@ async function request(path, { signal, body } = {}) {
   })
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
-    const detail = typeof error.detail === 'string' ? error.detail : `Error de la API (${response.status})`
-    throw new Error(detail)
+    throw apiError(response.status, error.detail)
   }
   return response
 }

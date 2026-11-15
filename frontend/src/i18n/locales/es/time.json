@@ -1,0 +1,11 @@
+{
+  "title": "Tiempo",
+  "status": { "paused": "Tiempo pausado", "live": "En vivo" },
+  "actions": { "goLive": "Volver al tiempo actual", "pause": "Pausar tiempo", "apply": "Aplicar fecha" },
+  "utc": {
+    "label": "Fecha y hora UTC",
+    "help": "El instante que quieres ver en el cielo. Se interpreta en UTC, la hora de referencia mundial, no en la hora local de tu dispositivo."
+  },
+  "validation": "Introduce una fecha y hora UTC válidas.",
+  "acquisitionNote": "La hora del cielo no es la fecha de adquisición de una imagen."
+}

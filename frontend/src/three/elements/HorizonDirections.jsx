@@ -3,12 +3,13 @@ import { useFrame } from '@react-three/fiber'
 import { CanvasTexture, MathUtils, SRGBColorSpace } from 'three'
 import { SKY } from '../../config/sky.js'
 import { baseOrthographicZoom, compactDirectionsAtZoom } from '../core/skyViewUtils.js'
+import useTranslation from '../../i18n/useTranslation.js'
 
 const directions = [
-  { name: 'Norte', short: 'N', position: [0, 0, -SKY.radius] },
-  { name: 'Este', short: 'E', position: [SKY.radius, 0, 0] },
-  { name: 'Sur', short: 'S', position: [0, 0, SKY.radius] },
-  { name: 'Oeste', short: 'O', position: [-SKY.radius, 0, 0] },
+  { id: 'north', position: [0, 0, -SKY.radius] },
+  { id: 'east', position: [SKY.radius, 0, 0] },
+  { id: 'south', position: [0, 0, SKY.radius] },
+  { id: 'west', position: [-SKY.radius, 0, 0] },
 ]
 const ignoreRaycast = () => {}
 const height = 28
@@ -78,5 +79,7 @@ function DirectionLabel({ name, short, position }) {
 }
 
 export default function HorizonDirections() {
-  return <group>{directions.map((direction) => <DirectionLabel key={direction.short} {...direction} />)}</group>
+  const { t } = useTranslation()
+  return <group>{directions.map(({ id, position }) => <DirectionLabel key={id} position={position}
+    name={t(`sky.directions.${id}.name`)} short={t(`sky.directions.${id}.short`)} />)}</group>
 }

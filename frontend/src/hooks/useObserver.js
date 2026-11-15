@@ -13,7 +13,7 @@ export default function useObserver() {
     setError('')
     if (!navigator.geolocation || !window.isSecureContext) {
       setStatus('error')
-      setError('La ubicación automática necesita HTTPS o localhost. Introduce latitud y longitud en Ubicación o busca por RA/Dec en Preparación.')
+      setError('location.errors.unsupported')
       return
     }
     setStatus('loading')
@@ -24,7 +24,7 @@ export default function useObserver() {
       setStatus('error')
       setError(message)
     }
-    timer.current = window.setTimeout(() => fail('No se obtuvo la ubicación a tiempo. Reintenta o introduce latitud y longitud en Ubicación.'), 12000)
+    timer.current = window.setTimeout(() => fail('location.errors.timeout'), 12000)
     navigator.geolocation.getCurrentPosition(({ coords }) => {
       if (request.current !== id) return
       request.current += 1
@@ -33,9 +33,8 @@ export default function useObserver() {
       setStatus('ready')
       setError('')
     }, ({ code }) => {
-      fail(code === 1 ? 'No se concedió permiso de ubicación. Permítelo en el navegador o introduce latitud y longitud en Ubicación.'
-        : code === 3 ? 'No se obtuvo la ubicación a tiempo. Reintenta o introduce latitud y longitud en Ubicación.'
-          : 'El dispositivo no pudo determinar tu ubicación. Reintenta o introduce latitud y longitud en Ubicación.')
+      fail(code === 1 ? 'location.errors.denied'
+        : code === 3 ? 'location.errors.timeout' : 'location.errors.unavailable')
     }, { enableHighAccuracy: false, maximumAge: 60000, timeout: 12000 })
   }, [])
 

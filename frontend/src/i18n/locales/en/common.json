@@ -1,0 +1,10 @@
+{
+  "appTitle": "Astrea · Sky explorer",
+  "viewport": "Three-dimensional sky dome",
+  "scene": "Celestial sphere and local horizon directions",
+  "navigation": "Context and preparation",
+  "localTime": "Local time of the displayed sky",
+  "fieldHelp": "Information about {{label}}",
+  "language": { "label": "Language", "current": "Change language, current: {{language}}" },
+  "select": { "placeholder": "Select an option", "empty": "No options available" }
+}

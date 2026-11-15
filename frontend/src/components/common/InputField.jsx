@@ -1,5 +1,6 @@
 import { useId } from 'react'
 import Tooltip from './Tooltip.jsx'
+import useTranslation from '../../i18n/useTranslation.js'
 
 function InfoRounded() {
   return <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true">
@@ -8,6 +9,7 @@ function InfoRounded() {
 }
 
 export default function InputField({ label, help, id, ...inputProps }) {
+  const { t } = useTranslation()
   const generatedId = useId()
   const inputId = id ?? generatedId
   const helpId = `${inputId}-help`
@@ -17,7 +19,7 @@ export default function InputField({ label, help, id, ...inputProps }) {
       <input {...inputProps} id={inputId}
         aria-describedby={[inputProps['aria-describedby'], helpId].filter(Boolean).join(' ')} />
       <Tooltip id={helpId} message={help} placement="bottom">
-        <button type="button" className="input-help" aria-label={`Información sobre ${label}`}
+        <button type="button" className="input-help" aria-label={t('common.fieldHelp', { label })}
           onClick={(event) => event.currentTarget.focus()}>
           <InfoRounded />
         </button>

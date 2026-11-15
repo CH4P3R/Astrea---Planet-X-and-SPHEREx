@@ -1,0 +1,20 @@
+{
+  "title": "Aspecto del cielo",
+  "status": {
+    "idle": "Define tu ubicación para cargar las estrellas.",
+    "loading": "Cargando estrellas de Hipparcos…",
+    "ready": { "one": "{{count}} estrella · Hipparcos", "other": "{{count}} estrellas · Hipparcos" },
+    "unavailable": "Estrellas no disponibles."
+  },
+  "retry": "Volver a cargar estrellas",
+  "surface": {
+    "label": "Mostrar superficie central",
+    "help": "Cuadrícula horizontal transparente bajo el observador. Se atenúa al mirar hacia abajo y permite explorar el cielo inferior."
+  },
+  "directions": {
+    "north": { "name": "Norte", "short": "N" },
+    "east": { "name": "Este", "short": "E" },
+    "south": { "name": "Sur", "short": "S" },
+    "west": { "name": "Oeste", "short": "O" }
+  }
+}

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { observerContext } from '../services/images.js'
 import { loadSky } from '../services/sky.js'
 import { skySnapshotIsCurrent } from '../three/core/starDataUtils.js'
+import { errorMessage, LocalizedError } from '../i18n/messages.js'
 
 export default function useStars(observer, timeContext, timestamp) {
   const [state, setState] = useState(null)
@@ -21,14 +22,14 @@ export default function useStars(observer, timeContext, timestamp) {
         const snapshot = await loadSky(observerContext(observer, timeContext), controller.signal)
         if (controller.signal.aborted) return
         if (!skySnapshotIsCurrent(snapshot, Date.now())) {
-          throw new Error('La respuesta del cielo ha caducado. Vuelve a cargar las estrellas.')
+          throw new LocalizedError('errors.sky.expiredResponse')
         }
         setState({ observer, timeContext, attempt, snapshot, status: 'ready', error: '' })
         if (timeContext.mode === 'live') {
           timer = window.setTimeout(refresh, Math.max(1000, snapshot.sample_times_ms.at(-1) - Date.now() - 30000))
         }
       } catch (error) {
-        if (!controller.signal.aborted) setState((previous) => ({ ...previous, status: 'error', error: error.message }))
+        if (!controller.signal.aborted) setState((previous) => ({ ...previous, status: 'error', error: errorMessage(error) }))
       }
     }
     timer = window.setTimeout(refresh, 0)
@@ -43,7 +44,7 @@ export default function useStars(observer, timeContext, timestamp) {
   return {
     status: expired && state.status !== 'loading' ? 'error' : state.status,
     snapshot: expired ? null : state.snapshot,
-    error: state.error || (expired && state.status !== 'loading' ? 'El cielo ha caducado. Vuelve a cargar las estrellas.' : ''),
+    error: state.error || (expired && state.status !== 'loading' ? 'errors.sky.expired' : ''),
     retry,
   }
 }

@@ -1,0 +1,44 @@
+{
+  "title": "Preparation",
+  "intro": "Click a point in the sky or search by coordinates.",
+  "fields": {
+    "size": {
+      "label": "Cutout size (arcminutes)",
+      "help": "How much sky each side of the image covers. Changes apply immediately to both sky clicks and RA/Dec searches. A larger value usually produces an array with more pixels."
+    },
+    "ra": {
+      "label": "Right ascension, RA (°)", "placeholder": "0 to less than 360",
+      "help": "The point's east/west position in the sky, in the ICRS system. Enter decimal degrees from 0 to less than 360, not hours; for example, 83.63."
+    },
+    "dec": {
+      "label": "Declination, Dec (°)", "placeholder": "−90 to 90",
+      "help": "The position north or south of the celestial equator, in the ICRS system. Enter decimal degrees between −90 and 90; for example, −5.39. This is not your latitude on Earth."
+    }
+  },
+  "actions": {
+    "search": "Search coordinates", "cancel": "Cancel operation",
+    "cancelPreparation": "Cancel preparation", "clear": "Clear image and results"
+  },
+  "validation": {
+    "size": "Enter a size between 0.1 and 30 arcminutes in Preparation.",
+    "coordinates": "Enter RA and Dec in decimal degrees.",
+    "ra": "Right ascension (RA) must be from 0° to less than 360°.",
+    "dec": "Declination (Dec) must be between −90° and 90°."
+  },
+  "projectionRequired": "To place this image in the sky, set latitude and longitude in Location.",
+  "imageSummary": "{{width}} × {{height}} px · {{unit}}",
+  "noUnit": "No unit",
+  "results": {
+    "empty": "There are no observations in this region.",
+    "choose": "Select an observation to load its image.",
+    "observation": "{{id}} · Detector {{detector}} · {{collection}}",
+    "noDate": "Observation date unavailable",
+    "date": "{{date}} · UTC",
+    "limit": "Showing the first {{count}} observations."
+  },
+  "notices": {
+    "searching": "Searching for observations…", "loading": "Loading image…", "loaded": "Image loaded",
+    "found": { "one": "{{count}} image found in IRSA", "other": "{{count}} images found in IRSA" },
+    "foundMore": { "one": "More than {{count}} image found in IRSA", "other": "More than {{count}} images found in IRSA" }
+  }
+}
