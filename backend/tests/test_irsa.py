@@ -1,11 +1,15 @@
 """Archive contract tests without network access."""
 
+from io import BytesIO
+from urllib.parse import urlsplit
+
 from unittest.mock import MagicMock, patch
 
 from astropy.table import Table
 import pytest
 from pyvo.dal.exceptions import DALServiceError, DALOverflowWarning
 import requests
+from urllib3.response import HTTPResponse
 
 from app.integrations import irsa_ranges
 from app.integrations.irsa import ArchiveError, ArchiveTimeout, IrsaClient, SearchTooBroad
@@ -36,6 +40,7 @@ def test_search_filters_orders_and_keeps_extra_row():
         "t_max": [61001.001, 61000.001],
     })
     with patch("app.integrations.irsa.Irsa") as irsa:
+        irsa.return_value._session = requests.Session()
         irsa.return_value.list_collections.return_value = Table({"collection": ["spherex_dr1", "spherex_dr1_deep", "spherex_qr3", "spherex_qr3_deep"]})
         irsa.return_value.query_sia.return_value = table[::-1]
         images = IrsaClient().search(
@@ -63,6 +68,7 @@ def test_search_filters_orders_and_keeps_extra_row():
 def test_invalid_search_never_contacts_archive(change):
     arguments = {"ra_deg": 12.0, "dec_deg": 30.0, "detector": None, "limit": 20}
     with patch("app.integrations.irsa.Irsa") as irsa:
+        irsa.return_value._session = requests.Session()
         irsa.return_value.list_collections.return_value = Table({"collection": ["spherex_dr1", "spherex_dr1_deep", "spherex_qr3", "spherex_qr3_deep"]})
         with pytest.raises(ValueError):
             IrsaClient().search(**(arguments | change))
@@ -72,6 +78,7 @@ def test_invalid_search_never_contacts_archive(change):
 @pytest.mark.parametrize("error", [requests.Timeout(), DALServiceError(cause=requests.Timeout())])
 def test_search_timeout_mapping(error):
     with patch("app.integrations.irsa.Irsa") as irsa:
+        irsa.return_value._session = requests.Session()
         irsa.return_value.list_collections.return_value = Table({"collection": ["spherex_dr1", "spherex_dr1_deep", "spherex_qr3", "spherex_qr3_deep"]})
         irsa.return_value.query_sia.side_effect = error
         with pytest.raises(ArchiveTimeout):
@@ -137,6 +144,7 @@ def test_download_timeout_mapping():
 
 def test_search_rejects_truncated_archive_results():
     with patch("app.integrations.irsa.Irsa") as irsa:
+        irsa.return_value._session = requests.Session()
         irsa.return_value.list_collections.return_value = Table({"collection": ["spherex_dr1", "spherex_dr1_deep", "spherex_qr3", "spherex_qr3_deep"]})
         irsa.return_value.query_sia.side_effect = DALOverflowWarning("overflow")
         with pytest.raises(SearchTooBroad):
@@ -148,6 +156,7 @@ def test_search_retries_a_briefly_busy_archive():
                    "t_min": [61001.0], "t_max": [61001.001]})
     busy = MagicMock(status_code=503, headers={})
     with patch("app.integrations.irsa.Irsa") as irsa:
+        irsa.return_value._session = requests.Session()
         irsa.return_value.list_collections.return_value = Table({"collection": ["spherex_dr1", "spherex_dr1_deep", "spherex_qr3", "spherex_qr3_deep"]})
         irsa.return_value.query_sia.side_effect = [
             DALServiceError(cause=requests.HTTPError(response=busy)),
@@ -161,6 +170,7 @@ def test_search_retries_a_briefly_busy_archive():
 
 def test_search_gives_up_after_repeated_archive_failures():
     with patch("app.integrations.irsa.Irsa") as irsa:
+        irsa.return_value._session = requests.Session()
         irsa.return_value.list_collections.return_value = Table({"collection": ["spherex_dr1", "spherex_dr1_deep", "spherex_qr3", "spherex_qr3_deep"]})
         irsa.return_value.query_sia.side_effect = DALServiceError(cause=requests.ConnectionError("dropped"))
         with pytest.raises(ArchiveError):
@@ -181,6 +191,7 @@ def test_cutout_service_retries_a_busy_response():
 def test_discovers_unanticipated_release_and_skips_non_level2_products():
     future = SOURCE.replace('/dr1/', '/future-release/')
     with patch('app.integrations.irsa.Irsa') as irsa:
+        irsa.return_value._session = requests.Session()
         client = irsa.return_value
         client.list_collections.return_value = Table({'collection': ['spherex_future-release', 'unrelated']})
         client.query_sia.return_value = Table({
@@ -219,6 +230,7 @@ def test_collection_cache_refreshes_and_recovers_after_registry_outage():
 @pytest.mark.parametrize('table', [Table({'collection': []}), Table({'wrong_column': ['spherex_future']})])
 def test_invalid_discovery_never_runs_unrestricted_sia_search(table):
     with patch('app.integrations.irsa.Irsa') as irsa:
+        irsa.return_value._session = requests.Session()
         irsa.return_value.list_collections.return_value = table
         with pytest.raises(ArchiveError):
             IrsaClient().search(ra_deg=12, dec_deg=30, detector=None, limit=20)
@@ -227,6 +239,7 @@ def test_invalid_discovery_never_runs_unrestricted_sia_search(table):
 
 def test_initial_registry_timeout_falls_back_to_mission_without_release_names():
     with patch('app.integrations.irsa.Irsa') as irsa:
+        irsa.return_value._session = requests.Session()
         irsa.return_value.list_collections.side_effect = requests.Timeout()
         irsa.return_value.query_sia.return_value = Table({
             'access_url': [SOURCE.replace('/dr1/', '/future/')],
@@ -238,3 +251,52 @@ def test_initial_registry_timeout_falls_back_to_mission_without_release_names():
         assert kwargs['facility'] == 'SPHEREx'
         assert 'collection' not in kwargs
         assert images[0].collection == 'future'
+
+
+def test_cold_registry_failure_cools_down_and_then_recovers():
+    archive = IrsaClient()
+    with patch("app.integrations.irsa.Irsa") as irsa, patch("app.integrations.irsa.time.monotonic") as clock:
+        irsa.return_value._session = requests.Session()
+        irsa.return_value.list_collections.side_effect = [
+            requests.Timeout(), Table({"collection": ["spherex_future"]}),
+        ]
+        irsa.return_value.query_sia.return_value = Table()
+        clock.return_value = 100
+        archive.search(ra_deg=12, dec_deg=30, detector=None, limit=1)
+        clock.return_value = 159
+        archive.search(ra_deg=12, dec_deg=30, detector=None, limit=1)
+        assert irsa.return_value.list_collections.call_count == 1
+        assert irsa.return_value.query_sia.call_args.kwargs["facility"] == "SPHEREx"
+        clock.return_value = 160
+        archive.search(ra_deg=12, dec_deg=30, detector=None, limit=1)
+        assert irsa.return_value.list_collections.call_count == 2
+        assert irsa.return_value.query_sia.call_args.kwargs["collection"] == ["spherex_future"]
+
+
+def test_real_astroquery_search_skips_capabilities_and_retries_http_failure():
+    """Exercise real Astroquery/PyVO wrapping, mocking only HTTP transport."""
+    table = Table({"access_url": [SOURCE], "obs_id": ["one"],
+                   "energy_bandpassname": ["SPHEREx-D2"],
+                   "t_min": [61001.], "t_max": [61001.001]})
+    buffer = BytesIO()
+    table.write(buffer, format="votable")
+    calls = []
+
+    def send(request, **kwargs):
+        calls.append(request)
+        assert urlsplit(request.url).path == "/SIA"
+        response = requests.Response()
+        response.url = request.url
+        response.status_code = 503 if len(calls) == 1 else 200
+        response.headers["Content-Type"] = "text/xml"
+        response.raw = HTTPResponse(
+            body=BytesIO(b"Service unavailable" if len(calls) == 1 else buffer.getvalue()),
+            preload_content=False,
+        )
+        return response
+
+    with patch.object(IrsaClient, "_collections", return_value=("spherex_dr1",)), \
+            patch("requests.adapters.HTTPAdapter.send", side_effect=send):
+        images = IrsaClient().search(ra_deg=12, dec_deg=30, detector=2, limit=1)
+    assert len(calls) == 2
+    assert images[0].observation_id == "one"

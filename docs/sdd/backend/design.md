@@ -265,7 +265,11 @@ class ArchiveError(Exception); class ArchiveTimeout(ArchiveError); class SearchT
   SPHEREx collections, `maxrec=10000`. `list_collections` uses TAP; names are
   cached per client for one hour. Failed refreshes retain the last list and retry
   after 60 seconds. On initial network/VO failure, SIA uses `facility="SPHEREx"`
-  without a release-name restriction. Empty/malformed registry tables are errors.
+  without a release-name restriction and postpones registry retries for 60 seconds.
+  Empty/malformed registry tables are errors.
+- Astroquery's PyVO SIA service uses `check_baseurl=False` with the known IRSA
+  `/SIA` endpoint, avoiding an extra capabilities request whose errors can lose
+  HTTP status/cause information before reaching our retry logic.
 - A guarded adapter allows only the `/SIA` paths and `/TAP/sync`, `/TAP/capabilities` and adds a `(10, 60)` s
   timeout.
 - Retries on transient failures. An overflow, or 10 000 rows or more, raises

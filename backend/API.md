@@ -450,8 +450,17 @@ to discover collection names. This registry lookup uses TAP; image searches rema
 SIA. Names are cached in memory per backend worker for one hour and refreshed on
 subsequent searches. On refresh failure, the last valid list is reused and refresh
 is retried after 60 seconds. Without a cached list, a network/VO failure falls back
-to SIA's `facility="SPHEREx"` filter, without a release-name restriction. Empty or
+to SIA's `facility="SPHEREx"` filter, without a release-name restriction, and waits
+60 seconds before attempting the registry again. Empty or
 malformed registry tables are reported as archive errors, never unfiltered searches.
+
+Image searches use the known IRSA `/SIA` query endpoint directly through Astroquery
+and PyVO (`check_baseurl=False`). They do not request `/SIA/capabilities` first:
+a failure in that auxiliary endpoint must not prevent the actual image query.
+Transient query failures still receive the existing bounded retries. If the query
+itself remains unavailable, the API returns an archive error rather than an empty
+result. The backend log includes the exception cause and failing request path;
+the generic HTTP 502 message alone does not identify an IRSA outage.
 
 No DR numbering is assumed. New releases must still publish compatible Level 2
 FITS files under IRSA's `/ibe/data/spherex/<release>/level2/` path. Other products

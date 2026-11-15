@@ -23,6 +23,7 @@ from astropy.io import fits
 from astroquery.ipac.irsa import Irsa
 import numpy as np
 from pyvo.dal.exceptions import DALAccessError, DALOverflowWarning
+from pyvo.dal.sia2 import SIA2Service
 import requests
 
 from app.integrations import irsa_ranges
@@ -162,6 +163,7 @@ class IrsaClient:
         self.budget_seconds = budget_seconds
         self._collection_names: tuple[str, ...] = ()
         self._collections_refresh_at = 0.0
+        self._registry_unavailable_until = 0.0
         self._collections_lock = Lock()
 
     def _collections(self, client) -> tuple[str, ...]:
@@ -171,6 +173,8 @@ class IrsaClient:
         still use SIA. The lock prevents concurrent searches refreshing together.
         """
         with self._collections_lock:
+            if time.monotonic() < self._registry_unavailable_until:
+                raise DALAccessError("IRSA collection registry is cooling down after a failure.")
             if self._collection_names and time.monotonic() < self._collections_refresh_at:
                 return self._collection_names
             try:
@@ -184,13 +188,16 @@ class IrsaClient:
                 if not names:
                     raise ArchiveError("IRSA advertised no SPHEREx image collections.")
             except (ArchiveError, DALAccessError, requests.RequestException,
-                    KeyError, TypeError, ValueError):
+                    KeyError, TypeError, ValueError) as error:
                 if not self._collection_names:
+                    if isinstance(error, (DALAccessError, requests.RequestException)):
+                        self._registry_unavailable_until = time.monotonic() + COLLECTION_RETRY_SECONDS
                     raise
                 logger.warning("IRSA collection refresh failed; using last discovered collections.")
                 self._collections_refresh_at = time.monotonic() + COLLECTION_RETRY_SECONDS
                 return self._collection_names
             self._collection_names = names
+            self._registry_unavailable_until = 0.0
             self._collections_refresh_at = time.monotonic() + COLLECTION_TTL_SECONDS
             return names
 
@@ -233,6 +240,12 @@ class IrsaClient:
                 warnings.simplefilter("error", DALOverflowWarning)
                 client._session.mount("https://", _SiaAdapter())
                 client._session.mount("http://", _SiaAdapter())
+                # IRSA's query endpoint is already known. Avoid the preliminary
+                # /capabilities request, whose HTTP failures PyVO flattens into
+                # an unstructured error that our query retries cannot recognize.
+                client._sia = SIA2Service(
+                    client.sia_url, session=client._session, check_baseurl=False,
+                )
                 try:
                     selection = {"collection": list(self._collections(client))}
                 except (DALAccessError, requests.RequestException):
