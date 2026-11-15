@@ -1,7 +1,8 @@
 """SPHEREx discovery and bounded cutout downloads from the IRSA archive.
 
-SIA discovery follows notebooks/01-data-overview. Only current
-DR1/QR3 Level 2 FITS products are offered; search never downloads the images.
+SIA discovery follows notebooks/01-data-overview. Collections are discovered
+from IRSA; only compatible
+SPHEREx Level 2 FITS products are offered; search never downloads the images.
 
 Cutouts are read by HTTP byte ranges (see irsa_ranges), fetching one plane at
 a time. The IBE cutout service remains the fallback for any file that cannot
@@ -14,6 +15,7 @@ import logging
 import math
 import re
 import time
+from threading import Lock
 import warnings
 from urllib.parse import urlsplit
 
@@ -32,10 +34,11 @@ ARCHIVE_ORIGIN = "https://irsa.ipac.caltech.edu"
 MAX_DOWNLOAD_BYTES = 80 * 1024 * 1024
 DOWNLOAD_SECONDS = 90
 MAX_SEARCH_ROWS = 10000
-SIA_COLLECTIONS = ("spherex_dr1", "spherex_dr1_deep", "spherex_qr3", "spherex_qr3_deep")
+COLLECTION_TTL_SECONDS = 3600
+COLLECTION_RETRY_SECONDS = 60
 # Image planes that share IMAGE's grid and can be fetched on demand.
 PLANE_EXTENSIONS = ("FLAGS", "ZODI", "VARIANCE")
-_IMAGE_PATH = re.compile(r"/ibe/data/spherex/(dr1|qr3)/level2/[A-Za-z0-9_./-]+\.fits")
+_IMAGE_PATH = re.compile(r"/ibe/data/spherex/([A-Za-z0-9][A-Za-z0-9_-]*)/level2/[A-Za-z0-9_./-]+\.fits")
 
 
 class ArchiveError(Exception):
@@ -110,8 +113,9 @@ class _SiaAdapter(requests.adapters.HTTPAdapter):
     def send(self, request, **kwargs):
         parts = urlsplit(request.url)
         if (parts.scheme != "https" or parts.netloc != "irsa.ipac.caltech.edu"
-                or parts.path not in ("/SIA", "/SIA/", "/SIA/capabilities")):
-            raise ArchiveError("IRSA attempted an unexpected SIA redirect.")
+                or parts.path not in ("/SIA", "/SIA/", "/SIA/capabilities",
+                                      "/TAP/sync", "/TAP/capabilities")):
+            raise ArchiveError("IRSA attempted an unexpected discovery redirect.")
         if kwargs.get("timeout") is None:
             kwargs["timeout"] = (10, 60)
         return super().send(request, **kwargs)
@@ -156,6 +160,39 @@ class IrsaClient:
     def __init__(self, ranges: irsa_ranges.RangeReader | None = None, budget_seconds: float = 120.0):
         self.ranges = ranges if ranges is not None else irsa_ranges.RangeReader()
         self.budget_seconds = budget_seconds
+        self._collection_names: tuple[str, ...] = ()
+        self._collections_refresh_at = 0.0
+        self._collections_lock = Lock()
+
+    def _collections(self, client) -> tuple[str, ...]:
+        """Refresh IRSA's registry hourly; retain the last good list on outages.
+
+        Astroquery uses TAP for this metadata-only registry query. Image searches
+        still use SIA. The lock prevents concurrent searches refreshing together.
+        """
+        with self._collections_lock:
+            if self._collection_names and time.monotonic() < self._collections_refresh_at:
+                return self._collection_names
+            try:
+                table = with_retries(
+                    lambda: client.list_collections(servicetype="SIA", filter="spherex"),
+                    transient=_search_transient,
+                )
+                names = tuple(sorted({name for value in table["collection"]
+                                      if (name := _text(value))
+                                      and re.fullmatch(r"spherex(?:_[A-Za-z0-9_-]+)?", name)}))
+                if not names:
+                    raise ArchiveError("IRSA advertised no SPHEREx image collections.")
+            except (ArchiveError, DALAccessError, requests.RequestException,
+                    KeyError, TypeError, ValueError):
+                if not self._collection_names:
+                    raise
+                logger.warning("IRSA collection refresh failed; using last discovered collections.")
+                self._collections_refresh_at = time.monotonic() + COLLECTION_RETRY_SECONDS
+                return self._collection_names
+            self._collection_names = names
+            self._collections_refresh_at = time.monotonic() + COLLECTION_TTL_SECONDS
+            return names
 
     def _deadline(self) -> float:
         return time.monotonic() + self.budget_seconds
@@ -196,10 +233,17 @@ class IrsaClient:
                 warnings.simplefilter("error", DALOverflowWarning)
                 client._session.mount("https://", _SiaAdapter())
                 client._session.mount("http://", _SiaAdapter())
+                try:
+                    selection = {"collection": list(self._collections(client))}
+                except (DALAccessError, requests.RequestException):
+                    # No cached registry yet: SIA can select the mission directly,
+                    # including releases whose names we have never seen.
+                    logger.warning("IRSA collection registry unavailable; searching SIA by facility.")
+                    selection = {"facility": "SPHEREx"}
                 table = with_retries(lambda: client.query_sia(
                     # Follow the official introductory notebook: a one-arcsecond cone.
                     pos=(ra_deg, dec_deg, 1 / 3600),
-                    collection=list(SIA_COLLECTIONS),
+                    **selection,
                     maxrec=MAX_SEARCH_ROWS,
                     **constraints,
                 ), transient=_search_transient)
@@ -207,7 +251,12 @@ class IrsaClient:
                 raise SearchTooBroad("Narrow the observation dates to complete the search.")
             images = {}
             for row in table:
-                source_url, collection = _image_url(_text(row["access_url"]) or "")
+                raw_url = _text(row["access_url"]) or ""
+                # New collections may include cubes or other products we cannot render.
+                # Skip those, while preserving strict URL validation for Level 2 files.
+                if not _IMAGE_PATH.fullmatch(urlsplit(raw_url).path):
+                    continue
+                source_url, collection = _image_url(raw_url)
                 band = re.fullmatch(r"SPHEREx-D([1-6])", _text(row["energy_bandpassname"]) or "")
                 row_detector = int(band.group(1)) if band else None
                 observed_start = _number(row["t_min"])

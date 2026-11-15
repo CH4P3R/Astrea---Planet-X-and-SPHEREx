@@ -6,12 +6,19 @@
   - [`design.md`](design.md): architecture, components, and decisions DD1–DD10
   - [`spec.md`](spec.md): hardening REQ-1 to REQ-7 (done)
   - Blink design: [`../../superpowers/specs/2026-11-14-spherex-backend-fastapi-design.md`](../../superpowers/specs/2026-11-14-spherex-backend-fastapi-design.md)
-  - Product goals G1–G7 and acceptance targets: [`../../superpowers/specs/2026-11-14-spherex-blink-viewer-design.md`](../../superpowers/specs/2026-11-14-spherex-blink-viewer-design.md)
+  - Historical product goals G1–G7 and candidate acceptance targets (not an active architecture): [`../../superpowers/specs/2026-11-14-spherex-blink-viewer-design.md`](../../superpowers/specs/2026-11-14-spherex-blink-viewer-design.md)
 - **Baseline:** `KC-Rama` at `5b74092` plus the `spec.md` hardening (131 tests passing).
 
 ## How to use this file
 
-- Work **top to bottom**. Phases 1–4 are the demo path. Phase 5 is later.
+- Work within each phase's dependencies. Initial frontend blink can integrate
+  the existing API now; it does not wait for Phase 1, box selection in Phase 2,
+  or offline preparation in Phase 4.
+- **Blink ownership:** the frontend selects observations, manages playback and
+  applies one shared display scale. The backend serves each image's data and
+  WCS projection. The active Blink spec wins over the historical product proposal.
+- A/B is the initial interaction. Future sequences of three or more observations
+  remain frontend-managed, using the same per-image API.
 - Each task is one reviewable change (one PR or commit).
 - Each task follows the module recipe in
   `2026-11-14-astrea-backend-technical-documentation.md` §13:
@@ -92,7 +99,7 @@
   does not exist yet.
 - **Changes:** write `docs/sdd/backend/requirements.md` with EARS
   requirements for:
-  - G1–G7 from the product spec;
+  - relevant G1–G7 goals, interpreted through the active prototype-style Blink spec;
   - the acceptance targets;
   - the non-functional goals D2–D7.
 
@@ -212,128 +219,78 @@ coordinates have a single source of truth (same rule as the click search,
   alone.
 - **Refs:** D1.
 
-## Phase 3 — Blink (demo path, roadmap step 4)
+## Phase 3 — Support frontend blink with the existing API
 
-Design: Blink spec §3–§6. All frames reuse the existing image pipeline. A
-blink frame is an image cutout plus `subtract_zodi` and `mask_flags`,
-resampled onto a shared grid.
+The active Blink spec defines the contract. The frontend loads A and B,
+positions each using its own WCS mesh, and alternates visibility. The backend
+keeps serving independent observations. No `BlinkService`, `/api/v1/blink`,
+common-grid resampling, backend-selected sequence or `suggested_stretch` is
+required for this integration. Existing corrections are optional and default off.
 
-### [ ] 3.1 Full search without a limit
+These tasks cover backend verification and handoff only. They do not authorize
+changes to frontend source or imply that playback is already implemented.
 
-- **Changes:**
-  - `IrsaClient.search_all(*, ra_deg, dec_deg, detector=None, start_mjd=None, end_mjd=None) -> list[ArchiveImage]`
-    shares the query code with `search`, returns every row up to
-    `MAX_SEARCH_ROWS`, and sorts them ascending by `t_min`.
-  - `ArchiveImage` gains `band_min_um` and `band_max_um` (SIA `em_min`/`em_max` × 1e6).
-    Both default to `None`, so `search` callers are unaffected.
-- **Done when:** `search` behaves exactly as before, and `search_all` returns
-  every row, deduplicated by URL.
-- **Tests:** `test_irsa.py`: no limit applied, ascending order, metres → µm,
-  `SearchTooBroad` at the cap.
-- **Refs:** G1; Blink spec §3.1.
+### [ ] 3.1 Verify independent observation loading and projection
 
-### [ ] 3.2 Frame selection (pure)
-
-- **Changes:** `services/frame_selection.py`:
-  - `detector_counts(rows) -> dict[int, int]`
-  - `choose_detector(counts, requested=None) -> int`: most frames; ties go
-    to the higher number.
-  - `spread(rows, max_frames) -> list`: evenly spaced target times, nearest
-    unused frame for each; keeps the first and last.
-- **Done when:** the selection never returns "newest N", keeps the full
-  baseline, and is deterministic.
-- **Tests:** `tests/test_frame_selection.py`: clustered nights, ties, fewer
-  rows than `max_frames`, a requested detector with no rows.
-- **Refs:** G2; Blink spec §5.2.
-
-### [ ] 3.3 Reprojection onto a common grid (pure)
-
-- **Changes:**
-  - Add `reproject>=0.13` to `requirements.txt`.
-  - `services/reprojection.py`:
-    - `target_wcs(ra, dec, size_deg, scale_arcsec=6.15) -> (WCS, (n, n))`:
-      TAN projection, north up, east left.
-    - `to_grid(values, wcs_header, target) -> (array, coverage)`: uses
-      `reproject_interp(order="bilinear")`; pixels outside the footprint
-      become NaN.
-- **Done when:** a point source lands on the same grid pixel (±0.5) from frames
-  with different rotation and pixel scale.
-- **Tests:** `tests/test_reprojection.py`:
-  - frames rotated by 0° and 30°, and at 5.8″ and 6.15″ pixels;
-  - outside the footprint → NaN;
-  - 0.2° → 118×118.
-- **Refs:** G2; Blink spec §5.6.
-
-### [ ] 3.4 Blink schemas and service
-
-- **Changes:**
-  - `schemas/blink.py`: `BlinkQuery`, `BlinkFrame`, `BlinkGrid`,
-    `SuggestedStretch`, `BlinkResponse` (Blink spec §4.1). Models use
-    `extra="forbid"` and reject NaN/∞.
-  - `services/blink.py`: `BlinkService(images: ImageService, store, settings)`.
-    `query(BlinkQuery) -> BlinkResponse` works in this order:
-    1. `search_all`
-    2. `choose_detector` and `spread`
-    3. register each frame as a normal image (same IDs as `/images`), at
-       `fetch_size = clamp(fov, 0.2, 0.5)`
-    4. register a blink frame ID: `sha256(format_version, image_id, grid, bad_flags, zodi)`
-  - `query` downloads nothing.
+- **Changes:** add focused regression coverage where the existing tests do not
+  already cover two observations loaded concurrently for one region.
 - **Done when:**
-  - Frames are sorted ascending.
-  - `detectors` counts are present.
-  - Empty and single-frame results return 200 with a warning.
-- **Tests:** `tests/test_blink_api.py`, using a fake archive (pattern from `test_images_api.py`).
-- **Refs:** G1, G2; Blink spec §4.1, §5.
+  - A and B retain distinct IDs, dimensions, pixels, dates and WCS geometry.
+  - Both can be projected with the same `observer`, `at` and `mode`.
+  - Loading B cannot overwrite A's cached data; repeated reads use their caches.
+  - No new response shape or blink-specific backend state is introduced.
+- **Tests:** `test_images_api.py`: two synthetic observations with different
+  WCS rotations, independent load/pixel/projection responses and cache reuse.
+- **Refs:** G1, G2; D1, D3, D5; active Blink spec §3–§4 and §8.
 
-### [ ] 3.5 Blink frame pixels
+### [ ] 3.2 Document the frontend integration contract
 
-- **Changes:**
-  - Add `blink_cache_dir` to `Settings`, default `backend/data/blink/`, and
-    git-ignore it.
-  - Routes:
-    - `GET /api/v1/blink/frames/{id}/pixels`: float32, row 0 = south.
-    - `GET /api/v1/blink/frames/{id}`: frame metadata (Blink spec §4.3).
-  - Cold path:
-    1. `ImageService.corrected_pixels(subtract_zodi=True, mask_flags=True)`
-    2. `to_grid`
-    3. save pixels first, then metadata, atomically, under a lock per frame ID
-  - Response header `X-Astrea-Coverage`.
+- **Changes:** complete the Blink integration section in `API.md` using existing
+  `/images/search`, `/images/load/{id}`, `/images/{id}/pixels` and
+  `/images/{id}/projection` routes.
+- **Document:**
+  - Selection of A/B with distinct observation times; optional same-detector
+    filtering. A shared detector does not guarantee a shared wavelength.
+  - `images`, `has_more`, current search limits and date filters. Never present
+    the newest 20 results as complete observation history.
+  - Independent textures/meshes, one observer/displayed time, live sample expiry,
+    readiness and cancellation of stale requests.
+  - One frontend-computed display scale shared across observations; preserve
+    raw values so the scale can be recomputed when selection changes.
+  - Existing corrections (`subtract_zodi`, `mask_flags`, `signal_to_noise`)
+    remain opt-in. Use the same processing choices for compared observations;
+    do not mix raw intensities with dimensionless signal-to-noise values.
+  - Empty/one-image results, loading B while retaining A, and per-image errors.
+  - More than two observations are future frontend work: ordered IDs, playback
+    index, individual readiness and bounded loading, still using this API.
+- **Done when:** the frontend team can implement the initial A/B interaction
+  without relying on this chat or a new backend endpoint.
+- **Refs:** G2; D1, D3, D6; active Blink spec §4–§8.
+
+### [ ] 3.3 Joint integration acceptance (manual)
+
+- **Owner:** frontend team implements playback; backend/data team verifies data
+  contracts and diagnoses API failures. Coordinate testing without editing the
+  other team's source.
+- **Steps:** search one region, load A/B, project both at the same observer/time,
+  then exercise Show A / Show B / Blink and a failed B load.
 - **Done when:**
-  - Payload length is `n·n·4`.
-  - The second request makes no archive call.
-  - Unknown ID → 404; upstream errors map as in design §8.
-- **Tests:** in `test_blink_api.py`: round trip, cache hit, 404, 502/504 mapping, masked pixels are NaN.
-- **Refs:** G2, G3; D3, D5.
+  - Both images are positioned by their own WCS and use one shared display scale.
+  - The visible observation's date and detector remain identifiable.
+  - Visibility switches do not trigger archive downloads.
+  - Loading/error/empty states are usable; expired projections and stale
+    selections do not continue playback.
+  - Visual differences are not presented as confirmed scientific detections.
+- Record test evidence. Mark this item complete only after the frontend
+  integration is tested, not merely because the backend routes exist.
+- **Refs:** G2; active Blink spec §8.
 
-### [ ] 3.6 Suggested stretch and prefetch
+## Phase 4 — Optional offline demo preparation (roadmap step 5)
 
-- **Changes:**
-  - Once the reference frame (median epoch) is cached, `BlinkResponse.suggested_stretch`
-    holds the 1st/99.5th percentiles of its central `fov` box.
-  - Before then it is `null`.
-  - After the response, `BackgroundTasks` prefetches uncached frames, at most
-    3 at a time, best effort.
-- **Done when:**
-  - A second `/blink` call after one frame load returns the stretch.
-  - Prefetch never downloads the same frame twice. It reuses the
-    `ImageService` locks.
-- **Tests:**
-  - `suggested_stretch` is null before the reference frame is cached, then set.
-  - Shared stretch: a source 2× brighter in frame B has larger values than in A.
-  - Prefetch runs the fetcher once per frame.
-- **Refs:** G2; Blink spec §4.1.
-
-### [ ] 3.7 Blink documentation
-
-- **Changes:**
-  - Add a "Blink" section to `API.md`.
-  - Update the Blink spec §3.1: `decode_cutout_planes` is replaced by the
-    existing plane endpoints, and FLAGS/ZODI caching is now done.
-  - Mark roadmap step 4 done in the technical documentation, and add the
-    module to `design.md` §4 and §14.
-- **Done when:** the frontend team can implement blink from `API.md` alone.
-
-## Phase 4 — Pre-warm and acceptance (roadmap step 5)
+This work improves demo availability; it is not a prerequisite for frontend
+blink. Reuse `ImageService`, not a separate blink service. Candidate targets
+from the historical proposal need live validation; their visibility or motion
+is not guaranteed by implementing playback.
 
 ### [ ] 4.1 Acceptance targets
 
@@ -352,7 +309,8 @@ resampled onto a shared grid.
   - `services/targets.py`: load and validate the YAML, then propagate with
     `SkyCoord.apply_space_motion` (angles only) to the configured epoch
     (default 2025.6).
-  - Route `GET /api/v1/blink/targets` → `Target[]`.
+  - Proposed additive route `GET /api/v1/targets` → `Target[]`; document its
+    schema before implementation. No blink-specific route is needed.
 - **Done when:** Barnard's Star moves about 4.4′ between J2000 and 2025.6.
 - **Tests:** `tests/test_targets.py`.
 - **Refs:** G4.
@@ -361,14 +319,23 @@ resampled onto a shared grid.
 
 - **Changes:**
   - `app/warm.py`: `python -m app.warm targets.yaml [--only NAME] [--fov 0.1] [--max-frames 12] [--offline]`.
-  - Runs `BlinkService.query` and then every frame's pixels, sequentially.
+  - Uses `ImageService.search` and loads the chosen observation IDs through
+    `metadata` and `pixels`. Selection is an explicit demo preparation choice,
+    not a new automatic selection rule imposed on the viewer.
+  - Saves a manifest of target/query, observation IDs, dates and processing
+    options. Report limited search coverage instead of claiming a full history.
+  - In `--offline` mode, read that manifest and verify cached data without
+    calling search. Current search still requires IRSA.
   - Prints one line per target: detector, frames, span in days, fetched,
     cached, failed.
   - `--offline` gives the client a session that raises on any network use.
 - **Done when:**
   - The exit code is 1 when a target has fewer than 2 ready frames or any
     failures.
-  - `--offline` succeeds after a warm run.
+  - `--offline` succeeds for cached manifest entries after a warm run.
+  - This verifies cached image availability, not offline browser discovery.
+    A complete offline demo additionally needs a documented manifest handoff
+    or cached search response path, implemented and tested separately.
 - **Tests:** `tests/test_warm.py`: report format, exit codes, offline mode raises on network use.
 - **Refs:** G3, G4; anti-goal "demo dies because IRSA is slow".
 
@@ -378,11 +345,14 @@ resampled onto a shared grid.
   1. Run `warm` on the five targets.
   2. Note the span per target in this file.
   3. Run `warm --offline`.
-  4. Start the API and walk the targets with the network disabled.
+  4. Only after an offline discovery/manifest handoff exists, start the API
+     and walk the targets with the network disabled. Otherwise record the
+     offline browser acceptance as pending, even if the CLI check passes.
 - **Done when:**
-  - Each target has at least 2 frames.
-  - Barnard's Star, ε Indi B and WISE 0855 show motion; RW Aur and R Dra
-    show brightness change at the shared stretch.
+  - Each accepted target has at least 2 ready observations with recorded dates.
+  - Record whether the expected motion or brightness change is actually
+    discernible with WCS placement and the shared display scale. Do not claim
+    a detection from playback alone; document unsuitable targets or confounders.
   - No 5xx.
 - **If a target fails:** try QR3, then the deep collections, then a
   per-target `detector`. Record the decision.
@@ -394,25 +364,30 @@ resampled onto a shared grid.
 | --- | --- | --- | --- |
 | [ ] 5.1 | Pagination for `/images` | Cursor on `(t_min, url)`; `has_more` already exists | roadmap step 7 |
 | [ ] 5.2 | Spectra at a sky point | Read `WCS-WAVE` by ranges; wavelength and bandwidth at the target for each frame | roadmap step 6 |
-| [ ] 5.3 | Cache eviction and disk quota | LRU by access time over `image-cutouts/` and `blink/`; size limit in `Settings` | design §7 |
+| [ ] 5.3 | Cache eviction and disk quota | LRU by access time over `image-cutouts/`; size limit in `Settings` | design §7 |
 | [ ] 5.4 | Multi-worker safety | File locks (or a shared store) in place of in-process locks | roadmap step 9 |
 | [ ] 5.5 | Gaia DR3 / WISE overlays | New `integrations/` client following the `catalog.py` pattern | roadmap step 10 |
 | [ ] 5.6 | Settings for the remaining module constants | Move `MAX_SEARCH_ROWS`, `REQUEST_SECONDS`, `MAX_LAYOUTS` and the retry delays into `Settings` | design §11 |
 | [ ] 5.7 | Box search by overlap | Also return exposures that intersect the box but not its centre (polygon `s_region` test or SIA `POLYGON`), with coverage per result | Phase 2 |
+| [ ] 5.8 | Common-grid reprojection and difference analysis | Optional, separately specified processing for array subtraction/measurements; not needed for visual blink. Preserve the raw-image API | active Blink spec §9 |
+| [ ] 5.9 | Broader observation discovery | Pagination/full-history search and time-spread selection if needed later; no mandatory backend-selected sequence for initial A/B | active Blink spec §9 |
 
 ## Dependency graph
 
 ```mermaid
 flowchart LR
-    T11[1.1 env settings] --> T35
-    T14[1.4 requirements.md]
+    Existing[Existing image API] --> T31[3.1 verify independent images]
+    Existing --> T32[3.2 integration contract]
+    T31 --> T33[3.3 joint acceptance]
+    T32 --> Frontend[Frontend A/B implementation]
+    Frontend --> T33
     T21[2.1 box geometry] --> T22[2.2 search-box route] --> T23[2.3 box docs]
-    T31[3.1 search_all] --> T34
-    T32[3.2 selection] --> T34
-    T33[3.3 reprojection] --> T35
-    T34[3.4 blink service] --> T35[3.5 frame pixels] --> T36[3.6 stretch + prefetch] --> T37[3.7 docs]
-    T41[4.1 targets.yaml] --> T42[4.2 propagation] --> T43[4.3 warm]
-    T36 --> T43 --> T44[4.4 acceptance]
+    T41[4.1 targets.yaml] --> T42[4.2 propagation] --> T43[4.3 warm with manifest]
+    T43 --> T44[4.4 optional offline acceptance]
+    Offline[Offline discovery or manifest handoff] --> T44
+    Frontend --> Multi[Future frontend multi-observation playback]
 ```
 
-Tasks 1.x, 2.1, 3.1, 3.2, 3.3 and 4.1 can start in parallel.
+Foundations, box selection and optional offline preparation are separate work
+streams. None requires moving playback to the backend. Common-grid processing
+is later work, not a dependency of frontend A/B or multi-observation playback.

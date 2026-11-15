@@ -45,7 +45,7 @@ class ImageSummary(BaseModel):
     id: str
     observation_id: str | None
     detector: int | None
-    collection: str = Field(description="Archive release (dr1 or qr3), not a SIA survey collection name.")
+    collection: str = Field(description="Archive release identifier from the FITS path, not a SIA survey collection name.")
     observation: ObservationTime
     requested: CutoutRequest
     source_url: str = Field(description="Original full FITS URL for provenance; use pixels_url to render the cutout.")

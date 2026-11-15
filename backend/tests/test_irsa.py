@@ -36,6 +36,7 @@ def test_search_filters_orders_and_keeps_extra_row():
         "t_max": [61001.001, 61000.001],
     })
     with patch("app.integrations.irsa.Irsa") as irsa:
+        irsa.return_value.list_collections.return_value = Table({"collection": ["spherex_dr1", "spherex_dr1_deep", "spherex_qr3", "spherex_qr3_deep"]})
         irsa.return_value.query_sia.return_value = table[::-1]
         images = IrsaClient().search(
             ra_deg=210.80227, dec_deg=54.34895, detector=2, limit=1,
@@ -62,6 +63,7 @@ def test_search_filters_orders_and_keeps_extra_row():
 def test_invalid_search_never_contacts_archive(change):
     arguments = {"ra_deg": 12.0, "dec_deg": 30.0, "detector": None, "limit": 20}
     with patch("app.integrations.irsa.Irsa") as irsa:
+        irsa.return_value.list_collections.return_value = Table({"collection": ["spherex_dr1", "spherex_dr1_deep", "spherex_qr3", "spherex_qr3_deep"]})
         with pytest.raises(ValueError):
             IrsaClient().search(**(arguments | change))
         irsa.assert_not_called()
@@ -70,6 +72,7 @@ def test_invalid_search_never_contacts_archive(change):
 @pytest.mark.parametrize("error", [requests.Timeout(), DALServiceError(cause=requests.Timeout())])
 def test_search_timeout_mapping(error):
     with patch("app.integrations.irsa.Irsa") as irsa:
+        irsa.return_value.list_collections.return_value = Table({"collection": ["spherex_dr1", "spherex_dr1_deep", "spherex_qr3", "spherex_qr3_deep"]})
         irsa.return_value.query_sia.side_effect = error
         with pytest.raises(ArchiveTimeout):
             IrsaClient().search(ra_deg=12, dec_deg=30, detector=None, limit=20)
@@ -77,7 +80,7 @@ def test_search_timeout_mapping(error):
 
 @pytest.mark.parametrize("source", [
     "https://example.com/image.fits", SOURCE.replace("https", "http"),
-    SOURCE + "?center=1,2", SOURCE.replace("/dr1/", "/qr2/"),
+    SOURCE + "?center=1,2", SOURCE.replace("/level2/", "/level3/"),
     SOURCE.replace("/week/", "/../"), SOURCE.replace("/week/", "/%2e%2e/"),
     SOURCE.replace("irsa.ipac.caltech.edu", "irsa.ipac.caltech.edu@evil.example"),
 ])
@@ -134,6 +137,7 @@ def test_download_timeout_mapping():
 
 def test_search_rejects_truncated_archive_results():
     with patch("app.integrations.irsa.Irsa") as irsa:
+        irsa.return_value.list_collections.return_value = Table({"collection": ["spherex_dr1", "spherex_dr1_deep", "spherex_qr3", "spherex_qr3_deep"]})
         irsa.return_value.query_sia.side_effect = DALOverflowWarning("overflow")
         with pytest.raises(SearchTooBroad):
             IrsaClient().search(ra_deg=12, dec_deg=30, detector=None, limit=1)
@@ -144,6 +148,7 @@ def test_search_retries_a_briefly_busy_archive():
                    "t_min": [61001.0], "t_max": [61001.001]})
     busy = MagicMock(status_code=503, headers={})
     with patch("app.integrations.irsa.Irsa") as irsa:
+        irsa.return_value.list_collections.return_value = Table({"collection": ["spherex_dr1", "spherex_dr1_deep", "spherex_qr3", "spherex_qr3_deep"]})
         irsa.return_value.query_sia.side_effect = [
             DALServiceError(cause=requests.HTTPError(response=busy)),
             DALServiceError(cause=requests.ConnectionError("dropped")),
@@ -156,6 +161,7 @@ def test_search_retries_a_briefly_busy_archive():
 
 def test_search_gives_up_after_repeated_archive_failures():
     with patch("app.integrations.irsa.Irsa") as irsa:
+        irsa.return_value.list_collections.return_value = Table({"collection": ["spherex_dr1", "spherex_dr1_deep", "spherex_qr3", "spherex_qr3_deep"]})
         irsa.return_value.query_sia.side_effect = DALServiceError(cause=requests.ConnectionError("dropped"))
         with pytest.raises(ArchiveError):
             IrsaClient().search(ra_deg=12, dec_deg=30, detector=None, limit=20)
@@ -170,3 +176,65 @@ def test_cutout_service_retries_a_busy_response():
     with patch("app.integrations.irsa.requests.get", side_effect=[busy, response_for([content])]) as get:
         assert IrsaClient().download_cutout(SOURCE, 12, -30, 0.1) == content
     assert get.call_count == 2
+
+
+def test_discovers_unanticipated_release_and_skips_non_level2_products():
+    future = SOURCE.replace('/dr1/', '/future-release/')
+    with patch('app.integrations.irsa.Irsa') as irsa:
+        client = irsa.return_value
+        client.list_collections.return_value = Table({'collection': ['spherex_future-release', 'unrelated']})
+        client.query_sia.return_value = Table({
+            'access_url': [future, future.replace('/level2/', '/level3/')],
+            'obs_id': ['new', 'cube'], 'energy_bandpassname': ['SPHEREx-D2'] * 2,
+            't_min': [62000.] * 2, 't_max': [62000.1] * 2,
+        })
+        images = IrsaClient().search(ra_deg=12, dec_deg=30, detector=2, limit=20)
+        client.list_collections.assert_called_once_with(servicetype='SIA', filter='spherex')
+        assert client.query_sia.call_args.kwargs['collection'] == ['spherex_future-release']
+        assert [item.collection for item in images] == ['future-release']
+
+
+def test_collection_cache_refreshes_and_recovers_after_registry_outage():
+    client = MagicMock()
+    client.list_collections.side_effect = [
+        Table({'collection': ['spherex_dr1']}), requests.Timeout(),
+        Table({'collection': ['spherex_dr1', 'spherex_future']}),
+    ]
+    archive = IrsaClient()
+    with patch('app.integrations.irsa.time.monotonic') as clock:
+        clock.return_value = 100
+        assert archive._collections(client) == ('spherex_dr1',)
+        clock.return_value = 3699
+        assert archive._collections(client) == ('spherex_dr1',)
+        assert client.list_collections.call_count == 1
+        clock.return_value = 3700
+        assert archive._collections(client) == ('spherex_dr1',)
+        clock.return_value = 3759
+        assert archive._collections(client) == ('spherex_dr1',)
+        assert client.list_collections.call_count == 2
+        clock.return_value = 3760
+        assert archive._collections(client) == ('spherex_dr1', 'spherex_future')
+
+
+@pytest.mark.parametrize('table', [Table({'collection': []}), Table({'wrong_column': ['spherex_future']})])
+def test_invalid_discovery_never_runs_unrestricted_sia_search(table):
+    with patch('app.integrations.irsa.Irsa') as irsa:
+        irsa.return_value.list_collections.return_value = table
+        with pytest.raises(ArchiveError):
+            IrsaClient().search(ra_deg=12, dec_deg=30, detector=None, limit=20)
+        irsa.return_value.query_sia.assert_not_called()
+
+
+def test_initial_registry_timeout_falls_back_to_mission_without_release_names():
+    with patch('app.integrations.irsa.Irsa') as irsa:
+        irsa.return_value.list_collections.side_effect = requests.Timeout()
+        irsa.return_value.query_sia.return_value = Table({
+            'access_url': [SOURCE.replace('/dr1/', '/future/')],
+            'obs_id': ['new'], 'energy_bandpassname': ['SPHEREx-D2'],
+            't_min': [62000.], 't_max': [62000.1],
+        })
+        images = IrsaClient().search(ra_deg=12, dec_deg=30, detector=None, limit=20)
+        kwargs = irsa.return_value.query_sia.call_args.kwargs
+        assert kwargs['facility'] == 'SPHEREx'
+        assert 'collection' not in kwargs
+        assert images[0].collection == 'future'
