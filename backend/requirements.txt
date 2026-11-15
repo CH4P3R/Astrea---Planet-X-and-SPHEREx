@@ -27,3 +27,4 @@ transformers
 
 # --- Testing and Code Quality ---
 pytest
+httpx

@@ -81,10 +81,68 @@ When you're done, you can leave the environment with:
 deactivate
 ```
 
+## Start the backend
+
+From the `backend` folder, with the environment active, run the same command
+on Linux or Windows:
+
+```bash
+python -m uvicorn app.main:app --reload
+```
+
+The server runs at `http://127.0.0.1:8000`. Open
+`http://127.0.0.1:8000/docs` for Swagger UI or
+`http://127.0.0.1:8000/redoc` for ReDoc. The OpenAPI schema is available at
+`http://127.0.0.1:8000/openapi.json`.
+
+Image endpoints live under `/api/v1/images`. See [the image API contract](API.md)
+for search parameters and binary decoding. `/` still returns 404.
+
+`--reload` restarts the server when Python files change; use it for local
+development. Stop the server with Ctrl+C. To run without automatic reload:
+
+```bash
+python -m uvicorn app.main:app
+```
+
+You can set the listening address and port with Uvicorn's `--host` and `--port`
+options. Importing the application does not start a server or contact IRSA.
+
+## Backend structure
+
+```text
+app/
+  main.py             ASGI entry point used by Uvicorn
+  application.py      Application factory and router registration
+  core/config.py      Application name, version, and API prefix
+  api/v1/router.py    Central registration of version 1 feature routers
+  api/v1/endpoints/   HTTP routes, grouped by feature
+  schemas/           Request and response models
+  services/          Data workflows and processing
+  integrations/      Access to IRSA and other external data or storage
+```
+
+Routes validate requests and call services. `services/images.py` orchestrates
+search and caching; `services/fits_image.py` decodes the IMAGE data and spatial
+WCS. `integrations/irsa.py` queries the archive and downloads selected cutouts;
+`integrations/cutout_store.py` stores selections and decoded images locally.
+Schemas define the data contract shared with consumers of the API.
+
+Application defaults live in `core/config.py`. `create_app` accepts a `Settings`
+instance so tests can construct independent applications. This includes the
+cache directory and allowed browser origins (localhost and 127.0.0.1 on port
+5173 by default). Environment-file loading is not configured yet.
+
+Run the backend's offline tests from this folder:
+
+```bash
+python -m pytest tests -q
+```
+
 ## Notes
 
 - The `.venv` folder won't be uploaded to GitHub: `.gitignore` already handles that.
 - The libraries come from the prototype, though the installed versions may vary
   because most don't have a fixed version in `requirements.txt`.
-- For now, this just sets up the environment. We still need to bring over the
-  backend code, so there's no server to start yet.
+- The image API reads IMAGE and spatial metadata only. Quality masks, spectral
+  extensions, comparisons, and scientific corrections are not applied yet.
