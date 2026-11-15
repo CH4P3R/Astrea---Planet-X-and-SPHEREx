@@ -126,6 +126,9 @@ Routes validate requests and call services. `services/images.py` orchestrates
 search and caching; `services/fits_image.py` decodes the IMAGE data and spatial
 WCS. `integrations/irsa.py` queries the archive and downloads selected cutouts;
 `integrations/cutout_store.py` stores selections and decoded images locally.
+`integrations/irsa_ranges.py` reads archive files by HTTP byte ranges so only
+the needed plane is downloaded, `integrations/http_retry.py` retries brief
+archive failures, and `services/quality.py` holds the optional corrections.
 Schemas define the data contract shared with consumers of the API.
 
 Application defaults live in `core/config.py`. `create_app` accepts a `Settings`
@@ -144,5 +147,7 @@ python -m pytest tests -q
 - The `.venv` folder won't be uploaded to GitHub: `.gitignore` already handles that.
 - The libraries come from the prototype, though the installed versions may vary
   because most don't have a fixed version in `requirements.txt`.
-- The image API reads IMAGE and spatial metadata only. Quality masks, spectral
-  extensions, comparisons, and scientific corrections are not applied yet.
+- The image API reads IMAGE and spatial metadata, and applies quality masking,
+  zodiacal-background subtraction and signal-to-noise only on request (see
+  API.md, sections 4 to 6). Spectral extensions and comparisons are not
+  implemented yet.

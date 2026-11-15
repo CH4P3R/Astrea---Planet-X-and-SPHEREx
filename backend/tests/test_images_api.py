@@ -252,6 +252,8 @@ def test_openapi_describes_routes_and_binary_response(backend):
     assert set(paths) == {
         "/api/v1/images", "/api/v1/images/{image_id}",
         "/api/v1/images/{image_id}/pixels",
+        "/api/v1/images/{image_id}/planes/{plane}",
+        "/api/v1/images/{image_id}/planes/{plane}/pixels",
         "/api/v1/images/search", "/api/v1/images/load/{image_id}",
         "/api/v1/images/{image_id}/projection",
         "/api/v1/stars", "/api/v1/star-catalog", "/api/v1/sky",

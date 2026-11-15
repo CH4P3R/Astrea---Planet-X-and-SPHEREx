@@ -2,9 +2,14 @@
 
 SIA discovery follows notebooks/01-data-overview. Only current
 DR1/QR3 Level 2 FITS products are offered; search never downloads the images.
+
+Cutouts are read by HTTP byte ranges (see irsa_ranges), fetching one plane at
+a time. The IBE cutout service remains the fallback for any file that cannot
+be read that way. Brief archive failures are retried (see http_retry).
 """
 
 from dataclasses import dataclass
+import logging
 import math
 import re
 import time
@@ -16,12 +21,18 @@ import numpy as np
 from pyvo.dal.exceptions import DALAccessError, DALOverflowWarning
 import requests
 
+from app.integrations import irsa_ranges
+from app.integrations.http_retry import is_transient, with_retries
 
+
+logger = logging.getLogger(__name__)
 ARCHIVE_ORIGIN = "https://irsa.ipac.caltech.edu"
 MAX_DOWNLOAD_BYTES = 80 * 1024 * 1024
 DOWNLOAD_SECONDS = 90
 MAX_SEARCH_ROWS = 10000
 SIA_COLLECTIONS = ("spherex_dr1", "spherex_dr1_deep", "spherex_qr3", "spherex_qr3_deep")
+# Image planes that share IMAGE's grid and can be fetched on demand.
+PLANE_EXTENSIONS = ("FLAGS", "ZODI", "VARIANCE")
 _IMAGE_PATH = re.compile(r"/ibe/data/spherex/(dr1|qr3)/level2/[A-Za-z0-9_./-]+\.fits")
 
 
@@ -83,6 +94,14 @@ def _coordinates(ra_deg: float, dec_deg: float) -> None:
         raise ValueError("dec_deg must be finite and within [-90, 90].")
 
 
+def _search_transient(error: BaseException) -> bool:
+    """The VO client wraps HTTP failures; retry only brief archive hiccups."""
+    cause = getattr(error, "cause", None)
+    if isinstance(error, DALAccessError) and isinstance(cause, BaseException):
+        return is_transient(cause)
+    return is_transient(error)
+
+
 class _SiaAdapter(requests.adapters.HTTPAdapter):
     """Astroquery's VO client otherwise sends requests without a timeout."""
 
@@ -133,13 +152,13 @@ class IrsaClient:
                 warnings.simplefilter("error", DALOverflowWarning)
                 client._session.mount("https://", _SiaAdapter())
                 client._session.mount("http://", _SiaAdapter())
-                table = client.query_sia(
+                table = with_retries(lambda: client.query_sia(
                     # Follow the official introductory notebook: a one-arcsecond cone.
                     pos=(ra_deg, dec_deg, 1 / 3600),
                     collection=list(SIA_COLLECTIONS),
                     maxrec=MAX_SEARCH_ROWS,
                     **constraints,
-                )
+                ), transient=_search_transient)
             if len(table) >= MAX_SEARCH_ROWS:
                 raise SearchTooBroad("Narrow the observation dates to complete the search.")
             images = {}
@@ -178,14 +197,67 @@ class IrsaClient:
     def download_cutout(
         self, source_url: str, ra_deg: float, dec_deg: float, size_deg: float
     ) -> bytes:
-        """Download a selected cutout, rejecting redirects and oversized data."""
+        """FITS bytes for a selected cutout; only IMAGE is guaranteed to be present.
+
+        Reads just the IMAGE window by byte ranges. If the file cannot be read
+        that way, the cutout service supplies the cutout with every extension.
+        """
         source_url, _ = _image_url(source_url)
         _coordinates(ra_deg, dec_deg)
         if not math.isfinite(size_deg) or size_deg <= 0:
             raise ValueError("size_deg must be positive and finite.")
-        params = {"center": f"{ra_deg:.12f},{dec_deg:.12f}d", "size": str(size_deg), "gzip": "false"}
-        started = time.monotonic()
+        content = self._partial(
+            lambda: irsa_ranges.read_cutout(source_url, ra_deg, dec_deg, size_deg))
+        if content is not None:
+            return content
+        return self._service_cutout(source_url, ra_deg, dec_deg, size_deg)
+
+    def download_plane(
+        self, source_url: str, ra_deg: float, dec_deg: float, size_deg: float,
+        extension: str, width: int, height: int,
+    ) -> bytes:
+        """FITS bytes containing `extension` on the grid of an already loaded cutout.
+
+        Reads only that plane when its window matches the loaded image
+        (width x height). Otherwise the cutout service's response is returned:
+        it holds every plane on the grid that service produced.
+        """
+        source_url, _ = _image_url(source_url)
+        _coordinates(ra_deg, dec_deg)
+        if not math.isfinite(size_deg) or size_deg <= 0:
+            raise ValueError("size_deg must be positive and finite.")
+        if extension not in PLANE_EXTENSIONS:
+            raise ValueError("Unknown image plane.")
+        result = self._partial(
+            lambda: irsa_ranges.read_plane(source_url, ra_deg, dec_deg, size_deg, extension))
+        if result is not None:
+            content, plane_width, plane_height = result
+            if (plane_width, plane_height) == (width, height):
+                return content
+            logger.info("Partial %s window differs from the loaded cutout; using the cutout service.", extension)
+        return self._service_cutout(source_url, ra_deg, dec_deg, size_deg)
+
+    @staticmethod
+    def _partial(read):
+        """Run a byte-range read; None means "use the cutout service instead"."""
         try:
+            return read()
+        except requests.Timeout as exc:
+            raise ArchiveTimeout("IRSA download timed out. Please try again.") from exc
+        except requests.RequestException as exc:
+            raise ArchiveError("IRSA download is temporarily unavailable.") from exc
+        except (irsa_ranges.PartialReadError, OSError, ValueError, TypeError, KeyError, IndexError) as exc:
+            logger.warning("Partial download unavailable (%s); using the IRSA cutout service.", exc)
+            return None
+
+    def _service_cutout(
+        self, source_url: str, ra_deg: float, dec_deg: float, size_deg: float
+    ) -> bytes:
+        """Download a cutout from the IBE service, rejecting redirects and oversized data."""
+        params = {"center": f"{ra_deg:.12f},{dec_deg:.12f}d", "size": str(size_deg), "gzip": "false"}
+
+        def fetch() -> bytes:
+            started = time.monotonic()
             with requests.get(
                 source_url, params=params, stream=True,
                 timeout=(10, 40), allow_redirects=False,
@@ -201,7 +273,10 @@ class IrsaClient:
                     if total > MAX_DOWNLOAD_BYTES:
                         raise ArchiveError("IRSA cutout exceeds the download limit. Request a smaller region.")
                     chunks.append(chunk)
-                content = b"".join(chunks)
+                return b"".join(chunks)
+
+        try:
+            content = with_retries(fetch)
         except requests.Timeout as exc:
             raise ArchiveTimeout("IRSA cutout download timed out. Please try again.") from exc
         except requests.RequestException as exc:

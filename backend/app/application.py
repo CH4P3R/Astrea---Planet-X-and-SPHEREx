@@ -23,7 +23,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.star_service = StarService(settings.star_cache_path)
     app.state.image_service = ImageService(
         archive=IrsaClient(), store=CutoutStore(settings.cutout_cache_dir),
-        api_prefix=settings.api_prefix,
+        api_prefix=settings.api_prefix, bad_flags=settings.bad_flags,
     )
     register_exception_handlers(app)
     app.include_router(api_router, prefix=settings.api_prefix)

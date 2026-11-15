@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+from app.services.quality import DEFAULT_BAD_FLAGS
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -12,3 +14,5 @@ class Settings:
     cutout_cache_dir: Path = Path(__file__).resolve().parents[2] / "data" / "image-cutouts"
     star_cache_path: Path = Path(__file__).resolve().parents[2] / "data" / "hipparcos-v1.json"
     cors_origins: tuple[str, ...] = ("http://localhost:5173", "http://127.0.0.1:5173")
+    # FLAGS names rejected by mask_flags=true. SOURCE is never masked.
+    bad_flags: tuple[str, ...] = DEFAULT_BAD_FLAGS

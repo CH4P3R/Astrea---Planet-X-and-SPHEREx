@@ -21,6 +21,14 @@ _METADATA_KEYS = (
 )
 
 
+# Planes that share IMAGE's grid: public name -> (FITS extension, wire dtype).
+PLANES = {
+    "flags": ("FLAGS", "int32"),
+    "zodi": ("ZODI", "float32"),
+    "variance": ("VARIANCE", "float32"),
+}
+
+
 class InvalidFitsError(ValueError):
     """The upstream FITS cannot provide a usable image and spatial WCS."""
 
@@ -28,6 +36,14 @@ class InvalidFitsError(ValueError):
 @dataclass(frozen=True)
 class DecodedImage:
     """Pixels and their JSON-safe interpretation, independent of HTTP."""
+
+    pixels: bytes
+    metadata: dict
+
+
+@dataclass(frozen=True)
+class DecodedPlane:
+    """An extra plane on the cutout's grid and its JSON-safe interpretation."""
 
     pixels: bytes
     metadata: dict
@@ -151,3 +167,61 @@ def decode_cutout(content: bytes) -> DecodedImage:
         raise
     except (OSError, ValueError, TypeError, KeyError, IndexError, AttributeError) as error:
         raise InvalidFitsError("The FITS image or its celestial WCS is invalid.") from error
+
+
+def _flag_bits(header: fits.Header) -> list[dict]:
+    """Bit definitions from the FLAGS header: MSKNnnnn is the name, MSKDnnnn the description."""
+    bits = []
+    for key in header:
+        if key.startswith("MSKN") and key[4:].isdigit():
+            description = header.get("MSKD" + key[4:])
+            bits.append({"bit": int(key[4:]), "name": str(header[key]).strip().upper(),
+                         "description": str(description).strip() if description is not None else None})
+    return sorted(bits, key=lambda entry: entry["bit"])
+
+
+def decode_plane(content: bytes, plane: str, width: int, height: int) -> DecodedPlane:
+    """Read one extra plane from an in-memory FITS and check it matches the cutout.
+
+    Bytes are little-endian in C order with the same row order as IMAGE:
+    int32 for flags (a bitmask), float32 for zodi and variance. Values are not
+    altered. Nonfinite zodi or variance samples stay nonfinite.
+    """
+    extension, dtype = PLANES[plane]
+    try:
+        with fits.open(BytesIO(content), memmap=False, lazy_load_hdus=True) as hdus:
+            try:
+                hdu = hdus[extension]
+            except KeyError as error:
+                raise InvalidFitsError(f"FITS has no {extension} extension.") from error
+            if not isinstance(hdu, (fits.ImageHDU, fits.CompImageHDU)):
+                raise InvalidFitsError(f"{extension} must be an image HDU.")
+            data = hdu.data
+            if data is None or data.shape != (height, width):
+                raise InvalidFitsError(f"{extension} does not match the cutout's pixel grid.")
+            if plane == "flags":
+                if data.dtype.kind not in "iu" or np.any(data > 2**31 - 1) or np.any(data < -(2**31)):
+                    raise InvalidFitsError("FLAGS must hold 32-bit integer bitmasks.")
+                array = np.ascontiguousarray(data, dtype="<i4")
+            else:
+                if data.dtype.kind not in "fiu":
+                    raise InvalidFitsError(f"{extension} must contain numeric pixels.")
+                array = np.ascontiguousarray(data, dtype="<f4")
+            unit = str(hdu.header.get("BUNIT") or "").strip()
+            metadata = {
+                "plane": plane,
+                "extension": extension,
+                "width": width,
+                "height": height,
+                "dtype": dtype,
+                "byte_order": "little",
+                "array_order": "C",
+                "pixel_origin": "lower-left",
+                "unit": unit or None,
+                "flag_bits": _flag_bits(hdu.header) if plane == "flags" else [],
+            }
+            return DecodedPlane(pixels=array.tobytes(order="C"), metadata=metadata)
+    except InvalidFitsError:
+        raise
+    except (OSError, ValueError, TypeError, KeyError, IndexError, AttributeError) as error:
+        raise InvalidFitsError(f"The FITS {extension} plane is invalid.") from error

@@ -2,11 +2,13 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Query
+from fastapi import APIRouter, Depends, Path, Query, Response
 from fastapi.responses import FileResponse
 
 from app.api.dependencies import get_image_service
-from app.schemas.images import ImageMetadata, ImageSearchQuery, ImageSearchResponse
+from app.schemas.images import (
+    ImageMetadata, ImageSearchQuery, ImageSearchResponse, PlaneMetadata, PlaneName,
+)
 from app.services.images import ImageService
 from app.schemas.sky import ClickSearchRequest, ProjectionRequest
 from app.services.image_geometry import click_to_icrs, project_image
@@ -32,11 +34,41 @@ def image_metadata(image_id: ImageId, service: Service):
     "/{image_id}/pixels", response_class=FileResponse,
     responses={200: {"content": {"application/octet-stream": {
         "schema": {"type": "string", "format": "binary"}}},
-        "description": "Unmodified IMAGE values. Decode with the dtype, byte order and shape from the metadata endpoint."}},
+        "description": "IMAGE values, unmodified unless a correction is requested. Decode with the dtype, byte order and shape from the metadata endpoint."}},
 )
-def image_pixels(image_id: ImageId, service: Service):
-    """Return contiguous little-endian floats; preserve NaN, infinity and negatives."""
-    return FileResponse(service.pixels(image_id), media_type="application/octet-stream")
+def image_pixels(
+    image_id: ImageId, service: Service,
+    subtract_zodi: Annotated[bool, Query(description="Subtract the zodiacal-light model (IMAGE - ZODI).")] = False,
+    mask_flags: Annotated[bool, Query(description="Replace samples carrying a bad quality flag with NaN.")] = False,
+    signal_to_noise: Annotated[bool, Query(description="Divide by the per-pixel standard deviation (sqrt of VARIANCE).")] = False,
+):
+    """Return contiguous little-endian floats; preserve NaN, infinity and negatives.
+
+    Without options the IMAGE plane is returned untouched. Each option fetches
+    its plane from the archive the first time it is used for an image.
+    """
+    if not (subtract_zodi or mask_flags or signal_to_noise):
+        return FileResponse(service.pixels(image_id), media_type="application/octet-stream")
+    return Response(service.corrected_pixels(
+        image_id, subtract_zodi=subtract_zodi, mask_flags=mask_flags, signal_to_noise=signal_to_noise,
+    ), media_type="application/octet-stream")
+
+
+@router.get("/{image_id}/planes/{plane}", response_model=PlaneMetadata)
+def plane_metadata(image_id: ImageId, plane: PlaneName, service: Service):
+    """Load an extra plane (flags, zodi or variance) and describe how to decode it."""
+    return service.plane(image_id, plane)
+
+
+@router.get(
+    "/{image_id}/planes/{plane}/pixels", response_class=FileResponse,
+    responses={200: {"content": {"application/octet-stream": {
+        "schema": {"type": "string", "format": "binary"}}},
+        "description": "Unmodified plane values on the image's grid: int32 for flags, float32 for zodi and variance."}},
+)
+def plane_pixels(image_id: ImageId, plane: PlaneName, service: Service):
+    """Return the plane as contiguous little-endian values, row zero at the bottom."""
+    return FileResponse(service.plane_pixels(image_id, plane), media_type="application/octet-stream")
 
 
 @router.post("/search", response_model=ImageSearchResponse)
