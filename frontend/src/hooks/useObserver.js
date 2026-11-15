@@ -13,7 +13,7 @@ export default function useObserver() {
     setError('')
     if (!navigator.geolocation || !window.isSecureContext) {
       setStatus('error')
-      setError('La ubicación automática necesita HTTPS o localhost. Introduce tu ubicación manualmente.')
+      setError('La ubicación automática necesita HTTPS o localhost. Puedes continuar sin ubicación o introducir coordenadas.')
       return
     }
     setStatus('loading')
@@ -24,7 +24,7 @@ export default function useObserver() {
       setStatus('error')
       setError(message)
     }
-    timer.current = window.setTimeout(() => fail('La ubicación está tardando demasiado. Puedes introducirla manualmente.'), 12000)
+    timer.current = window.setTimeout(() => fail('La ubicación está tardando demasiado. Puedes continuar sin ella o introducir coordenadas.'), 12000)
     navigator.geolocation.getCurrentPosition(({ coords }) => {
       if (request.current !== id) return
       request.current += 1
@@ -33,8 +33,8 @@ export default function useObserver() {
       setStatus('ready')
       setError('')
     }, ({ code }) => {
-      fail(code === 1 ? 'No se concedió permiso de ubicación. Puedes usar la entrada manual.'
-        : 'No se pudo obtener la ubicación. Reintenta o introduce las coordenadas.')
+      fail(code === 1 ? 'No se concedió permiso de ubicación. Puedes continuar sin ella o introducir coordenadas.'
+        : 'No se pudo obtener la ubicación. Puedes continuar sin ella, reintentar o introducir coordenadas.')
     }, { enableHighAccuracy: false, maximumAge: 60000, timeout: 12000 })
   }, [])
 
@@ -49,15 +49,10 @@ export default function useObserver() {
     return true
   }, [])
 
-  useEffect(() => {
-    // Scheduling also prevents duplicate requests during StrictMode's effect check.
-    const start = window.setTimeout(locate, 0)
-    return () => {
-      window.clearTimeout(start)
-      window.clearTimeout(timer.current)
-      request.current += 1
-    }
-  }, [locate])
+  useEffect(() => () => {
+    window.clearTimeout(timer.current)
+    request.current += 1
+  }, [])
 
   return { observer, status, error, locate, applyManualLocation }
 }

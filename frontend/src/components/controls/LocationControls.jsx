@@ -19,12 +19,12 @@ export default function LocationControls({ observer, status, error, locate, appl
     <details className="location-control" open={!observer}>
       <summary>
         {observer ? `Ubicación · ${observer.source === 'device' ? 'Dispositivo' : 'Manual'}`
-          : status === 'loading' ? 'Obteniendo ubicación…' : 'Definir ubicación'}
+          : status === 'loading' ? 'Obteniendo ubicación…' : 'Ubicación · Opcional'}
       </summary>
       <div className="location-body">
         <p role="status">{observer
           ? `${observer.latitude.toFixed(4)}°, ${observer.longitude.toFixed(4)}°`
-          : 'Se necesita tu ubicación para mostrar las direcciones del horizonte local.'}</p>
+          : 'La ubicación es opcional. Sin ella, Norte, Este, Sur y Oeste sirven como referencias de la escena.'}</p>
         <button type="button" onClick={locate} disabled={status === 'loading'}>
           {status === 'loading' ? 'Buscando…' : 'Usar ubicación del dispositivo'}
         </button>
