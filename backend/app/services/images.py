@@ -7,11 +7,15 @@ from pathlib import Path
 from threading import Lock
 
 from astropy.time import Time
+import numpy as np
 
-from app.integrations.cutout_store import CutoutStore
+from app.integrations.cutout_store import CacheError, CutoutStore
 from app.integrations.irsa import IrsaClient
-from app.schemas.images import ImageMetadata, ImageSearchQuery, ImageSearchResponse, ImageSummary
-from app.services.fits_image import decode_cutout
+from app.schemas.images import (
+    ImageMetadata, ImageSearchQuery, ImageSearchResponse, ImageSummary, PlaneMetadata,
+)
+from app.services.fits_image import PLANES, decode_cutout, decode_plane
+from app.services.quality import DEFAULT_BAD_FLAGS, bad_bits, corrected
 
 
 def _utc(mjd: float | None) -> str | None:
@@ -19,10 +23,12 @@ def _utc(mjd: float | None) -> str | None:
 
 
 class ImageService:
-    def __init__(self, archive: IrsaClient, store: CutoutStore, api_prefix: str):
+    def __init__(self, archive: IrsaClient, store: CutoutStore, api_prefix: str,
+                 bad_flags: tuple[str, ...] = DEFAULT_BAD_FLAGS):
         self.archive = archive
         self.store = store
         self.api_prefix = api_prefix
+        self.bad_flags = bad_flags
         # A fixed-size lock pool avoids duplicate downloads within a worker.
         self._locks = [Lock() for _ in range(32)]
 
@@ -84,3 +90,55 @@ class ImageService:
     def pixels(self, identifier: str) -> Path:
         self.metadata(identifier)
         return self.store.pixels_path(identifier)
+
+    def plane(self, identifier: str, plane: str) -> PlaneMetadata:
+        """Describe an extra plane, downloading it the first time it is asked for."""
+        image = self.metadata(identifier).image
+        selection = self.store.selection(identifier)
+        with self._locks[int(identifier[:8], 16) % len(self._locks)]:
+            metadata = self.store.plane_metadata(identifier, plane)
+            if metadata is None:
+                request = selection["requested"]
+                content = self.archive.download_plane(
+                    source_url=selection["archive"]["source_url"],
+                    ra_deg=request["ra_deg"], dec_deg=request["dec_deg"], size_deg=request["size_deg"],
+                    extension=PLANES[plane][0], width=image.width, height=image.height,
+                )
+                decoded = decode_plane(content, plane, image.width, image.height)
+                metadata = decoded.metadata
+                self.store.save_plane(identifier, plane, metadata, decoded.pixels)
+        # Masking policy and routes are configuration, so they are not cached.
+        names, bits = bad_bits(metadata["flag_bits"], self.bad_flags)
+        return PlaneMetadata(
+            **metadata, image_id=identifier, masked_flags=names, masked_bits=bits,
+            pixels_url=f"{self.api_prefix}/images/{identifier}/planes/{plane}/pixels",
+        )
+
+    def plane_pixels(self, identifier: str, plane: str) -> Path:
+        self.plane(identifier, plane)
+        return self.store.plane_path(identifier, plane)
+
+    def corrected_pixels(self, identifier: str, *, subtract_zodi: bool = False,
+                         mask_flags: bool = False, signal_to_noise: bool = False) -> bytes:
+        """The image's pixels with the requested corrections; same dtype and layout.
+
+        Each correction downloads its plane on first use. Rejected or
+        undefined samples are NaN, like nonfinite samples in the raw pixels.
+        """
+        image = self.metadata(identifier).image
+        shape = (image.height, image.width)
+
+        def load(path: Path, dtype: str) -> np.ndarray:
+            try:
+                return np.fromfile(path, dtype=dtype).reshape(shape)
+            except (OSError, ValueError) as error:
+                raise CacheError("Could not read cached pixels") from error
+
+        pixels = load(self.store.pixels_path(identifier), "<f4" if image.dtype == "float32" else "<f8")
+        zodi = load(self.plane_pixels(identifier, "zodi"), "<f4") if subtract_zodi else None
+        variance = load(self.plane_pixels(identifier, "variance"), "<f4") if signal_to_noise else None
+        flags, mask = None, 0
+        if mask_flags:
+            mask = self.plane(identifier, "flags").masked_bits
+            flags = load(self.store.plane_path(identifier, "flags"), "<i4")
+        return corrected(pixels, zodi=zodi, variance=variance, flags=flags, bad_mask=mask).tobytes(order="C")

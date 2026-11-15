@@ -7,10 +7,24 @@ import pytest
 from pyvo.dal.exceptions import DALServiceError, DALOverflowWarning
 import requests
 
+from app.integrations import irsa_ranges
 from app.integrations.irsa import ArchiveError, ArchiveTimeout, IrsaClient, SearchTooBroad
 
 
 SOURCE = "https://irsa.ipac.caltech.edu/ibe/data/spherex/dr1/level2/week/run/2/image.fits"
+
+
+@pytest.fixture(autouse=True)
+def cutout_service_only():
+    """These tests cover the cutout service, the fallback when byte ranges are unavailable.
+
+    Partial reads have their own tests in test_irsa_ranges.py.
+    """
+    unsupported = irsa_ranges.PartialReadError("disabled in this test")
+    with patch.object(irsa_ranges, "read_cutout", side_effect=unsupported), \
+            patch.object(irsa_ranges, "read_plane", side_effect=unsupported), \
+            patch("app.integrations.http_retry.time.sleep"):
+        yield
 
 
 def test_search_filters_orders_and_keeps_extra_row():
@@ -123,3 +137,36 @@ def test_search_rejects_truncated_archive_results():
         irsa.return_value.query_sia.side_effect = DALOverflowWarning("overflow")
         with pytest.raises(SearchTooBroad):
             IrsaClient().search(ra_deg=12, dec_deg=30, detector=None, limit=1)
+
+
+def test_search_retries_a_briefly_busy_archive():
+    table = Table({"access_url": [SOURCE], "obs_id": ["one"], "energy_bandpassname": ["SPHEREx-D2"],
+                   "t_min": [61001.0], "t_max": [61001.001]})
+    busy = MagicMock(status_code=503, headers={})
+    with patch("app.integrations.irsa.Irsa") as irsa:
+        irsa.return_value.query_sia.side_effect = [
+            DALServiceError(cause=requests.HTTPError(response=busy)),
+            DALServiceError(cause=requests.ConnectionError("dropped")),
+            table,
+        ]
+        images = IrsaClient().search(ra_deg=12, dec_deg=30, detector=None, limit=20)
+        assert irsa.return_value.query_sia.call_count == 3
+    assert [image.observation_id for image in images] == ["one"]
+
+
+def test_search_gives_up_after_repeated_archive_failures():
+    with patch("app.integrations.irsa.Irsa") as irsa:
+        irsa.return_value.query_sia.side_effect = DALServiceError(cause=requests.ConnectionError("dropped"))
+        with pytest.raises(ArchiveError):
+            IrsaClient().search(ra_deg=12, dec_deg=30, detector=None, limit=20)
+        assert irsa.return_value.query_sia.call_count == 3
+
+
+def test_cutout_service_retries_a_busy_response():
+    content = b"SIMPLE  =                    T" + b" " * 100
+    busy = response_for([], 503)
+    busy.headers = {"Retry-After": "2"}
+    busy.raise_for_status.side_effect = requests.HTTPError(response=busy)
+    with patch("app.integrations.irsa.requests.get", side_effect=[busy, response_for([content])]) as get:
+        assert IrsaClient().download_cutout(SOURCE, 12, -30, 0.1) == content
+    assert get.call_count == 2
