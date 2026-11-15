@@ -7,18 +7,27 @@ Consultar la [Guía de diseño e interacción](docs/UI_DESIGN_GUIDE.md), que re�
 ## Espacio de trabajo 3D
 
 La vista ocupa toda la ventana y muestra una esfera 3D desde su interior, con un
-degradado oscuro y sin líneas de cuadrícula ni estrellas. El observador permanece
+degradado oscuro, estrellas de Hipparcos y una guía horizontal transparente. El observador permanece
 en el centro, representando la perspectiva desde la Tierra.
 
-Arrastra para girar la vista tomando como ancla el punto de la esfera donde pulsas.
-Ese punto sigue el recorrido del cursor, sin multiplicadores de velocidad angular,
-también al ampliar. Se conserva un suavizado temporal que converge a la posición
-indicada por el cursor, sin añadir recorrido. Usa el desplazamiento de dos dedos del trackpad,
+Arrastra para girar la vista alrededor del observador, con ejes independientes
+como en el prototipo: el movimiento horizontal cambia el rumbo alrededor de +Y;
+el vertical cambia la elevación. El giro lateral permanece en cero y la elevación
+se limita justo antes de ±90° para evitar invertir la vista. Ambos ejes se suavizan
+por separado, también al encuadrar una imagen. La sensibilidad se adapta al tamaño
+angular visible con el zoom ortográfico. Usa el desplazamiento de dos dedos del trackpad,
 su gesto de pellizco (ctrl+wheel en navegadores compatibles) o la rueda del ratón
 para cambiar la escala de una cámara ortográfica, sin FOV ni distorsión de gran
 angular. El zoom va de 0.75× a 8192× respecto al encuadre inicial, sin salir de la esfera.
 El encuadre se adapta al tamaño de la ventana conservando el nivel de zoom.
 La navegación permite explorar ambos hemisferios de la bóveda.
+
+`skyDragRotation`, `skyRotationForDirection` y `dampSkyRotation`, en
+`three/core/skyDragUtils.js`, calculan respectivamente el arrastre por ejes,
+el encuadre de una dirección y el suavizado sin giro lateral. Utilizan `Euler`
+en orden `YXZ` y `MathUtils`, de Three.js. `skyDirectionAtPointer` conserva la
+conversión del clic en una dirección local de la esfera. La orientación
+astronómica de `EquatorialFrame` se aplica al fondo, no a la cámara ni al suelo.
 
 ### Ubicación y direcciones
 
@@ -48,7 +57,59 @@ Usa tiempo sidéreo medio y precesión J2000 → fecha aproximada (IAU 1976), si
 refracción, nutación, paralaje ni datos IERS. Es una orientación visual; no sustituye
 la transformación Astropy del prototipo para registro preciso de imágenes FITS.
 
-### Integración de futuras imágenes y estrellas
+### Estrellas y superficie central
+
+Las estrellas se cargan automáticamente al disponer de ubicación, mediante
+`POST /api/v1/sky`, con magnitud aparente máxima de 7. La respuesta JSON incluye
+colores, magnitudes y direcciones en el mismo orden; no es necesario descargar
+por separado `/star-catalog`. Se muestran ambos hemisferios.
+
+`useStars` solicita el cielo para la ubicación y el contexto de Tiempo vigentes.
+Al cambiar cualquiera de ellos, cancela la petición anterior y descarta las
+posiciones antiguas. En vivo interpola las muestras de 10 segundos y renueva
+la ventana 30 segundos antes de su vencimiento. En pausa mantiene una sola muestra.
+Si falla la carga, **Aspecto del cielo** muestra el error y permite reintentar;
+las posiciones caducadas dejan de dibujarse.
+
+`Stars` dibuja un único conjunto de puntos con `BufferGeometry` y `ShaderMaterial`
+de Three.js. El tamaño y el brillo dependen de la magnitud y conservan su escala
+en píxeles al ampliar. `useFrame`, de React Three Fiber, actualiza las posiciones
+normalizadas al radio de la esfera. Las direcciones ya son locales (+X este,
++Y arriba, −Z norte), por lo que no pasan por `EquatorialFrame`.
+
+`HorizonSurface` representa un suelo horizontal en **Y = −1**, bajo el observador,
+mediante una cuadrícula, anillos y marcas transparentes. Sigue la referencia de
+`Proyecto_Prototipo/frontend/src/components/scene/Ground.jsx` y `groundMaterial.js`
+del proyecto indicado por el usuario. La opacidad se atenúa con la distancia y
+al mirar hacia el nadir, donde queda el 15 % de la opacidad base de 0,28.
+El control **Mostrar superficie central**, en **Aspecto del cielo**, permite
+ocultar la guía. Está activada inicialmente y permite explorar el cielo inferior.
+
+Al ampliar, el grosor de las líneas se compensa con el inverso del zoom para
+evitar barras cada vez más anchas. La guía pierde opacidad suavemente entre 1×
+y 8× y queda oculta desde 8×, dejando libre la inspección de recortes FITS.
+Al alejar la vista reaparece de forma gradual. `baseOrthographicZoom`, una función
+propia, calcula el zoom relativo al encuadre inicial; `MathUtils.smoothstep`, de
+Three.js, controla la transición de opacidad. El ajuste se aplica a cuadrícula,
+anillos y marcas centrales, y se combina con la atenuación por inclinación.
+
+La referencia utiliza perspectiva; aquí el suelo se adapta a la proyección
+ortográfica del cielo. `horizonSurfaceMaterial.js` calcula la intersección de
+cada dirección celeste con el plano Y = −1 y dibuja allí el patrón del suelo.
+`stroke` y `grid` son funciones GLSL propias que producen líneas suavizadas con
+`fwidth`, una función de GLSL. Las direcciones sobre el horizonte se descartan.
+La esfera utilizada como soporte comparte radio y proyección con las estrellas;
+el plano representado queda separado del observador y el shader utiliza la
+profundidad normal. Esto evita el disco superpuesto y los cortes de un plano
+que atraviesa el volumen de la cámara ortográfica.
+
+`useFrame`, de React Three Fiber, actualiza el grosor y la opacidad según el zoom
+y la orientación obtenida con `getWorldDirection`, de la cámara Three.js.
+La guía se dibuja antes de las etiquetas y del contenido
+astronómico, sin escribir profundidad ni interceptar clics.
+
+La integración utiliza React, Three.js, React Three Fiber y las API del navegador
+`fetch` y `AbortController`; no incorpora dependencias nuevas.
 
 ### Imágenes SPHEREx a resolución nativa
 
@@ -88,24 +149,24 @@ memoria considerable incluso cuando la GPU admite las dimensiones del recorte.
 
 ### Capas de renderizado
 
-`SkyBackdrop` renderiza primero la esfera y las etiquetas en una escena de fondo.
+`SkyBackdrop` renderiza primero la esfera, la superficie central y las etiquetas en una escena de fondo.
 Después limpia la profundidad y dibuja la escena principal. Así, una imagen de
 la escena principal puede cubrir las letras incluso si usa un material transparente
 o está más lejos que ellas. Las zonas transparentes de la imagen dejan ver el fondo.
 No se usan etiquetas HTML por encima del lienzo.
 
-El futuro contenido astronómico debe añadirse en la escena principal, fuera de
-`SkyBackdrop`, y envolver geometría RA/Dec con `EquatorialFrame` para compartir
-el horizonte local. Su base ecuatorial es dextrógira: +X RA 18 h, +Y polo norte
-celeste, −Z RA 0 h. Las estrellas tendrán prioridad visual sobre las letras;
-la atenuación por proximidad se conectará cuando exista un catálogo de estrellas.
+Las estrellas y las imágenes se añaden a la escena principal, fuera de
+`SkyBackdrop`, usando directamente las direcciones locales de la API. Las
+estrellas se dibujan sobre las etiquetas y antes de las imágenes FITS.
+Solo la geometría definida en RA/Dec debe envolverse con `EquatorialFrame`.
+Su base ecuatorial es dextrógira: +X RA 18 h, +Y polo norte celeste, −Z RA 0 h.
 
 ### Organización
 
 - `src/components/layout/`: contenedor de pantalla completa y capa de escena.
 - `src/components/controls/` y `src/hooks/`: ubicación automática/manual.
 - `src/three/core/`: escena, cámara y transformaciones de coordenadas.
-- `src/three/elements/`: esfera celeste, direcciones y cuadrícula RA/Dec (oculta).
+- `src/three/elements/`: esfera celeste, estrellas, superficie central, imágenes, direcciones y cuadrícula RA/Dec (oculta).
 - `src/config/`: parámetros de la vista.
 - `src/styles/`: estilos base, de distribución y de componentes, importados por `main.css`.
 

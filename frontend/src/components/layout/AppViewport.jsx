@@ -8,11 +8,14 @@ import useFitsImage from '../../hooks/useFitsImage.js'
 import useContextMenu from '../../hooks/useContextMenu.js'
 import Tooltip from '../common/Tooltip.jsx'
 import { cutoutSizeError } from '../../config/search.js'
+import useStars from '../../hooks/useStars.js'
 
 export default function AppViewport() {
   const location = useObserver()
   const clock = useSkyClock()
   const fits = useFitsImage(location.observer, clock.context)
+  const stars = useStars(location.observer, clock.context, clock.timestamp)
+  const [surfaceVisible, setSurfaceVisible] = useState(true)
   const [notice, setNotice] = useState(null)
   const searchPending = fits.preparing || ['searching', 'loading', 'results', 'error'].includes(fits.status)
   const menu = useContextMenu({ persistentIds: [
@@ -42,11 +45,13 @@ export default function AppViewport() {
     <main className="app-viewport" aria-label="Bóveda celeste tridimensional">
       <div className="scene-layer" aria-label="Esfera celeste y direcciones del horizonte local">
         <Canvas orthographic camera={{ position: [0, 0, 0], near: 0.01, far: 250 }}>
-          <SkyScene observer={observer} fits={fits} timestamp={clock.timestamp} onSkyClick={onSkyClick} />
+          <SkyScene observer={observer} fits={fits} stars={stars} surfaceVisible={surfaceVisible}
+            timestamp={clock.timestamp} onSkyClick={onSkyClick} />
         </Canvas>
       </div>
       <div className="ui-layer">
-        <ContextToolbar clock={clock} location={location} fits={fits} menu={menu} />
+        <ContextToolbar clock={clock} location={location} fits={fits} menu={menu}
+          stars={stars} surfaceVisible={surfaceVisible} setSurfaceVisible={setSurfaceVisible} />
         {notice && <Tooltip key={notice.id} point={notice.point} message={noticeMessage} open
           tone={notice.reason === 'location' && locating ? 'info' : 'error'} />}
       </div>

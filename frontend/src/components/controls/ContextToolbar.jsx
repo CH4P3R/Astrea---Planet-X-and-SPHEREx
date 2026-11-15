@@ -1,10 +1,10 @@
 import ContextPanel from '../common/ContextPanel.jsx'
 import Tooltip from '../common/Tooltip.jsx'
-import PanelContent from '../common/PanelContent.jsx'
 import ContextIcon from './ContextIcons.jsx'
 import TimeControls from './TimeControls.jsx'
 import LocationControls from './LocationControls.jsx'
 import FitsControls from './FitsControls.jsx'
+import SkyControls from './SkyControls.jsx'
 
 const options = [
   { id: 'time', label: 'Tiempo' },
@@ -12,7 +12,7 @@ const options = [
   { id: 'search', label: 'Preparación' },
   { id: 'sky', label: 'Aspecto del cielo' },
 ]
-export default function ContextToolbar({ clock, location, fits, menu }) {
+export default function ContextToolbar({ clock, location, fits, menu, stars, surfaceVisible, setSurfaceVisible }) {
   const { active, hint, keepOpen, preview, leave } = menu
 
   return <>
@@ -46,9 +46,7 @@ export default function ContextToolbar({ clock, location, fits, menu }) {
           {id === 'time' && <TimeControls clock={clock} />}
           {id === 'location' && <LocationControls {...location} />}
           {id === 'search' && <FitsControls fits={fits} observer={location.observer} />}
-          {id === 'sky' && <PanelContent title="Aspecto del cielo">
-            <p>Los ajustes de tamaño, resplandor y visibilidad bajo el horizonte estarán disponibles cuando se integre el catálogo de estrellas.</p>
-          </PanelContent>}
+          {id === 'sky' && <SkyControls stars={stars} surfaceVisible={surfaceVisible} setSurfaceVisible={setSurfaceVisible} />}
         </ContextPanel>)}
       </div>
     </div>
