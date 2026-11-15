@@ -20,6 +20,7 @@
   },
   "detectors": {
     "title": "Explorar detectores",
+    "spectrumDescription": "Bandas nominales de SPHEREx de 0,75 a 5 micrómetros, con 17 canales por detector. Los anchos son proporcionales al intervalo de longitud de onda. Los colores identifican detectores; no es la cobertura calibrada de cada píxel.",
     "help": "Cada segmento carga la observación más reciente de esta región con ese detector; la fecha puede cambiar. Los colores pastel identifican opciones, no colores reales ni intensidades. Los rangos son nominales: la longitud de onda concreta varía dentro de cada detector.",
     "range": "D{{detector}}: {{range}} µm",
     "latest": "Más reciente de cualquier detector",

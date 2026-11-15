@@ -1,0 +1,31 @@
+.detector-segment .detector-color {
+  position: relative;
+  overflow: hidden;
+}
+
+.detector-segment .detector-color .detector-channel-strip {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 1;
+  fill: none;
+  stroke: none;
+  pointer-events: none;
+}
+
+.detector-channel-strip line {
+  stroke: var(--hud-surface);
+  stroke-opacity: 0.65;
+  stroke-width: 0.6;
+  vector-effect: non-scaling-stroke;
+}
+
+.detector-color .detector-selected-check {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--detector-color);
+  pointer-events: none;
+}
