@@ -14,6 +14,7 @@ from app.integrations.catalog import CatalogError
 from app.services.sky import EarthOrientationUnavailable
 from app.services.fits_image import InvalidFitsError
 from app.services.image_geometry import MeshError, SelectionTooLarge, SelectionTooSmall
+from app.services.image_availability import AvailabilityTooBroad
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,7 @@ def register_exception_handlers(app: FastAPI) -> None:
         EarthOrientationUnavailable: (422, "This time is outside the available Earth-orientation data. Choose a recent date or refresh IERS data."),
         UnknownImageError: (404, "Unknown image. Run an image search first."),
         SearchTooBroad: (422, "Too many archive matches. Narrow start_time/end_time and retry."),
+        AvailabilityTooBroad: (422, "Too many archive matches to build a complete calendar for this region and year."),
         ArchiveTimeout: (504, "IRSA timed out. Please retry."),
         ArchiveError: (502, "IRSA data could not be retrieved. Please retry."),
         InvalidFitsError: (502, "IRSA returned an unsupported or invalid FITS image."),

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="UTF-8"><title>Comparison integration checks</title>
+    <style>
+      body { overflow: auto !important; padding: 20px; height: auto !important; }
+      #results { padding-left: 24px; }
+      #summary { margin: 20px 0; }
+      #root { height: auto !important; }
+      #hook-state { display: block; max-width: 700px; overflow-wrap: anywhere; }
+      .comparison-browser-controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+      .comparison-browser-controls button { padding: 8px 12px; }
+      .comparison-browser-note { max-width: 600px; font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <h1>Comparison integration checks</h1>
+    <p>Year-only discovery, draggable observation timeline and 0.1-second blink with deterministic mock observations. No IRSA requests.</p>
+    <ol id="results"></ol>
+    <pre id="summary">Running…</pre>
+    <div id="root"></div>
+    <script type="module" src="./comparison-browser.jsx"></script>
+  </body>
+</html>

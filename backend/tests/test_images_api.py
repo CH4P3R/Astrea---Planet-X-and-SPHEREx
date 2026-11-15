@@ -251,7 +251,7 @@ def test_openapi_describes_routes_and_binary_response(backend):
     assert response.status_code == 200
     paths = response.json()["paths"]
     assert set(paths) == {
-        "/api/v1/images", "/api/v1/images/{image_id}",
+        "/api/v1/images", "/api/v1/images/availability", "/api/v1/images/{image_id}",
         "/api/v1/images/{image_id}/pixels",
         "/api/v1/images/{image_id}/planes/{plane}",
         "/api/v1/images/{image_id}/planes/{plane}/pixels",

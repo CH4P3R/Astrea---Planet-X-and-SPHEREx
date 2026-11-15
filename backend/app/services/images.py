@@ -12,8 +12,10 @@ import numpy as np
 from app.integrations.cutout_store import CacheError, CutoutStore
 from app.integrations.irsa import IrsaClient
 from app.schemas.images import (
-    ImageMetadata, ImageSearchQuery, ImageSearchResponse, ImageSummary, PlaneMetadata,
+    ImageAvailabilityQuery, ImageAvailabilityResponse, ImageMetadata,
+    ImageSearchQuery, ImageSearchResponse, ImageSummary, PlaneMetadata,
 )
+from app.services.image_availability import ObservationAvailability
 from app.services.fits_image import PLANES, decode_cutout, decode_plane
 from app.core.config import DEFAULT_BAD_FLAGS
 from app.services.quality import bad_bits, corrected
@@ -32,6 +34,10 @@ class ImageService:
         self.bad_flags = bad_flags
         # A fixed-size lock pool avoids duplicate downloads within a worker.
         self._locks = [Lock() for _ in range(32)]
+        self._availability = ObservationAvailability()
+
+    def availability(self, query: ImageAvailabilityQuery) -> ImageAvailabilityResponse:
+        return self._availability.get(query, self.archive)
 
     def _summary(self, identifier: str, selection: dict) -> ImageSummary:
         archive = selection["archive"]

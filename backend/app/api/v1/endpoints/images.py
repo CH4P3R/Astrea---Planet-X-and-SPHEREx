@@ -7,7 +7,8 @@ from fastapi.responses import FileResponse
 
 from app.api.dependencies import get_image_service
 from app.schemas.images import (
-    BoxSearchResponse, BoxSelection, ImageMetadata, ImageSearchQuery, ImageSearchResponse, PlaneMetadata, PlaneName,
+    BoxSearchResponse, BoxSelection, ImageAvailabilityQuery, ImageAvailabilityResponse,
+    ImageMetadata, ImageSearchQuery, ImageSearchResponse, PlaneMetadata, PlaneName,
 )
 from app.services.images import ImageService
 from app.schemas.sky import BoxSearchRequest, ClickSearchRequest, ProjectionRequest
@@ -22,6 +23,12 @@ ImageId = Annotated[str, Path(pattern=r"^[0-9a-f]{64}$", description="Cutout ID 
 def search_images(query: Annotated[ImageSearchQuery, Query()], service: Service):
     """Search DR1 and QR3 observations, newest first, without downloading FITS."""
     return service.search(query)
+
+
+@router.get("/availability", response_model=ImageAvailabilityResponse)
+def image_availability(query: Annotated[ImageAvailabilityQuery, Query()], service: Service):
+    """List every available observation day in a UTC year without downloading FITS."""
+    return service.availability(query)
 
 
 @router.get("/{image_id}", response_model=ImageMetadata)

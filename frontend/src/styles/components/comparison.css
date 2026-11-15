@@ -1,0 +1,71 @@
+/* Compare uses one scroll surface so its results grow with the panel content. */
+.image-inspector[data-active-tab='compare'] .inspector-surface {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+.image-inspector[data-active-tab='compare'] .inspector-summary {
+  max-height: none;
+  overflow: visible;
+}
+.image-inspector[data-active-tab='compare'] .inspector-panels,
+.image-inspector[data-active-tab='compare'] .inspector-panels > [role='tabpanel']:not([hidden]),
+.image-inspector[data-active-tab='compare'] .context-content,
+.image-inspector[data-active-tab='compare'] .context-panel-scroll {
+  flex: 0 0 auto;
+  max-height: none;
+}
+.image-inspector[data-active-tab='compare'] .context-panel-scroll {
+  overflow: visible;
+  scrollbar-gutter: auto;
+}
+.comparison-player { padding: 8px 0 20px; }
+.comparison-browser {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--hud-field);
+}
+.image-inspector .comparison-search > h3 { margin-top: 0; }
+.comparison-results { min-height: 280px; }
+.comparison-results > .comparison-list { margin-bottom: 0; }
+.comparison-browser .comparison-candidate { border-bottom-color: var(--border); }
+.comparison-browser .comparison-candidate:last-child { border-bottom: 0; }
+.comparison-browser .select-trigger { background: var(--hud-surface); }
+.comparison-browser .comparison-candidate > button { background: var(--hud-hover); border: 1px solid var(--border); }
+.comparison-observation { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-size: 13px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.comparison-year { margin: 12px 0 0; min-width: 0; }
+.comparison-year label { display: block; color: var(--hud-muted); font-size: 12px; margin-bottom: 4px; }
+.comparison-year .custom-select .select-value { white-space: nowrap; overflow-wrap: normal; }
+.comparison-actions { display: flex; gap: 8px; margin-top: 12px; }
+.comparison-actions .comparison-search-button { flex: 1; background: var(--hud-hover); color: var(--hud-focus); }
+.comparison-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.comparison-list { list-style: none; padding: 0; margin: 12px 0; display: grid; gap: 8px; }
+.comparison-row-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.comparison-row-actions button { min-height: 36px; }
+.comparison-projection-message + .comparison-projection-message { margin-top: 12px; }
+.comparison-timeline { min-width: 0; }
+.comparison-timeline-current { min-height: 70px; }
+.comparison-timeline-title { display: flex; align-items: center; gap: 4px; min-width: 0; font-size: 13px; }
+.comparison-timeline-title strong { color: var(--hud-focus); }
+.comparison-timeline-index { color: var(--hud-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.image-inspector .comparison-timeline-slider { display: block; width: 100%; box-sizing: border-box; margin: 12px 0; height: 8px; touch-action: pan-y; }
+.image-inspector .comparison-timeline-slider::-webkit-slider-thumb { width: 20px; height: 20px; }
+.image-inspector .comparison-timeline-slider::-moz-range-thumb { width: 20px; height: 20px; }
+.image-inspector .comparison-timeline-slider:disabled { cursor: default; opacity: 0.45; }
+.image-inspector .comparison-timeline-hint, .image-inspector .comparison-timeline-status { margin: 6px 0; font-size: 11px; }
+.comparison-timeline-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 4px 0 8px; }
+.image-inspector .comparison-timeline-actions .text-action { font-size: 11px; }
+.comparison-candidate { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--hud-field); }
+.comparison-candidate > .comparison-observation { flex: 1; }
+.comparison-candidate > button { flex-shrink: 0; }
+.comparison-playback-buttons { display: flex; align-items: center; gap: 6px; }
+.comparison-playback-buttons > .tooltip-anchor { display: flex; }
+.comparison-playback-buttons > .tooltip-anchor:last-child { flex: 1; }
+.comparison-playback-buttons button { min-height: 40px; min-width: 38px; }
+.comparison-playback-buttons .comparison-play-button { flex: 1; min-width: 0; }
+.comparison-playback .range-field { margin-bottom: 0; }
+.comparison-playback .input-field { margin-top: 8px; }

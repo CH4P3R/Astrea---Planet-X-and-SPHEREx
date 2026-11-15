@@ -10,7 +10,7 @@ import Stars from '../elements/Stars.jsx'
 import HorizonSurface from '../elements/HorizonSurface.jsx'
 
 export default function SkyScene({ observer, fits, stars, surfaceVisible, timestamp, onSkyClick,
-  frameImages, viewport, focusVersion, primary, secondary, appearance, frame }) {
+  frameImages, viewport, focusVersion, layers, appearance, frameId }) {
   const { gl } = useThree()
   const { setTextureLimit } = fits
   useEffect(() => {
@@ -21,10 +21,9 @@ export default function SkyScene({ observer, fits, stars, surfaceVisible, timest
       <SkyCameraRig onSkyClick={onSkyClick} images={frameImages} viewport={viewport} focusVersion={focusVersion}
         focusRequest={fits.focus} timestamp={timestamp} />
       {stars.snapshot && <Stars snapshot={stars.snapshot} timestamp={timestamp} />}
-      {primary.image && <FitsImage key={primary.image.metadata.id} active={primary.image} timestamp={timestamp}
-        pixels={appearance.pixels[0]} settings={appearance.settings} visible={primary.ready && frame === 'A'} />}
-      {secondary.image && appearance.pixels[1] && <FitsImage key={secondary.image.metadata.id} active={secondary.image} timestamp={timestamp}
-        pixels={appearance.pixels[1]} settings={appearance.settings} visible={secondary.ready && frame === 'B'} />}
+      {layers.map(({ image, pixels, ready }) => image && pixels && <FitsImage key={image.metadata.id}
+        active={image} timestamp={timestamp} pixels={pixels} settings={appearance.settings}
+        visible={ready && image.metadata.id === frameId} />)}
       <SkyBackdrop>
         <color attach="background" args={['#060c18']} />
         <EquatorialFrame observer={observer} timestamp={timestamp}>

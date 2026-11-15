@@ -1,5 +1,5 @@
 import { Canvas } from '@react-three/fiber'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import SkyScene from '../../three/core/SkyScene.jsx'
 import useObserver from '../../hooks/useObserver.js'
 import ContextToolbar from '../controls/ContextToolbar.jsx'
@@ -15,10 +15,7 @@ import LanguageSelect from '../controls/LanguageSelect.jsx'
 import ImageInspector from './ImageInspector.jsx'
 import useImageViewport from '../../hooks/useImageViewport.js'
 import useImageComparison from '../../hooks/useImageComparison.js'
-import useProjectedImage from '../../hooks/useProjectedImage.js'
-import useImageAppearance from '../../hooks/useImageAppearance.js'
-import useBlinkPlayback from '../../hooks/useBlinkPlayback.js'
-import { compatibleUnits } from '../../config/appearance.js'
+import useComparisonPresentation from '../../hooks/useComparisonPresentation.js'
 
 export default function AppViewport() {
   const { t, language } = useTranslation()
@@ -41,22 +38,9 @@ export default function AppViewport() {
   ] })
   const { observer } = location
   const comparison = useImageComparison(fits.active, inspectorOpen && tab === 'compare', observer, clock.context, fits.textureLimit)
-  const primaryProjection = useProjectedImage(fits.active, observer, clock.context, clock.timestamp)
-  const secondaryProjection = useProjectedImage(comparison.partner, observer, clock.context, clock.timestamp)
-  const unitsMatch = compatibleUnits(fits.active, comparison.partner)
-  const appearance = useImageAppearance(fits.active, unitsMatch ? comparison.partner : null)
-  const reason = !comparison.partner ? 'inspector.compare.needPartner'
-    : !unitsMatch ? 'inspector.compare.units'
-      : ['searching', 'loading'].includes(fits.status) || ['searching', 'loading'].includes(comparison.status) ? 'inspector.compare.busy'
-        : !primaryProjection.ready || !secondaryProjection.ready ? 'inspector.compare.position'
-          : !appearance.ready ? 'inspector.compare.processing'
-            : !appearance.hasData ? 'inspector.compare.noData' : ''
-  const playback = useBlinkPlayback(`${activeId}:${comparison.partner?.metadata.id}`, !reason)
-  const displayed = playback.frame === 'B' && comparison.partner ? comparison.partner : fits.active
+  const { frames, projections, primaryProjection, appearance, playback, reason, displayed, frameImages, layers }
+    = useComparisonPresentation(comparison, observer, clock.context, clock.timestamp, fits.status)
   const viewport = useImageViewport(rootRef, `${inspectorOpen}:${menu.active}:${language}:${activeId}:${fits.notice?.status}:${tab}`)
-  const frameImages = useMemo(() => [primaryProjection.ready ? primaryProjection.image : null,
-    unitsMatch && secondaryProjection.ready ? secondaryProjection.image : null].filter(Boolean),
-  [primaryProjection.image, primaryProjection.ready, secondaryProjection.image, secondaryProjection.ready, unitsMatch])
   const { size, search } = fits
   const { open } = menu
   useEffect(() => { if (activeId) open(null) }, [activeId, open])
@@ -83,7 +67,7 @@ export default function AppViewport() {
         <Canvas orthographic camera={{ position: [0, 0, 0], near: 0.01, far: 250 }}>
           <SkyScene observer={observer} fits={fits} stars={stars} surfaceVisible={surfaceVisible}
             timestamp={clock.timestamp} onSkyClick={onSkyClick} frameImages={frameImages} viewport={viewport} focusVersion={focusVersion}
-            primary={primaryProjection} secondary={secondaryProjection} appearance={appearance} frame={playback.frame} />
+            layers={layers} appearance={appearance} frameId={playback.frameId} />
         </Canvas>
       </div>
       <div className="ui-layer">
@@ -91,12 +75,12 @@ export default function AppViewport() {
           stars={stars} surfaceVisible={surfaceVisible} setSurfaceVisible={setSurfaceVisible} />
         <LanguageSelect />
         <ImageInspector open={inspectorOpen} tab={tab} fits={fits} displayed={displayed} appearance={appearance}
-          comparison={comparison} playback={playback} reason={t(reason)} primaryProjection={primaryProjection} secondaryProjection={secondaryProjection}
+          comparison={comparison} playback={playback} reason={t(reason)} primaryProjection={primaryProjection} frames={frames} projections={projections}
           onTabChange={(value) => { playback.pause(); setTab(value) }}
           onClose={() => { playback.pause(); setDismissedId(activeId) }}
           onOpen={() => { setDismissedId(null); setFocusVersion((value) => value + 1) }}
           onCenter={() => setFocusVersion((value) => value + 1)}
-          onNewRegion={() => { playback.show('A'); fits.reset(); setTab('data'); setDismissedId(null); open('search') }} />
+          onNewRegion={() => { playback.pause(); fits.reset(); setTab('data'); setDismissedId(null); open('search') }} />
         <div className="status-region">
           <StatusNotice notice={fits.notice} />
         </div>

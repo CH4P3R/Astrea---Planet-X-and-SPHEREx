@@ -11,7 +11,7 @@ import ImageComparisonPanel from '../blink-hud/ImageComparisonPanel.jsx'
 import useTranslation from '../../i18n/useTranslation.js'
 
 export default function ImageInspector({ open, onClose, onOpen, tab, onTabChange, fits, displayed,
-  appearance, comparison, playback, reason, primaryProjection, secondaryProjection, onCenter, onNewRegion }) {
+  appearance, comparison, playback, reason, primaryProjection, frames, projections, onCenter, onNewRegion }) {
   const { t } = useTranslation()
   const id = useId()
   if (!fits.active) return null
@@ -21,7 +21,7 @@ export default function ImageInspector({ open, onClose, onOpen, tab, onTabChange
   return <>
     {!open && <button id={`${id}-reopen`} type="button" className="inspector-reopen" data-image-obstacle
       onClick={() => { onOpen(); requestAnimationFrame(() => document.getElementById(`${id}-tab-${tab}`)?.focus()) }}>{t('inspector.actions.open')}</button>}
-    <aside className="image-inspector" data-open={open} inert={!open} aria-hidden={!open} aria-label={t('inspector.title')} data-image-obstacle data-select-obstacle>
+    <aside className="image-inspector" data-open={open} data-active-tab={tab} inert={!open} aria-hidden={!open} aria-label={t('inspector.title')} data-image-obstacle data-select-obstacle>
       <div className="inspector-topbar">
         <Tabs id={id} label={t('inspector.title')} items={items} value={tab} onChange={onTabChange} />
         <Tooltip message={t('inspector.actions.close')} inline><button type="button" className="inspector-close"
@@ -31,7 +31,7 @@ export default function ImageInspector({ open, onClose, onOpen, tab, onTabChange
       <div className="inspector-surface">
         <header className="inspector-summary">
           <div className="inspector-observation-heading">
-            <div><span className="context-note">{t('inspector.observation')}{comparison.partner ? ` · ${playback.frame}` : ''}</span>
+            <div><span className="context-note">{t('inspector.observation')}{comparison.observations.length ? ` · ${playback.frame}` : ''}</span>
               <strong><ObservationDate value={metadata.observation.start_utc} /></strong></div>
             <HelpButton label={t('inspector.observation')} message={t('inspector.help.observationDate')} />
           </div>
@@ -40,7 +40,7 @@ export default function ImageInspector({ open, onClose, onOpen, tab, onTabChange
             <span className="inspector-release"><span>{t('inspector.release', { release: metadata.collection })}</span>
               <HelpButton label={t('inspector.releaseLabel')} message={t('inspector.help.release')} /></span>
           </div>
-          <DetectorSelector value={metadata.detector} onChange={(value) => { playback.show('A'); fits.setDetector(value) }} disabled={busy} />
+          <DetectorSelector value={metadata.detector} onChange={(value) => { playback.show(fits.active.metadata.id); fits.setDetector(value) }} disabled={busy} />
           {Object.values(appearance.appliedProcessing).some(Boolean) && <p className="context-note">
             {t(appearance.appliedProcessing.signal_to_noise ? 'inspector.appearance.dimensionless' : 'inspector.appearance.processed')}
           </p>}
@@ -61,7 +61,7 @@ export default function ImageInspector({ open, onClose, onOpen, tab, onTabChange
             {item.id === 'data' && <ImageDataPanel active={displayed} onCenter={onCenter} />}
             {item.id === 'appearance' && <ImageAppearancePanel appearance={appearance} />}
             {item.id === 'compare' && <ImageComparisonPanel comparison={comparison} playback={playback} reason={reason}
-              primary={fits.active} secondaryProjection={secondaryProjection} />}
+              primary={fits.active} frames={frames} projections={projections} />}
           </div>)}
         </div>
         <div className="inspector-bottom"><button type="button" className="text-action" onClick={onNewRegion}>{t('inspector.actions.newRegion')}</button></div>

@@ -111,14 +111,18 @@ def _search_transient(error: BaseException) -> bool:
 class _SiaAdapter(requests.adapters.HTTPAdapter):
     """Astroquery's VO client otherwise sends requests without a timeout."""
 
+    def __init__(self, deadline=None):
+        super().__init__()
+        self.deadline = deadline
+
     def send(self, request, **kwargs):
         parts = urlsplit(request.url)
         if (parts.scheme != "https" or parts.netloc != "irsa.ipac.caltech.edu"
                 or parts.path not in ("/SIA", "/SIA/", "/SIA/capabilities",
                                       "/TAP/sync", "/TAP/capabilities")):
             raise ArchiveError("IRSA attempted an unexpected discovery redirect.")
-        if kwargs.get("timeout") is None:
-            kwargs["timeout"] = (10, 60)
+        if kwargs.get("timeout") is None or self.deadline is not None:
+            kwargs["timeout"] = timeout_until(self.deadline, read=60)
         return super().send(request, **kwargs)
 
 
@@ -219,9 +223,24 @@ class IrsaClient:
         Date bounds are inclusive and apply to the observation start time.
         Fetch complete metadata before sorting, filtering, and limiting locally.
         """
-        _coordinates(ra_deg, dec_deg)
         if type(limit) is not int or not 1 <= limit <= 100:
             raise ValueError("limit must be an integer from 1 to 100.")
+        return self.search_all(
+            ra_deg=ra_deg, dec_deg=dec_deg, detector=detector,
+            start_mjd=start_mjd, end_mjd=end_mjd,
+        )[:limit + 1]
+
+    def search_all(
+        self, *, ra_deg: float, dec_deg: float, detector: int | None,
+        start_mjd: float | None = None, end_mjd: float | None = None,
+        deadline: float | None = None,
+    ) -> list[ArchiveImage]:
+        """Complete metadata for one interval, or SearchTooBroad on truncation.
+
+        Used by both limited image discovery and the annual availability index.
+        The latter supplies a shared deadline while splitting dense intervals.
+        """
+        _coordinates(ra_deg, dec_deg)
         if detector is not None and (type(detector) is not int or not 1 <= detector <= 6):
             raise ValueError("detector must be an integer from 1 to 6.")
         for value in (start_mjd, end_mjd):
@@ -238,8 +257,8 @@ class IrsaClient:
         try:
             with client._session, warnings.catch_warnings():
                 warnings.simplefilter("error", DALOverflowWarning)
-                client._session.mount("https://", _SiaAdapter())
-                client._session.mount("http://", _SiaAdapter())
+                client._session.mount("https://", _SiaAdapter(deadline))
+                client._session.mount("http://", _SiaAdapter(deadline))
                 # IRSA's query endpoint is already known. Avoid the preliminary
                 # /capabilities request, whose HTTP failures PyVO flattens into
                 # an unstructured error that our query retries cannot recognize.
@@ -259,7 +278,7 @@ class IrsaClient:
                     **selection,
                     maxrec=MAX_SEARCH_ROWS,
                     **constraints,
-                ), transient=_search_transient)
+                ), transient=_search_transient, deadline=deadline)
             if len(table) >= MAX_SEARCH_ROWS:
                 raise SearchTooBroad("Narrow the observation dates to complete the search.")
             images = {}
@@ -288,7 +307,7 @@ class IrsaClient:
                 )
             return sorted(images.values(), key=lambda item: (
                 -item.observed_start_mjd, item.source_url,
-            ))[:limit + 1]
+            ))
         except DALOverflowWarning as exc:
             raise SearchTooBroad("Narrow the observation dates to complete the search.") from exc
         except requests.Timeout as exc:

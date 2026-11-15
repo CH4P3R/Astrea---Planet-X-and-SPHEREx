@@ -11,6 +11,7 @@ details in this document.
 | Method | Path | Returns | Purpose | Section |
 | --- | --- | --- | --- | --- |
 | GET | `/images` | JSON | Search observations by RA/Dec; downloads nothing | 1 |
+| GET | `/images/availability` | JSON | Complete available-day index for one zone, detector and UTC year | 1a |
 | POST | `/images/search` | JSON | Search from a click on the local sky | Click, load and project |
 | POST | `/images/search-box` | JSON | Search from a box dragged on the local sky | Box selection on the sky |
 | GET | `/images/{id}` | JSON | Load a cutout and read its metadata | 2 |
@@ -66,6 +67,54 @@ as header metadata, never substituted for the observation timestamp.
 Search does **not** download FITS files. An empty result is HTTP 200 with
 `images: []`. `has_more: true` means older matches exist beyond this limited
 result; this endpoint does not yet implement pagination.
+
+## 1a. Discover available days in a year
+
+```http
+GET /api/v1/images/availability?ra_deg=210.80227&dec_deg=54.34895&year=2026&detector=2
+```
+
+`ra_deg` and `dec_deg` use the same ICRS point and one-arcsecond discovery cone
+as image search. `year` is a UTC calendar year (1–9998). `detector` is optional;
+omitting it includes all detectors. There is no `size_deg`: this finds exposures
+covering the selected point, while cutout size is chosen when searching images.
+
+```json
+{
+  "year": 2026,
+  "days": [
+    {"date": "2026-05-12", "count": 154},
+    {"date": "2026-11-03", "count": 7}
+  ],
+  "complete": true,
+  "time_scale": "UTC"
+}
+```
+
+The dates above are illustrative. Days are ascending; counts are distinct,
+supported Level 2 FITS URLs whose observation **starts** on that UTC day, across
+the discovered releases. A reprocessed exposure published at different archive
+URLs counts as separate files, just as in image search. An empty `days` list is
+returned only after a successful complete search. `complete` is always `true`
+on HTTP 200; archive failures remain HTTP 502/504 and an index too dense to
+complete is HTTP 422, never an apparently empty or partial calendar.
+
+This endpoint reads SIA metadata only, independently of the 100-observation
+limit of `/images`. It first queries the year with SIA `TIME`; if IRSA truncates
+the metadata, it splits the date interval and combines complete subranges.
+The work shares the configured archive time budget, with at most 64 interval
+queries and an hour as the minimum split interval. Partial work is not cached.
+Complete results are cached in memory for 15 minutes, keyed by exact position,
+detector and year, with at most 128 indexes per worker.
+
+This index is available to clients that need daily availability. The current
+Compare UI uses only a year selector (2025 through the current UTC year) and
+requests `/images` directly with `start_time=YYYY-01-01T00:00:00Z`,
+`end_time=YYYY-12-31T23:59:59.999999Z` and `limit=100`. It does not call this
+availability endpoint or ask the user to select a month/day. The annual image
+list reports `has_more` when older matches exist. Download/decode only a
+user-selected observation with the existing load/pixels endpoints. No FITS files
+are downloaded or image IDs registered while building this availability index.
 
 ## 2. Read a selected cutout's metadata
 
