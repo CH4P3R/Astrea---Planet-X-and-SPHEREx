@@ -7,8 +7,7 @@
       "help": "How much sky each side of the image covers. Changes apply immediately to both sky clicks and RA/Dec searches. A larger value usually produces an array with more pixels."
     },
     "ra": {
-      "label": "Right ascension, RA (°)",
-      "placeholder": "0 to less than 360",
+      "label": "Right ascension, RA (°)", "placeholder": "0 to less than 360",
       "help": "The point's east/west position in the sky, in the ICRS system. Enter decimal degrees from 0 to less than 360, not hours; for example, 83.63."
     },
     "detector": {
@@ -17,16 +16,13 @@
       "option": "Detector {{detector}} · {{range}} µm"
     },
     "dec": {
-      "label": "Declination, Dec (°)",
-      "placeholder": "−90 to 90",
+      "label": "Declination, Dec (°)", "placeholder": "−90 to 90",
       "help": "The position north or south of the celestial equator, in the ICRS system. Enter decimal degrees between −90 and 90; for example, −5.39. This is not your latitude on Earth."
     }
   },
   "actions": {
-    "search": "Search coordinates",
-    "cancel": "Cancel operation",
-    "cancelPreparation": "Cancel preparation",
-    "clear": "Clear image and results"
+    "search": "Search coordinates", "cancel": "Cancel operation",
+    "cancelPreparation": "Cancel preparation", "clear": "Clear image and results"
   },
   "validation": {
     "size": "Enter a size between 0.1 and 30 arcminutes in Preparation.",
@@ -46,40 +42,8 @@
     "limit": "Showing only the most recent observation. Change the detector to see another band."
   },
   "notices": {
-    "searching": "Searching for observations…",
-    "loading": "Loading image…",
-    "loaded": "Image loaded",
-    "found": {
-      "one": "{{count}} image found in IRSA",
-      "other": "{{count}} images found in IRSA"
-    },
-    "foundMore": {
-      "one": "More than {{count}} image found in IRSA",
-      "other": "More than {{count}} images found in IRSA"
-    }
-  },
-  "spectrum": {
-    "title": "Spectrum",
-    "generate": "Generate spectrum (detector {{detector}})",
-    "close": "Close",
-    "target": "Detector {{detector}} · RA {{ra}}° · Dec {{dec}}° · 3-pixel aperture",
-    "loading": "Measuring every exposure of this point. This can take up to a minute…",
-    "counts": "{{measured}} of {{found}} exposures measured · {{skipped}} skipped · {{failed}} failed",
-    "empty": "No exposure of this detector could measure this point.",
-    "chart": "Flux against wavelength, one point per exposure",
-    "wavelengthAxis": "Wavelength (µm)",
-    "fluxAxis": "Flux (µJy)",
-    "clean": "Single measurement",
-    "doubtful": "Doubtful measurement",
-    "hint": "The line shows how bright the object is at each wavelength: higher means brighter. Point at a dot to see that measurement.",
-    "readout": "{{wavelength}} µm · {{flux}} ± {{error}} µJy · {{date}} · {{notes}}",
-    "badPixels": {
-      "one": "{{count}} pixel left out",
-      "other": "{{count}} pixels left out"
-    },
-    "crowded": "crowded background",
-    "noNotes": "no quality warnings",
-    "trend": "Brightness trend",
-    "allDoubtful": "Almost every measurement here is doubtful (very bright or crowded target), so the dashed line is only a rough guide."
+    "searching": "Searching for observations…", "loading": "Loading image…", "loaded": "Image loaded",
+    "found": { "one": "{{count}} image found in IRSA", "other": "{{count}} images found in IRSA" },
+    "foundMore": { "one": "More than {{count}} image found in IRSA", "other": "More than {{count}} images found in IRSA" }
   }
 }

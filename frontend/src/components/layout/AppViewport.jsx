@@ -5,8 +5,6 @@ import useObserver from '../../hooks/useObserver.js'
 import ContextToolbar from '../controls/ContextToolbar.jsx'
 import useSkyClock from '../../hooks/useSkyClock.js'
 import useFitsImage from '../../hooks/useFitsImage.js'
-import useSpectrum from '../../hooks/useSpectrum.js'
-import SpectrumPanel from '../spectrum/SpectrumPanel.jsx'
 import useContextMenu from '../../hooks/useContextMenu.js'
 import Tooltip from '../common/Tooltip.jsx'
 import StatusNotice from '../common/StatusNotice.jsx'
@@ -20,7 +18,6 @@ export default function AppViewport() {
   const location = useObserver()
   const clock = useSkyClock()
   const fits = useFitsImage(location.observer, clock.context)
-  const spectrum = useSpectrum()
   const stars = useStars(location.observer, clock.context, clock.timestamp)
   const [surfaceVisible, setSurfaceVisible] = useState(true)
   const [notice, setNotice] = useState(null)
@@ -57,10 +54,9 @@ export default function AppViewport() {
         </Canvas>
       </div>
       <div className="ui-layer">
-        <ContextToolbar clock={clock} location={location} fits={fits} spectrum={spectrum} menu={menu}
+        <ContextToolbar clock={clock} location={location} fits={fits} menu={menu}
           stars={stars} surfaceVisible={surfaceVisible} setSurfaceVisible={setSurfaceVisible} />
         <LanguageSelect />
-        <SpectrumPanel spectrum={spectrum} />
         <div className="status-region">
           <StatusNotice notice={fits.notice} />
         </div>
