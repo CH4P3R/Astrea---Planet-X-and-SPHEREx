@@ -8,9 +8,9 @@ import { welcomeStorageKey } from '../../src/components/onboarding/welcomeState.
 import LanguageSelect from '../../src/components/controls/LanguageSelect.jsx'
 
 vi.mock('../../src/components/layout/AppWorkspace.jsx', () => ({
-  default: ({ covered, onOpenAbout }) => <main data-covered={covered} inert={covered}>
+  default: ({ covered, onOpenAbout, onStartTour }) => <main className="app-viewport" tabIndex={-1} data-covered={covered} inert={covered}>
     <div className="scene-layer" />
-    <div className="ui-layer"><LanguageSelect onOpenAbout={onOpenAbout} suspended={covered} /></div>
+    <div className="ui-layer"><LanguageSelect onOpenAbout={onOpenAbout} onStartTour={onStartTour} suspended={covered} /></div>
   </main>,
 }))
 
@@ -69,13 +69,17 @@ it('keeps about out of the welcome dialog', () => {
   expect(document.querySelector('.about-modal')).toBeNull()
 })
 
-it('opens a dedicated about dialog from below the HUD language selector with GitHub links', () => {
+it('opens a dedicated about dialog from the HUD utility row with GitHub links', () => {
   window.localStorage.setItem(welcomeStorageKey, 'seen')
   render(<I18nProvider><AppViewport /></I18nProvider>)
   const hud = document.querySelector('.ui-layer')
   const trigger = within(hud).getByRole('button', { name: 'About Astrea' })
   const language = within(hud).getByRole('combobox')
-  expect(language.closest('.custom-select').nextElementSibling.contains(trigger)).toBe(true)
+  const actions = hud.querySelector('.language-actions')
+  expect(actions.contains(trigger)).toBe(true)
+  expect(actions.querySelector('[data-tour-launcher]')).toBeTruthy()
+  expect(trigger.textContent).toBe('')
+  expect(actions.nextElementSibling.contains(language)).toBe(true)
   trigger.focus()
   fireEvent.click(trigger)
   const dialog = document.querySelector('.about-modal')
@@ -103,7 +107,7 @@ it('opens a dedicated about dialog from below the HUD language selector with Git
   fireEvent.click(close)
   act(() => vi.advanceTimersByTime(1000))
   expect(document.querySelector('.about-modal')).toBeNull()
-  expect(document.activeElement).toBe(trigger)
+  expect(document.activeElement).toBe(document.querySelector('.app-viewport'))
   fireEvent.click(trigger)
   fireEvent(document.querySelector('.about-modal'), new Event('cancel', { cancelable: true }))
   act(() => vi.advanceTimersByTime(1000))

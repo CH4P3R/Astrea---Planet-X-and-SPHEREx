@@ -1,7 +1,6 @@
 {
   "title": "Guía de Astrea",
   "about": {
-    "button": "Acerca de",
     "title": "Acerca de Astrea",
     "description": "Somos el equipo detrás de Astrea, un proyecto para explorar el cielo e imágenes reales de SPHEREx. Combinamos desarrollo de software, análisis de datos, diseño de interfaces, infraestructura y coordinación del proyecto para acercar los datos astronómicos a más personas.",
     "team": "Nuestro equipo",

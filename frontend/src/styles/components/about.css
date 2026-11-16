@@ -39,7 +39,7 @@
   cursor: pointer;
   pointer-events: auto;
 }
-.about-launcher { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 112px; min-height: 44px; text-align: left; font-size: 14px; white-space: nowrap; }
+.about-launcher { display: grid; place-items: center; width: 100%; min-height: 44px; }
 .about-launcher svg { flex-shrink: 0; }
 .about-launcher::before, .about-close::before {
   content: '';

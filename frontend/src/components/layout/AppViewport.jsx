@@ -44,6 +44,10 @@ export default function AppViewport() {
     else setTourOpen(true)
   }, [welcomeOpen, leaveWelcome])
   const explore = useCallback(() => leaveWelcome('explore'), [leaveWelcome])
+  const finishAbout = useCallback(() => {
+    setAboutOpen(false)
+    requestAnimationFrame(() => document.querySelector('.app-viewport:not([data-tutorial])')?.focus({ preventScroll: true }))
+  }, [])
   const finishTour = useCallback((status) => {
     try { saveTourStatus(window.localStorage, status) } catch { /* Conserva la decision en memoria */ }
     setTourOpen(false)
@@ -57,6 +61,6 @@ export default function AppViewport() {
       visible={welcomeVisible} closing={Boolean(destination)} onExited={finishWelcome} />}
     {loading && <StartupSplash onReveal={revealWelcome} onFinish={finishLoading} />}
     {tourOpen && <AppWorkspace tutorial guideVisible={!welcomeOpen} revealing={revealedDestination === 'tour'} onFinishTour={finishTour} />}
-    {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
+    {aboutOpen && <AboutModal onClose={finishAbout} />}
   </>
 }

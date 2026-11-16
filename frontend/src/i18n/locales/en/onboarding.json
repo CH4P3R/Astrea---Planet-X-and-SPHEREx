@@ -1,7 +1,6 @@
 {
   "title": "Astrea guide",
   "about": {
-    "button": "About",
     "title": "About Astrea",
     "description": "We are the team behind Astrea, a project for exploring the sky and real SPHEREx images. We combine software development, data analysis, interface design, infrastructure and project coordination to make astronomical data more accessible.",
     "team": "Our team",
