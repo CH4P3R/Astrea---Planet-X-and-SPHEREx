@@ -16,6 +16,7 @@
     "label": "Mostrar superficie central",
     "help": "Cuadrícula horizontal transparente bajo el observador. Se atenúa al mirar hacia abajo y permite explorar el cielo inferior."
   },
+  "dust": { "label": "Fondo difuso" },
   "directions": {
     "north": { "name": "Norte", "short": "N" },
     "east": { "name": "Este", "short": "E" },

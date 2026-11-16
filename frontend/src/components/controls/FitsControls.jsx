@@ -2,12 +2,13 @@ import { useId, useState } from 'react'
 import Tooltip from '../common/Tooltip.jsx'
 import PanelContent from '../common/PanelContent.jsx'
 import InputField from '../common/InputField.jsx'
+import RangeField from '../common/RangeField.jsx'
 import { coordinateError, cutoutSizeError } from '../../config/search.js'
 import useTranslation from '../../i18n/useTranslation.js'
 import ShareLink from '../../share/ShareLink.jsx'
 
 export default function FitsControls({ fits, observer, warning, share }) {
-  const { t } = useTranslation()
+  const { t, number } = useTranslation()
   const formId = useId()
   const { ra, dec } = fits.coordinates
   const [validation, setValidation] = useState('')
@@ -33,10 +34,10 @@ export default function FitsControls({ fits, observer, warning, share }) {
 
   return <PanelContent title={t('search.title')}
     header={<>
-      <InputField label={t('search.fields.size.label')} type="number" min="0.1" max="30" step="0.1"
-        value={fits.size}
+      <RangeField label={t('search.fields.size.label')} min={0.1} max={30} step={0.1}
+        value={fits.size} displayValue={`${number(fits.size, { maximumFractionDigits: 1 })}′`}
         help={t('search.fields.size.help')}
-        onChange={(event) => fits.setSize(event.target.value === '' ? '' : Number(event.target.value))} />
+        onChange={fits.setSize} />
       {!busy && !hasResults && !fits.active && <p>{t('search.intro')}</p>}
     </>}
     footer={<>

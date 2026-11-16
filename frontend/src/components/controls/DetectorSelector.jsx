@@ -1,6 +1,6 @@
 import { useId } from 'react'
 import { ANY_DETECTOR, DETECTORS } from '../../config/search.js'
-import { SPECTRAL_BANDS, SPECTRAL_CHANNELS } from '../../config/spectralChannels.js'
+import { SPECTRAL_BANDS, SPECTRAL_CHANNELS, wavelengthColor } from '../../config/spectralChannels.js'
 import useTranslation from '../../i18n/useTranslation.js'
 import '../../styles/components/detector-spectrum.css'
 
@@ -25,6 +25,10 @@ export default function DetectorSelector({ value, onChange, disabled }) {
         <span className="detector-label">D{detector}</span>
         <span className="detector-color">
           <svg className="detector-channel-strip" viewBox="0 0 1000 40" preserveAspectRatio="none" aria-hidden="true">
+            {channels.map((channel) => <rect key={channel.id}
+              x={(channel.low - low) / (high - low) * 1000} y="0"
+              width={(channel.high - channel.low) / (high - low) * 1000} height="40"
+              fill={wavelengthColor((channel.low + channel.high) / 2)} />)}
             {channels.slice(1).map((channel) => {
               const position = (channel.low - low) / (high - low) * 1000
               return <line key={channel.id} x1={position} x2={position} y1="0" y2="40" />

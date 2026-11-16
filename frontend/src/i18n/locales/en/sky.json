@@ -16,6 +16,7 @@
     "label": "Show central surface",
     "help": "A transparent horizontal grid beneath the observer. It fades when looking down and lets you explore the lower sky."
   },
+  "dust": { "label": "Diffuse background" },
   "directions": {
     "north": { "name": "North", "short": "N" },
     "east": { "name": "East", "short": "E" },

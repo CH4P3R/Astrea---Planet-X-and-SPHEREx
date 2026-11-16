@@ -1,5 +1,6 @@
 import SkyCameraRig from './SkyCameraRig.jsx'
 import CelestialSphere from '../elements/CelestialSphere.jsx'
+import SkyDust from '../elements/SkyDust.jsx'
 import HorizonDirections from '../elements/HorizonDirections.jsx'
 import EquatorialFrame from './EquatorialFrame.jsx'
 import SkyBackdrop from './SkyBackdrop.jsx'
@@ -11,7 +12,7 @@ import HorizonSurface from '../elements/HorizonSurface.jsx'
 import ImageLoadingMarker from '../elements/ImageLoadingMarker.jsx'
 import CompassTracking from './CompassTracking.jsx'
 
-export default function SkyScene({ observer, fits, stars, surfaceVisible, timestamp, onSkyClick,
+export default function SkyScene({ observer, fits, stars, surfaceVisible, dustVisible, timestamp, onSkyClick,
   frameImages, viewport, focusVersion, layers, appearance, frameId, onImageZoom, searchDirection, compassMarkerRef }) {
   const { gl } = useThree()
   const { setTextureLimit } = fits
@@ -33,6 +34,7 @@ export default function SkyScene({ observer, fits, stars, surfaceVisible, timest
         <color attach="background" args={['#060c18']} />
         <EquatorialFrame observer={observer} timestamp={timestamp}>
           <CelestialSphere />
+          {dustVisible && <SkyDust />}
         </EquatorialFrame>
         {surfaceVisible && <HorizonSurface />}
         <HorizonDirections />
