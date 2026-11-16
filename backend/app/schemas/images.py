@@ -1,6 +1,7 @@
 """Public contracts for searching and reading SPHEREx image cutouts."""
 
 from typing import Any, Literal
+from datetime import date
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
@@ -33,6 +34,12 @@ class CutoutRequest(SkyPosition):
     size_deg: float
 
 
+class ImageRecropRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    size_deg: float = Field(gt=0, le=0.5)
+
+
 class ObservationTime(BaseModel):
     start_mjd: float | None
     end_mjd: float | None
@@ -58,6 +65,37 @@ class ImageSearchResponse(BaseModel):
     images: list[ImageSummary]
     has_more: bool
     order: Literal["observation_start_desc"] = "observation_start_desc"
+
+
+class ImageAvailabilityQuery(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    ra_deg: float = Field(ge=0, lt=360, description="ICRS right ascension in degrees.")
+    dec_deg: float = Field(ge=-90, le=90, description="ICRS declination in degrees.")
+    year: int = Field(ge=1, le=9998, description="UTC calendar year to index, January 1 through December 31.")
+    detector: int | None = Field(default=None, ge=1, le=6)
+
+
+class ObservationDay(BaseModel):
+    date: date
+    count: int = Field(gt=0, description="Distinct supported FITS URLs with an exposure starting on this UTC day.")
+
+
+class ImageAvailabilityResponse(BaseModel):
+    year: int
+    days: list[ObservationDay]
+    complete: Literal[True] = True
+    time_scale: Literal["UTC"] = "UTC"
+
+
+class BoxSelection(BaseModel):
+    center: SkyPosition = Field(description="ICRS centre used for the search.")
+    size_deg: float = Field(description="Side of the north-aligned square cutout that covers the box.")
+    corners: list[SkyPosition] = Field(description="The dragged corners in ICRS, in the order they were sent.")
+
+
+class BoxSearchResponse(ImageSearchResponse):
+    selection: BoxSelection
 
 
 class HeaderCard(BaseModel):

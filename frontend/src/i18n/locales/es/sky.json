@@ -3,6 +3,7 @@
   "status": {
     "idle": "Define tu ubicación para cargar las estrellas.",
     "loading": "Cargando estrellas de Hipparcos…",
+    "loadingNotice": "Cargando estrellitas...",
     "ready": { "one": "{{count}} estrella · Hipparcos", "other": "{{count}} estrellas · Hipparcos" },
     "unavailable": "Estrellas no disponibles."
   },

@@ -1,6 +1,7 @@
 """Exercise the HTTP contract with real decoding/cache and a local archive fake."""
 
 import asyncio
+import json
 from dataclasses import replace
 from io import BytesIO
 
@@ -85,6 +86,31 @@ def search_one(app, **overrides):
     return response.json()["images"][0]
 
 
+def test_zoom_recrop_keeps_the_observation_and_downloads_a_new_window(backend):
+    app, archive = backend
+    item = search_one(app)
+    response = post(app, f"/api/v1/images/{item['id']}/recrop", {"size_deg": 0.025})
+    assert response.status_code == 200, response.text
+    cropped = response.json()
+    assert cropped["id"] != item["id"]
+    for key in ("observation_id", "detector", "collection", "source_url", "observation"):
+        assert cropped[key] == item[key]
+    assert cropped["requested"]["size_deg"] == 0.025
+    assert len(archive.searches) == 1
+    assert [download["size_deg"] for download in archive.downloads] == [0.1, 0.025]
+    assert archive.downloads[-1]["source_url"] == SOURCE
+    assert post(app, f"/api/v1/images/{item['id']}/recrop", {"size_deg": 0.025}).json()["id"] == cropped["id"]
+    assert len(archive.downloads) == 2
+
+
+@pytest.mark.parametrize("size", [0, -1, 0.51, "invalid"])
+def test_zoom_recrop_rejects_invalid_sizes_without_downloading(backend, size):
+    app, archive = backend
+    item = search_one(app)
+    assert post(app, f"/api/v1/images/{item['id']}/recrop", {"size_deg": size}).status_code == 422
+    assert archive.downloads == []
+
+
 def test_search_only_returns_discovery_and_exact_cutout_selection(backend):
     app, archive = backend
     response = get(app, "/api/v1/images", params={**QUERY, "detector": 2})
@@ -133,7 +159,7 @@ def test_selected_cutout_metadata_and_binary_preserve_values_and_download_once(b
     actual = np.frombuffer(pixels.content, dtype="<f4").reshape(2, 3)
     np.testing.assert_array_equal(actual, archive.values)
     assert get(app, item["metadata_url"]).json() == response.json()
-    assert archive.downloads == [{"source_url": SOURCE, **QUERY}]
+    assert archive.downloads == [{"source_url": SOURCE, **QUERY, "label": item["id"]}]
 
 
 def test_pixels_can_be_requested_first_and_survive_backend_restart(backend):
@@ -250,20 +276,24 @@ def test_openapi_describes_routes_and_binary_response(backend):
     assert response.status_code == 200
     paths = response.json()["paths"]
     assert set(paths) == {
-        "/api/v1/images", "/api/v1/images/{image_id}",
+        "/api/v1/images", "/api/v1/images/availability", "/api/v1/images/{image_id}",
         "/api/v1/images/{image_id}/pixels",
         "/api/v1/images/{image_id}/planes/{plane}",
         "/api/v1/images/{image_id}/planes/{plane}/pixels",
-        "/api/v1/images/search", "/api/v1/images/load/{image_id}",
-        "/api/v1/images/{image_id}/projection",
-        "/api/v1/stars", "/api/v1/star-catalog", "/api/v1/sky",
-        "/api/v1/spectrum",
+        "/api/v1/images/search", "/api/v1/images/search-box", "/api/v1/images/load/{image_id}",
+        "/api/v1/images/{image_id}/projection", "/api/v1/images/{image_id}/recrop",
+        "/api/v1/images/onboarding", "/api/v1/images/onboarding/{image_id}/fits",
+        "/api/v1/stars", "/api/v1/star-catalog", "/api/v1/sky", "/api/v1/targets",
+        "/api/v1/health", "/api/v1/spectrum",
     }
     content = paths["/api/v1/images/{image_id}/pixels"]["get"]["responses"]["200"]["content"]
     assert content["application/octet-stream"]["schema"]["format"] == "binary"
 
 
-def post(app, path, **kwargs):
+def post(app, path, body=None, **kwargs):
+    if body is not None:
+        kwargs["json"] = body
+
     async def request():
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
             return await client.post(path, **kwargs)
@@ -332,3 +362,155 @@ def test_star_routes_version_and_sky(backend):
     assert response.status_code == 200, response.text
     assert response.json()["star_count"] == 1
     assert len(response.json()["sample_times_ms"]) == 1
+
+
+
+# ---- Box selection on the sky ----
+
+def box_request(side_deg, ra=QUERY["ra_deg"], dec=QUERY["dec_deg"], **extra):
+    """Corner directions of a box around (ra, dec), as the frontend would send them."""
+    from astropy.utils import iers
+    from test_box_selection import AT, OBSERVER, scene_directions, square
+    with iers.conf.set_temp("auto_download", False):
+        corners = scene_directions(square(ra, dec, side_deg))
+    return {"observer": OBSERVER, "at": AT.isoformat(), "mode": "paused", "corners": corners, **extra}
+
+
+def test_box_search_uses_the_box_centre_and_covering_size(backend):
+    from astropy.utils import iers
+    app, archive = backend
+    with iers.conf.set_temp("auto_download", False):
+        response = post(app, "/api/v1/images/search-box", json=box_request(0.1, detector=2, limit=5))
+    assert response.status_code == 200, response.text
+    body = response.json()
+    search = archive.searches[0]
+    assert search["ra_deg"] == pytest.approx(QUERY["ra_deg"], abs=1e-5)
+    assert search["dec_deg"] == pytest.approx(QUERY["dec_deg"], abs=1e-5)
+    assert (search["detector"], search["limit"]) == (2, 5)
+    selection = body["selection"]
+    assert selection["size_deg"] == pytest.approx(0.1, rel=0.01)
+    assert selection["center"]["ra_deg"] == pytest.approx(search["ra_deg"])
+    assert len(selection["corners"]) == 4
+    item = body["images"][0]
+    assert item["requested"]["size_deg"] == selection["size_deg"]
+    assert archive.downloads == []
+    # Same identity as a plain search with the computed geometry, and loadable the same way.
+    plain = get(app, "/api/v1/images", params={
+        "ra_deg": selection["center"]["ra_deg"], "dec_deg": selection["center"]["dec_deg"],
+        "size_deg": selection["size_deg"], "detector": 2, "limit": 5}).json()
+    assert plain["images"][0]["id"] == item["id"]
+    assert post(app, f"/api/v1/images/load/{item['id']}").status_code == 200
+
+
+@pytest.mark.parametrize("side,message", [
+    (0.6, "The selected box spans 36.0′; the maximum is 30′. Zoom in or drag a smaller box."),
+    (1 / 3600, "The selected box is smaller than one pixel. Drag a larger box or click instead."),
+])
+def test_box_outside_the_size_limits_is_a_clear_422(backend, side, message):
+    from astropy.utils import iers
+    app, archive = backend
+    with iers.conf.set_temp("auto_download", False):
+        response = post(app, "/api/v1/images/search-box", json=box_request(side))
+    assert response.status_code == 422
+    assert response.json() == {"detail": message}
+    assert archive.searches == []
+
+
+@pytest.mark.parametrize("corners", [
+    [[0, 1, 0]] * 3,
+    [[0, 1, 0]] * 5,
+    [[0, 1, 0], [0, 1, 0], [0, 1, 0], [0, 0, 0]],
+    [[0, 1, 0], [0, 1, 0], [0, 1, 0], [0, 1.5, 0]],
+    [[0, 1, 0], [0, 1, 0], [0, 1, 0], [0, 1]],
+])
+def test_malformed_corners_are_rejected_before_any_search(backend, corners):
+    app, archive = backend
+    request = {"observer": {"latitude_deg": 14, "longitude_deg": -89}, "at": "2025-01-01T00:00:00Z",
+               "mode": "paused", "corners": corners}
+    assert post(app, "/api/v1/images/search-box", json=request).status_code == 422
+    assert archive.searches == []
+
+
+@pytest.mark.parametrize("path,field", [("/api/v1/images/search-box", "corners"), ("/api/v1/images/search", "direction")])
+def test_nonfinite_body_values_are_a_422_not_a_500(backend, path, field):
+    app, archive = backend
+    vectors = {"corners": [[0, 1, 0]] * 3 + [[float("nan"), 1, 0]], "direction": [float("inf"), 1, 0]}
+    body = {"observer": {"latitude_deg": 14, "longitude_deg": -89}, "at": "2025-01-01T00:00:00Z",
+            "mode": "paused", field: vectors[field]}
+    response = post(app, path, content=json.dumps(body), headers={"Content-Type": "application/json"})
+    assert response.status_code == 422
+    assert any(error["type"] == "finite_number" for error in response.json()["detail"])
+    assert archive.searches == []
+
+
+
+# ---- Frontend blink support: independent observations of one region ----
+
+class TwoObservationArchive(FakeArchive):
+    """Observations A and B of one region: different dates, sizes, values and WCS rotations."""
+
+    def __init__(self):
+        super().__init__()
+        self.rows = [
+            ArchiveImage(source_url=SOURCE.replace("x.fits", f"{name}.fits"), observation_id=f"obs-{name}",
+                         detector=2, collection="dr1", observed_start_mjd=mjd, observed_end_mjd=mjd + 0.001)
+            for name, mjd in (("b", 61100.0), ("a", 60900.0))
+        ]
+        self.contents = {self.rows[1].source_url: self.fits(0.0, (2, 3), 1.0),
+                         self.rows[0].source_url: self.fits(30.0, (3, 4), 2.0)}
+
+    @staticmethod
+    def fits(rotation_deg, shape, scale):
+        spatial = WCS(naxis=2)
+        spatial.wcs.ctype = ["RA---TAN", "DEC--TAN"]
+        spatial.wcs.crpix = [(shape[1] + 1) / 2, (shape[0] + 1) / 2]
+        spatial.wcs.crval = [QUERY["ra_deg"], QUERY["dec_deg"]]
+        angle = np.radians(rotation_deg)
+        spatial.wcs.cd = 0.001 * np.array([[-np.cos(angle), np.sin(angle)], [np.sin(angle), np.cos(angle)]])
+        header = spatial.to_header()
+        header["BUNIT"] = "MJy/sr"
+        stream = BytesIO()
+        values = (np.arange(shape[0] * shape[1], dtype=np.float32).reshape(shape) * scale)
+        fits.HDUList([fits.PrimaryHDU(), fits.ImageHDU(values, header=header, name="IMAGE")]).writeto(stream)
+        return stream.getvalue()
+
+    def download_cutout(self, **kwargs):
+        self.downloads.append(kwargs)
+        return self.contents[kwargs["source_url"]]
+
+
+def test_two_observations_load_and_project_independently(tmp_path):
+    from astropy.utils import iers
+    archive = TwoObservationArchive()
+    app = create_app(Settings(cutout_cache_dir=tmp_path / "cutouts"))
+    app.state.image_service.archive = archive
+    images = get(app, "/api/v1/images", params=QUERY).json()["images"]
+    newest, oldest = images
+    assert (newest["observation_id"], oldest["observation_id"]) == ("obs-b", "obs-a")
+    assert newest["id"] != oldest["id"]
+    assert newest["observation"]["start_mjd"] != oldest["observation"]["start_mjd"]
+
+    a = post(app, f"/api/v1/images/load/{oldest['id']}").json()["image"]
+    b = post(app, f"/api/v1/images/load/{newest['id']}").json()["image"]
+    assert (a["width"], a["height"]) == (3, 2) and (b["width"], b["height"]) == (4, 3)
+    pixels_a = np.frombuffer(get(app, oldest["pixels_url"]).content, dtype="<f4")
+    pixels_b = np.frombuffer(get(app, newest["pixels_url"]).content, dtype="<f4")
+    np.testing.assert_array_equal(pixels_a, np.arange(6, dtype=np.float32))
+    np.testing.assert_array_equal(pixels_b, np.arange(12, dtype=np.float32) * 2)
+    cards = lambda image: {card["keyword"]: card["value"] for card in image["wcs_header"]}
+    assert cards(a) != cards(b)
+
+    request = {"observer": {"latitude_deg": 14, "longitude_deg": -89, "elevation_m": 0},
+               "at": "2025-01-01T00:00:00Z", "mode": "paused"}
+    with iers.conf.set_temp("auto_download", False):
+        projection_a = post(app, f"/api/v1/images/{oldest['id']}/projection", json=request).json()
+        projection_b = post(app, f"/api/v1/images/{newest['id']}/projection", json=request).json()
+    assert projection_a["sample_times_ms"] == projection_b["sample_times_ms"]
+    assert projection_a["image_id"] == oldest["id"] and projection_b["image_id"] == newest["id"]
+    assert projection_a["directions"] != projection_b["directions"]
+
+    # Loading B did not overwrite A, and repeated reads reuse each cache.
+    assert len(archive.downloads) == 2
+    assert np.array_equal(np.frombuffer(get(app, oldest["pixels_url"]).content, dtype="<f4"), pixels_a)
+    post(app, f"/api/v1/images/load/{newest['id']}")
+    assert len(archive.downloads) == 2

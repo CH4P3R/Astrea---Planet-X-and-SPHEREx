@@ -11,7 +11,11 @@ details in this document.
 | Method | Path | Returns | Purpose | Section |
 | --- | --- | --- | --- | --- |
 | GET | `/images` | JSON | Search observations by RA/Dec; downloads nothing | 1 |
+| GET | `/images/availability` | JSON | Complete available-day index for one zone, detector and UTC year | 1a |
+| GET | `/images/onboarding` | JSON | Query the bundled real Barnard observations | Local onboarding data |
+| GET | `/images/onboarding/{id}/fits` | FITS | Download a verified local cutout | Local onboarding data |
 | POST | `/images/search` | JSON | Search from a click on the local sky | Click, load and project |
+| POST | `/images/search-box` | JSON | Search from a box dragged on the local sky | Box selection on the sky |
 | GET | `/images/{id}` | JSON | Load a cutout and read its metadata | 2 |
 | POST | `/images/load/{id}` | JSON | Same as `GET /images/{id}` | Click, load and project |
 | GET | `/images/{id}/pixels` | binary | Pixel values, with optional corrections | 3, 4 |
@@ -21,6 +25,23 @@ details in this document.
 | GET | `/stars` | JSON | Hipparcos stars up to a magnitude | Star catalog and observer sky |
 | GET | `/star-catalog` | JSON | Catalog version and render metadata | Star catalog and observer sky |
 | POST | `/sky` | JSON or binary | Star directions for an observer and time | Star catalog and observer sky |
+| GET | `/targets` | JSON | Acceptance targets, positions propagated to the SPHEREx epoch | Acceptance targets |
+| GET | `/spectrum` | JSON | Flux against wavelength of a sky position, one point per exposure | 7 |
+
+## Local onboarding data
+
+`GET /images/onboarding` accepts the same query contract as `/images`, including
+required RA, Dec and size plus optional detector, date and limit filters. Use
+RA 269.4463, Dec 4.7679 and size 7/60 degrees. The response is restricted to the
+two real D3 observations in `backend/data/onboarding/`; other regions, sizes,
+detectors or dates return no observations rather than triggering a remote search.
+
+The existing metadata, pixel, plane, corrected-pixel and projection endpoints
+read these bundled FITS without contacting IRSA. SHA-256 is checked before decoding.
+Local tutorial images do not support remote recropping. The direct FITS download
+is `/images/onboarding/{id}/fits`; metadata retains the original archive URL.
+The backend must be running. The ordinary `/images` archive search is unchanged.
+See `data/onboarding/README.md` for provenance and reproduction.
 
 ## 1. Search observations
 
@@ -64,6 +85,54 @@ as header metadata, never substituted for the observation timestamp.
 Search does **not** download FITS files. An empty result is HTTP 200 with
 `images: []`. `has_more: true` means older matches exist beyond this limited
 result; this endpoint does not yet implement pagination.
+
+## 1a. Discover available days in a year
+
+```http
+GET /api/v1/images/availability?ra_deg=210.80227&dec_deg=54.34895&year=2026&detector=2
+```
+
+`ra_deg` and `dec_deg` use the same ICRS point and one-arcsecond discovery cone
+as image search. `year` is a UTC calendar year (1–9998). `detector` is optional;
+omitting it includes all detectors. There is no `size_deg`: this finds exposures
+covering the selected point, while cutout size is chosen when searching images.
+
+```json
+{
+  "year": 2026,
+  "days": [
+    {"date": "2026-05-12", "count": 154},
+    {"date": "2026-11-03", "count": 7}
+  ],
+  "complete": true,
+  "time_scale": "UTC"
+}
+```
+
+The dates above are illustrative. Days are ascending; counts are distinct,
+supported Level 2 FITS URLs whose observation **starts** on that UTC day, across
+the discovered releases. A reprocessed exposure published at different archive
+URLs counts as separate files, just as in image search. An empty `days` list is
+returned only after a successful complete search. `complete` is always `true`
+on HTTP 200; archive failures remain HTTP 502/504 and an index too dense to
+complete is HTTP 422, never an apparently empty or partial calendar.
+
+This endpoint reads SIA metadata only, independently of the 100-observation
+limit of `/images`. It first queries the year with SIA `TIME`; if IRSA truncates
+the metadata, it splits the date interval and combines complete subranges.
+The work shares the configured archive time budget, with at most 64 interval
+queries and an hour as the minimum split interval. Partial work is not cached.
+Complete results are cached in memory for 15 minutes, keyed by exact position,
+detector and year, with at most 128 indexes per worker.
+
+This index is available to clients that need daily availability. The current
+Compare UI uses only a year selector (2025 through the current UTC year) and
+requests `/images` directly with `start_time=YYYY-01-01T00:00:00Z`,
+`end_time=YYYY-12-31T23:59:59.999999Z` and `limit=100`. It does not call this
+availability endpoint or ask the user to select a month/day. The annual image
+list reports `has_more` when older matches exist. Download/decode only a
+user-selected observation with the existing load/pixels endpoints. No FITS files
+are downloaded or image IDs registered while building this availability index.
 
 ## 2. Read a selected cutout's metadata
 
@@ -278,18 +347,92 @@ FLAGS is the expensive plane, which is why it is not loaded with the image.
 The response sent to the browser is always `width * height * 4` bytes
 (39 kB here), whatever the options.
 
+## 7. Spectrum of a sky position
+
+`GET /api/v1/spectrum` measures one sky position on every exposure that one
+detector took of it and returns one point per exposure. A SPHEREx exposure
+sees a source at the single wavelength its place on the detector's linear
+variable filter selects, so the spectrum is built from many exposures.
+
+| Parameter | Meaning |
+| --- | --- |
+| `ra_deg` | Required ICRS right ascension, degrees, `0 <= ra < 360`. |
+| `dec_deg` | Required ICRS declination, degrees, `-90 <= dec <= 90`. |
+| `detector` | Required integer from 1 to 6. One detector per request. |
+| `radius_px` | Aperture radius in pixels: 3 (default), 4 or 5. |
+
+```json
+{
+  "position": {"ra_deg": 133.708601, "dec_deg": -7.257159, "frame": "ICRS"},
+  "detector": 2,
+  "aperture": {"radius_px": 3.0, "annulus_px": [6.0, 9.0]},
+  "exposures": {"found": 48, "measured": 48, "skipped": 0, "failed": 0},
+  "method": "aperture", "flux_unit": "uJy", "wavelength_unit": "um",
+  "points": [{
+    "wavelength_um": 1.2351, "bandwidth_um": 0.0301,
+    "flux_ujy": 74236.0, "flux_error_ujy": 299.0, "background_mjy_sr": 0.251,
+    "bad_pixels": 0, "crowded": false, "flags": [],
+    "detector": 2, "observation_id": "2026W20_1A_1166_1",
+    "observed_mjd": 61174.287218, "observed_utc": "2026-05-14T06:53:35.635Z",
+    "source_url": "https://irsa.ipac.caltech.edu/ibe/data/spherex/..."
+  }]
+}
+```
+
+The values in this example are illustrative. `points` is sorted by wavelength
+and is not averaged.
+
+**Method.** Aperture photometry, following
+`notebooks/04-source-discovery-tool` (section 12). The flux is summed inside a
+circle centred on the position (pixels on the edge count by the fraction
+inside), after subtracting a local background: the median of a ring 6 to 9
+pixels out, leaving out pixels of catalogued sources. Surface brightness
+(MJy/sr) times the pixel's solid angle gives microjanskys. The error comes
+from the VARIANCE plane plus the uncertainty of the background. The ZODI plane
+is not used: the local background already contains the zodiacal light.
+
+**Quality.** Rules follow IRSA's Spectrophotometry Tool.
+
+| Field | Meaning |
+| --- | --- |
+| `bad_pixels` | Aperture pixels left out because they carry `SUR_ERROR`, `NONFUNC`, `MISSING_DATA`, `HOT`, `COLD`, `NONLINEAR`, `PERSIST`, `BLOOM`, `SNOWBALL`, `HALO` or `SATELLITE_HALO`, or are not finite. Above 0, some source light is missing. |
+| `flags` | Names of quality flags found within 2.5 pixels of the source: the ones above plus `TRANSIENT`, `OVERFLOW`, `DICHROIC`, `CROSSTALK`, `GHOST`, `GHOST_FPA`, `GHOST_EXT` and `STREAK`. Non-empty means doubtful, not unusable. |
+| `crowded` | The background ring held only pixels of catalogued sources, so all of it was used. This also happens around one bright star, whose own mask fills the ring; it is information, not a defect. |
+| `exposures.skipped` | Source too near the detector edge, or more than half of the aperture unusable. |
+| `exposures.failed` | Archive errors. Repeating the request retries only these. |
+
+**Limits.**
+
+- Saturated stars lose their core pixels and read far too low. Every point is
+  then flagged; treat the spectrum as unreliable.
+- The position is fixed: an object that moves between exposures is measured
+  where it was, not where it is.
+- IRSA's tool fits the PSF instead, so its fluxes can differ by a few percent
+  and it copes better with faint or blended sources.
+
+**Validation.** For three isolated 2MASS stars of K magnitude 10 to 11 near
+RA 133.8°, Dec −7.2°, the median flux of the points inside each 2MASS band
+(J, H, Ks; detectors 2 and 3) matched the catalogue within 5 %. Detectors 1
+and 4 to 6 have no such check yet.
+
+**Cost.** Each exposure costs about 280 kB and 1 s at IRSA, eight in parallel.
+A detector has about 50 exposures of a position: 10 to 50 s the first time.
+Measurements and the archive search are kept in memory, so a repeat is
+immediate until the server restarts. There is no disk cache.
+
 ## Errors and storage
 
 | Status | Meaning |
 | --- | --- |
-| 422 | Invalid coordinates, dates, limits, size, detector, or malformed ID; or an image whose WCS cannot be projected accurately (projection endpoint). |
+| 422 | Invalid coordinates, dates, limits, size, detector, or malformed ID; a dragged box outside the size limits; or an image whose WCS cannot be projected accurately (projection endpoint). |
 | 404 | Unknown ID; run a search to register it on this backend. |
 | 502 | IRSA request failed or the returned FITS could not be decoded. |
 | 504 | IRSA timed out, or one download used up its time budget (120 s by default). |
 | 503 | The local cache is unavailable. |
 
 Errors include `detail`; request-validation details are FastAPI's structured
-list. Upstream/internal exception traces stay in server logs. The same
+list. A rejected NaN or infinity in a JSON body is reported in that list (its
+`input` echoed as the text `"nan"`/`"inf"`), not as a server error. Upstream/internal exception traces stay in server logs. The same
 statuses apply to the plane endpoints and to the pixel options; 422 also
 covers an unknown plane name or a non-boolean option.
 
@@ -443,6 +586,132 @@ or no observations; no image is downloaded until an ID is loaded.
 
 Use `/docs` to test POST requests; the browser address bar only sends GET.
 
+### Box selection on the sky
+
+`POST /api/v1/images/search-box` is the drag-a-rectangle counterpart of the
+click search. The frontend sends the four corners of the dragged box as local
+directions; the backend converts them to ICRS with the same observer, time
+and conventions as the click (+X east, +Y up, −Z north), then runs the normal
+image search.
+
+```json
+{
+  "corners": [[-0.05, 0.99, -0.12], [0.05, 0.99, -0.12], [0.05, 0.99, -0.02], [-0.05, 0.99, -0.02]],
+  "observer": {"latitude_deg": 14, "longitude_deg": -89, "elevation_m": 0},
+  "at": "2026-11-14T18:00:00Z",
+  "mode": "paused",
+  "detector": 2,
+  "limit": 20
+}
+```
+
+- `corners`: exactly four nonzero directions (components in −1…1), in drag
+  order. `detector`, `limit`, `start_time` and `end_time` behave exactly as
+  in the click search.
+- **Centre:** the normalised mean of the corners' sky directions (well defined
+  across RA 0°/360° and near the poles).
+- **Cutout size:** the side of the north-aligned square, in the tangent plane at
+  the centre, that contains every corner. A box tilted relative to north gets
+  a larger square that still covers it. It must lie between one SPHEREx pixel
+  (6.15″) and 0.5° (30′):
+  - larger: 422, `"The selected box spans 36.0′; the maximum is 30′. Zoom in or drag a smaller box."`;
+  - smaller: 422, `"The selected box is smaller than one pixel. Drag a larger box or click instead."`.
+- **Search semantics** are unchanged: exposures that contain the box **centre**
+  are returned, each with a cutout of the computed size. Near an exposure edge
+  a cutout can be clipped; `width`/`height` in the metadata are authoritative.
+  Exposures that touch the box but not its centre are not returned yet.
+
+The response is the normal search response (`query`, `images`, `has_more`,
+`order`) plus `selection`:
+
+| Field | Meaning |
+| --- | --- |
+| `selection.center` | ICRS centre used for the search (`ra_deg`, `dec_deg`, `frame`) |
+| `selection.size_deg` | Cutout side used for every result |
+| `selection.corners` | The four corners in ICRS, in the order they were sent |
+
+Image IDs are the same as a `GET /api/v1/images` search with that centre and
+size, so loading, pixels and projection work exactly as for click results.
+Nothing is downloaded until an ID is loaded.
+
+Frontend side, on drag end:
+
+1. Compute the four screen-corner rays with `skyDirectionAtPointer` and rotate
+   each by `camera.quaternion`, exactly as for a click.
+2. If any corner falls off the sky disc (`skyDirectionAtPointer` returns
+   `null`), do not send the request; ask the user to drag inside the sky.
+3. Send the corners in drag order with the same observer and displayed time
+   used for the sky.
+4. Draw `selection.corners` as the selected region, then load results as for
+   a click. Show the 422 `detail` text as is: it states the limit.
+
+### Blink: frontend integration checklist
+
+Blink runs entirely in the frontend on top of the routes above; there is no
+blink endpoint. The full contract is
+[`docs/superpowers/specs/2026-11-14-spherex-backend-fastapi-design.md`](../docs/superpowers/specs/2026-11-14-spherex-backend-fastapi-design.md).
+In short:
+
+- **Selection.** Search once (click, box or RA/Dec) and pick A and B from
+  `images` with different IDs and observation times. Same-detector filtering
+  is optional; a shared detector does not guarantee a shared wavelength.
+  `images` is limited by `limit` (newest first) and `has_more`: never present
+  it as the complete observation history; use `start_time`/`end_time` to reach
+  older dates.
+- **Loading.** Load each observation independently (`POST /images/load/{id}`,
+  then its `pixels_url`). Keep A usable while B loads or fails. Decode each with
+  its own `width`, `height` and `dtype`. Cancel or ignore stale responses when
+  the selection changes.
+- **Placement.** Request `POST /images/{id}/projection` for every observation
+  with the **same** `observer`, `at` and `mode`, and draw each texture with its
+  own `uv`, `indices` and `directions`. Never reuse one image's mesh for
+  another. In live mode refresh projections (not pixels) before the
+  120-second sample window ends.
+- **Display scale.** Compute one range (for example percentiles of the
+  combined finite values) and apply it to every observation; never autoscale
+  per image while blinking. Keep the raw values so the range can be recomputed
+  when the selection changes. Nonfinite samples are transparent.
+- **Corrections.** `subtract_zodi`, `mask_flags` and `signal_to_noise` stay off
+  by default. If used, use the same options for every compared observation, and
+  never mix raw intensities with dimensionless signal-to-noise.
+- **States.** Handle empty results, a single observation, a failed B load and
+  expired projections; playback starts only when every selected observation
+  has pixels and a usable projection, and switching visibility makes no
+  request.
+- **More than two observations** use the same per-image calls: an ordered list
+  of IDs, a playback index and individual readiness, with bounded loading.
+- A visible difference is a visual comparison, not a confirmed detection.
+
+### Acceptance targets
+
+`GET /api/v1/targets` returns the demo and validation targets from
+`backend/targets.yaml` (SIMBAD positions at J2000.0 with proper motions).
+Each position is propagated by proper motion to the file's `epoch` (2025.9,
+the middle of SPHEREx DR1), because fast movers drift out of a small search
+box: Barnard's Star moves about 4.5′ between 2000 and 2025.9.
+
+```json
+{
+  "epoch": 2025.9,
+  "size_deg": 0.1,
+  "targets": [{
+    "name": "Barnard's Star", "simbad_id": "NAME Barnard's star", "expected": "motion",
+    "detector": null, "reference": "2020yCat.1350....0G",
+    "catalog": {"ra_deg": 269.452077, "dec_deg": 4.693365, "frame": "ICRS", "epoch": "J2000.0",
+                "pmra_mas_yr": -801.551, "pmdec_mas_yr": 10362.394},
+    "position": {"ra_deg": 269.44629, "dec_deg": 4.767917, "frame": "ICRS"},
+    "motion_arcsec": 269.19,
+    "search": {"ra_deg": 269.4462902, "dec_deg": 4.7679166, "size_deg": 0.1, "frame": "ICRS"},
+    "images_url": "/api/v1/images?ra_deg=269.4462902&dec_deg=4.7679166&size_deg=0.1"
+  }]
+}
+```
+
+`images_url` is a ready-made search. `expected` (`motion` or `variability`)
+says what to look for; it is not a confirmed result. Use these as one-click
+examples instead of hard-coding coordinates in the frontend. The response
+never changes while the server runs.
+
 ### Automatic release discovery
 
 The backend uses Astroquery's `list_collections(servicetype="SIA", filter="spherex")`
@@ -450,8 +719,17 @@ to discover collection names. This registry lookup uses TAP; image searches rema
 SIA. Names are cached in memory per backend worker for one hour and refreshed on
 subsequent searches. On refresh failure, the last valid list is reused and refresh
 is retried after 60 seconds. Without a cached list, a network/VO failure falls back
-to SIA's `facility="SPHEREx"` filter, without a release-name restriction. Empty or
+to SIA's `facility="SPHEREx"` filter, without a release-name restriction, and waits
+60 seconds before attempting the registry again. Empty or
 malformed registry tables are reported as archive errors, never unfiltered searches.
+
+Image searches use the known IRSA `/SIA` query endpoint directly through Astroquery
+and PyVO (`check_baseurl=False`). They do not request `/SIA/capabilities` first:
+a failure in that auxiliary endpoint must not prevent the actual image query.
+Transient query failures still receive the existing bounded retries. If the query
+itself remains unavailable, the API returns an archive error rather than an empty
+result. The backend log includes the exception cause and failing request path;
+the generic HTTP 502 message alone does not identify an IRSA outage.
 
 No DR numbering is assumed. New releases must still publish compatible Level 2
 FITS files under IRSA's `/ibe/data/spherex/<release>/level2/` path. Other products

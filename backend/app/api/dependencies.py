@@ -15,3 +15,7 @@ def get_spectrum_service(request: Request):
 
 def get_star_service(request: Request):
     return request.app.state.star_service
+
+
+def get_target_service(request: Request):
+    return request.app.state.target_service

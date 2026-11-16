@@ -1,0 +1,30 @@
+{
+  "title": "Spectrum",
+  "generate": "Generate spectrum (detector {{detector}})",
+  "target": "RA {{ra}}° · Dec {{dec}}° · 3-pixel aperture",
+  "counts": "{{measured}} of {{found}} exposures measured · {{skipped}} skipped · {{failed}} failed",
+  "empty": "No exposure could measure this point.",
+  "chart": "Flux against wavelength, one point per exposure",
+  "wavelengthAxis": "Wavelength (µm)",
+  "fluxAxis": "Flux (µJy)",
+  "clean": "Single measurement",
+  "doubtful": "Doubtful measurement",
+  "hint": "The line shows how bright the object is at each wavelength: higher means brighter. Point at a dot to see that measurement.",
+  "readout": "D{{detector}} · {{wavelength}} µm · {{flux}} ± {{error}} µJy · {{date}} · {{notes}}",
+  "badPixels": {
+    "one": "{{count}} pixel left out",
+    "other": "{{count}} pixels left out"
+  },
+  "crowded": "crowded background",
+  "noNotes": "no quality warnings",
+  "allDoubtful": "Almost every measurement here is doubtful (very bright or crowded target), so the dashed line is only a rough guide.",
+  "intro": "Measure how bright this point is at each wavelength, using every observation a detector took of it. Nothing is downloaded until you press the button.",
+  "stale": "This chart belongs to another point. Generate it again to update it.",
+  "errorBar": "Margin of error (shown when you point at a dot)",
+  "every": "All six detectors (0.75–5 µm). Takes 1 to 5 minutes.",
+  "generateEvery": "Generate spectrum (6 detectors)",
+  "cancel": "Stop",
+  "progress": "Measuring… {{done}} of {{total}} detectors done. Each one appears as it finishes.",
+  "failed": "Could not measure {{detectors}}. Press generate to try again.",
+  "detectorTrend": "D{{detector}} trend"
+}

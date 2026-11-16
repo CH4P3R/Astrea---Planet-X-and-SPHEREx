@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-export default function useObserver() {
-  const [observer, setObserver] = useState(null)
-  const [status, setStatus] = useState('loading')
+export default function useObserver({ initialObserver = null, automatic = true } = {}) {
+  const [observer, setObserver] = useState(initialObserver)
+  const [status, setStatus] = useState(initialObserver ? 'ready' : 'loading')
   const [error, setError] = useState('')
   const request = useRef(0)
   const timer = useRef(null)
@@ -51,15 +51,15 @@ export default function useObserver() {
 
   useEffect(() => {
     const initialRequest = request.current
-    const automatic = window.setTimeout(() => {
+    const automaticRequest = automatic ? window.setTimeout(() => {
       if (request.current === initialRequest) locate()
-    }, 0)
+    }, 0) : null
     return () => {
-      window.clearTimeout(automatic)
+      window.clearTimeout(automaticRequest)
       window.clearTimeout(timer.current)
       request.current += 1
     }
-  }, [locate])
+  }, [locate, automatic])
 
   return { observer, status, error, locate, applyManualLocation }
 }

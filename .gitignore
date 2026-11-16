@@ -61,3 +61,4 @@ backend/data/hipparcos-v1.json
 backend/data/hipparcos-v1.tmp
 backend/data/image-cutouts/
 backend/data/image-composites/
+backend/data/warm-manifest.json

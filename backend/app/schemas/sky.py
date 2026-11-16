@@ -24,6 +24,9 @@ class SkyRequest(ProjectionRequest):
     catalog_version: str | None = Field(default=None, max_length=100)
 
 
+Direction = Annotated[list[Annotated[float, Field(ge=-1, le=1)]], Field(min_length=3, max_length=3)]
+
+
 class ClickSearchRequest(ProjectionRequest):
     direction: list[Annotated[float, Field(ge=-1, le=1)]] = Field(min_length=3, max_length=3)
     size_arcmin: float = Field(default=6, gt=0, le=30)
@@ -36,6 +39,24 @@ class ClickSearchRequest(ProjectionRequest):
     def valid_direction_and_dates(self):
         if math.hypot(*self.direction) < 1e-8:
             raise ValueError("Choose a nonzero sky direction.")
+        if self.start_time and self.end_time and self.start_time > self.end_time:
+            raise ValueError("start_time must not be later than end_time")
+        return self
+
+
+class BoxSearchRequest(ProjectionRequest):
+    """A box dragged on the local sky: its four corner directions, in drag order."""
+
+    corners: list[Direction] = Field(min_length=4, max_length=4)
+    detector: int | None = Field(default=None, ge=1, le=6, strict=True)
+    limit: int = Field(default=20, ge=1, le=100)
+    start_time: AwareDatetime | None = None
+    end_time: AwareDatetime | None = None
+
+    @model_validator(mode="after")
+    def valid_corners_and_dates(self):
+        if any(math.hypot(*corner) < 1e-8 for corner in self.corners):
+            raise ValueError("Every corner must be a nonzero sky direction.")
         if self.start_time and self.end_time and self.start_time > self.end_time:
             raise ValueError("start_time must not be later than end_time")
         return self

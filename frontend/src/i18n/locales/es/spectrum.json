@@ -1,0 +1,30 @@
+{
+  "title": "Espectro",
+  "generate": "Generar espectro (detector {{detector}})",
+  "target": "RA {{ra}}° · Dec {{dec}}° · apertura de 3 píxeles",
+  "counts": "{{measured}} de {{found}} exposiciones medidas · {{skipped}} omitidas · {{failed}} con error",
+  "empty": "Ninguna exposición pudo medir este punto.",
+  "chart": "Flujo frente a longitud de onda, un punto por exposición",
+  "wavelengthAxis": "Longitud de onda (µm)",
+  "fluxAxis": "Flujo (µJy)",
+  "clean": "Medición individual",
+  "doubtful": "Medición dudosa",
+  "hint": "La línea muestra cuánto brilla el objeto en cada longitud de onda: más arriba es más brillante. Señala un punto para ver esa medición.",
+  "readout": "D{{detector}} · {{wavelength}} µm · {{flux}} ± {{error}} µJy · {{date}} · {{notes}}",
+  "badPixels": {
+    "one": "{{count}} píxel descartado",
+    "other": "{{count}} píxeles descartados"
+  },
+  "crowded": "fondo saturado de fuentes",
+  "noNotes": "sin avisos de calidad",
+  "allDoubtful": "Casi todas las mediciones aquí son dudosas (objeto muy brillante o zona con muchas fuentes), así que la línea discontinua es solo orientativa.",
+  "intro": "Mide cuánto brilla este punto en cada longitud de onda, usando todas las observaciones que un detector tomó de él. No se descarga nada hasta que pulses el botón.",
+  "stale": "Este gráfico es de otro punto. Genéralo de nuevo para actualizarlo.",
+  "errorBar": "Margen de error (al señalar un punto)",
+  "every": "Los seis detectores (0,75–5 µm). Tarda de 1 a 5 minutos.",
+  "generateEvery": "Generar espectro (6 detectores)",
+  "cancel": "Detener",
+  "progress": "Midiendo… {{done}} de {{total}} detectores listos. Cada uno aparece al terminar.",
+  "failed": "No se pudo medir {{detectors}}. Pulsa generar para reintentar.",
+  "detectorTrend": "Tendencia D{{detector}}"
+}

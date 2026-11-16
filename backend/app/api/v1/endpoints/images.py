@@ -7,11 +7,12 @@ from fastapi.responses import FileResponse
 
 from app.api.dependencies import get_image_service
 from app.schemas.images import (
-    ImageMetadata, ImageSearchQuery, ImageSearchResponse, PlaneMetadata, PlaneName,
+    BoxSearchResponse, BoxSelection, ImageAvailabilityQuery, ImageAvailabilityResponse,
+    ImageMetadata, ImageRecropRequest, ImageSearchQuery, ImageSearchResponse, PlaneMetadata, PlaneName,
 )
 from app.services.images import ImageService
-from app.schemas.sky import ClickSearchRequest, ProjectionRequest
-from app.services.image_geometry import click_to_icrs, project_image
+from app.schemas.sky import BoxSearchRequest, ClickSearchRequest, ProjectionRequest
+from app.services.image_geometry import box_selection, click_to_icrs, directions_to_icrs, project_image
 
 router = APIRouter(prefix="/images", tags=["images"])
 Service = Annotated[ImageService, Depends(get_image_service)]
@@ -22,6 +23,26 @@ ImageId = Annotated[str, Path(pattern=r"^[0-9a-f]{64}$", description="Cutout ID 
 def search_images(query: Annotated[ImageSearchQuery, Query()], service: Service):
     """Search DR1 and QR3 observations, newest first, without downloading FITS."""
     return service.search(query)
+
+
+@router.get("/availability", response_model=ImageAvailabilityResponse)
+def image_availability(query: Annotated[ImageAvailabilityQuery, Query()], service: Service):
+    """List every available observation day in a UTC year without downloading FITS."""
+    return service.availability(query)
+
+
+@router.get("/onboarding", response_model=ImageSearchResponse)
+def onboarding_images(query: Annotated[ImageSearchQuery, Query()], service: Service):
+    """Query only the two bundled real Barnard observations without contacting IRSA"""
+    return service.onboarding(query)
+
+
+@router.get("/onboarding/{image_id}/fits", response_class=FileResponse)
+def onboarding_fits(image_id: ImageId, service: Service):
+    """Download the verified local FITS used by the guided tour"""
+    service.onboarding_catalog.content(image_id)
+    return FileResponse(service.onboarding_catalog.path(image_id), media_type="application/fits",
+                        filename=service.onboarding_catalog.path(image_id).name)
 
 
 @router.get("/{image_id}", response_model=ImageMetadata)
@@ -82,6 +103,22 @@ def search_from_click(request: ClickSearchRequest, service: Service):
     ))
 
 
+@router.post("/search-box", response_model=BoxSearchResponse)
+def search_from_box(request: BoxSearchRequest, service: Service):
+    """Convert a box dragged on the local sky to an ICRS centre and cutout size, then search."""
+    box = box_selection(directions_to_icrs(request.corners, request.observer.model_dump(), request.at))
+    result = service.search(ImageSearchQuery(
+        ra_deg=box.ra_deg, dec_deg=box.dec_deg, size_deg=box.size_deg,
+        detector=request.detector, limit=request.limit,
+        start_time=request.start_time, end_time=request.end_time,
+    ))
+    return BoxSearchResponse(**result.model_dump(), selection=BoxSelection(
+        center={"ra_deg": box.ra_deg, "dec_deg": box.dec_deg},
+        size_deg=box.size_deg,
+        corners=[{"ra_deg": ra, "dec_deg": dec} for ra, dec in box.corners],
+    ))
+
+
 @router.post("/load/{image_id}", response_model=ImageMetadata)
 def load_image(image_id: ImageId, service: Service):
     """Download/decode the selected FITS cutout, or reuse its cache."""
@@ -93,3 +130,9 @@ def image_projection(image_id: ImageId, request: ProjectionRequest, service: Ser
     """Project the image WCS mesh into the same local frame as the stars."""
     return project_image(service.metadata(image_id), request.observer.model_dump(),
                          request.at, request.mode == "live")
+
+
+@router.post("/{image_id}/recrop", response_model=ImageMetadata)
+def recrop_image(image_id: ImageId, request: ImageRecropRequest, service: Service):
+    """Request a new native-resolution window from the same observation."""
+    return service.recrop(image_id, request.size_deg)

@@ -199,7 +199,9 @@ class SpectrumService:
             found = self._searches.get(key)
             if found and now - found[0] < SEARCH_TTL_SECONDS:
                 return found[1]
-        images = self.archive.covering(ra_deg=ra_deg, dec_deg=dec_deg)
+        # One budget bounds the whole search, as the availability index does.
+        images = self.archive.search_all(ra_deg=ra_deg, dec_deg=dec_deg, detector=None,
+                                         deadline=time.monotonic() + self.archive.budget_seconds)
         with self._lock:
             self._searches[key] = (now, images)
             while len(self._searches) > MAX_SEARCHES:

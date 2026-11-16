@@ -4,6 +4,7 @@ export const apiMessages = new Map([
   ['This time is outside the available Earth-orientation data. Choose a recent date or refresh IERS data.', 'errors.server.earthOrientation'],
   ['Unknown image. Run an image search first.', 'errors.server.unknownImage'],
   ['Too many archive matches. Narrow start_time/end_time and retry.', 'errors.server.searchTooBroad'],
+  ['Too many archive matches to build a complete calendar for this region and year.', 'inspector.compare.yearTooBroad'],
   ['IRSA timed out. Please retry.', 'errors.server.archiveTimeout'],
   ['IRSA data could not be retrieved. Please retry.', 'errors.server.archive'],
   ['IRSA returned an unsupported or invalid FITS image.', 'errors.server.invalidFits'],

@@ -23,10 +23,11 @@ from astropy.io import fits
 from astroquery.ipac.irsa import Irsa
 import numpy as np
 from pyvo.dal.exceptions import DALAccessError, DALOverflowWarning
+from pyvo.dal.sia2 import SIA2Service
 import requests
 
 from app.integrations import irsa_ranges
-from app.integrations.http_retry import is_transient, timeout_until, with_retries
+from app.integrations.http_retry import count_retries, is_transient, timeout_until, with_retries
 
 
 logger = logging.getLogger(__name__)
@@ -110,14 +111,18 @@ def _search_transient(error: BaseException) -> bool:
 class _SiaAdapter(requests.adapters.HTTPAdapter):
     """Astroquery's VO client otherwise sends requests without a timeout."""
 
+    def __init__(self, deadline=None):
+        super().__init__()
+        self.deadline = deadline
+
     def send(self, request, **kwargs):
         parts = urlsplit(request.url)
         if (parts.scheme != "https" or parts.netloc != "irsa.ipac.caltech.edu"
                 or parts.path not in ("/SIA", "/SIA/", "/SIA/capabilities",
                                       "/TAP/sync", "/TAP/capabilities")):
             raise ArchiveError("IRSA attempted an unexpected discovery redirect.")
-        if kwargs.get("timeout") is None:
-            kwargs["timeout"] = (10, 60)
+        if kwargs.get("timeout") is None or self.deadline is not None:
+            kwargs["timeout"] = timeout_until(self.deadline, read=60)
         return super().send(request, **kwargs)
 
 
@@ -162,6 +167,7 @@ class IrsaClient:
         self.budget_seconds = budget_seconds
         self._collection_names: tuple[str, ...] = ()
         self._collections_refresh_at = 0.0
+        self._registry_unavailable_until = 0.0
         self._collections_lock = Lock()
 
     def _collections(self, client) -> tuple[str, ...]:
@@ -171,6 +177,8 @@ class IrsaClient:
         still use SIA. The lock prevents concurrent searches refreshing together.
         """
         with self._collections_lock:
+            if time.monotonic() < self._registry_unavailable_until:
+                raise DALAccessError("IRSA collection registry is cooling down after a failure.")
             if self._collection_names and time.monotonic() < self._collections_refresh_at:
                 return self._collection_names
             try:
@@ -184,13 +192,16 @@ class IrsaClient:
                 if not names:
                     raise ArchiveError("IRSA advertised no SPHEREx image collections.")
             except (ArchiveError, DALAccessError, requests.RequestException,
-                    KeyError, TypeError, ValueError):
+                    KeyError, TypeError, ValueError) as error:
                 if not self._collection_names:
+                    if isinstance(error, (DALAccessError, requests.RequestException)):
+                        self._registry_unavailable_until = time.monotonic() + COLLECTION_RETRY_SECONDS
                     raise
                 logger.warning("IRSA collection refresh failed; using last discovered collections.")
                 self._collections_refresh_at = time.monotonic() + COLLECTION_RETRY_SECONDS
                 return self._collection_names
             self._collection_names = names
+            self._registry_unavailable_until = 0.0
             self._collections_refresh_at = time.monotonic() + COLLECTION_TTL_SECONDS
             return names
 
@@ -214,13 +225,21 @@ class IrsaClient:
         """
         if type(limit) is not int or not 1 <= limit <= 100:
             raise ValueError("limit must be an integer from 1 to 100.")
-        return self._matches(ra_deg, dec_deg, detector, start_mjd, end_mjd)[:limit + 1]
+        return self.search_all(
+            ra_deg=ra_deg, dec_deg=dec_deg, detector=detector,
+            start_mjd=start_mjd, end_mjd=end_mjd,
+        )[:limit + 1]
 
-    def covering(self, *, ra_deg: float, dec_deg: float, detector: int | None = None) -> list[ArchiveImage]:
-        """Every exposure whose footprint holds the position, newest first."""
-        return self._matches(ra_deg, dec_deg, detector, None, None)
+    def search_all(
+        self, *, ra_deg: float, dec_deg: float, detector: int | None,
+        start_mjd: float | None = None, end_mjd: float | None = None,
+        deadline: float | None = None,
+    ) -> list[ArchiveImage]:
+        """Complete metadata for one interval, or SearchTooBroad on truncation.
 
-    def _matches(self, ra_deg, dec_deg, detector, start_mjd, end_mjd) -> list[ArchiveImage]:
+        Used by both limited image discovery and the annual availability index.
+        The latter supplies a shared deadline while splitting dense intervals.
+        """
         _coordinates(ra_deg, dec_deg)
         if detector is not None and (type(detector) is not int or not 1 <= detector <= 6):
             raise ValueError("detector must be an integer from 1 to 6.")
@@ -238,8 +257,14 @@ class IrsaClient:
         try:
             with client._session, warnings.catch_warnings():
                 warnings.simplefilter("error", DALOverflowWarning)
-                client._session.mount("https://", _SiaAdapter())
-                client._session.mount("http://", _SiaAdapter())
+                client._session.mount("https://", _SiaAdapter(deadline))
+                client._session.mount("http://", _SiaAdapter(deadline))
+                # IRSA's query endpoint is already known. Avoid the preliminary
+                # /capabilities request, whose HTTP failures PyVO flattens into
+                # an unstructured error that our query retries cannot recognize.
+                client._sia = SIA2Service(
+                    client.sia_url, session=client._session, check_baseurl=False,
+                )
                 try:
                     selection = {"collection": list(self._collections(client))}
                 except (DALAccessError, requests.RequestException):
@@ -253,7 +278,7 @@ class IrsaClient:
                     **selection,
                     maxrec=MAX_SEARCH_ROWS,
                     **constraints,
-                ), transient=_search_transient)
+                ), transient=_search_transient, deadline=deadline)
             if len(table) >= MAX_SEARCH_ROWS:
                 raise SearchTooBroad("Narrow the observation dates to complete the search.")
             images = {}
@@ -294,8 +319,21 @@ class IrsaClient:
         except (requests.RequestException, KeyError, TypeError, ValueError) as exc:
             raise ArchiveError("IRSA returned an invalid search response.") from exc
 
+    def _logged(self, operation: str, label: str | None, run):
+        """Run `run(path)` and log one timing line; run sets path[0] to "service" on fallback."""
+        started, path, outcome, size = time.monotonic(), ["ranges"], "error", 0
+        with count_retries() as retries:
+            try:
+                content = run(path)
+                outcome, size = "ok", len(content)
+                return content
+            finally:
+                logger.info("IRSA %s image=%s path=%s outcome=%s bytes=%d seconds=%.2f retries=%d",
+                            operation, label or "-", path[0], outcome, size,
+                            time.monotonic() - started, retries[0])
+
     def download_cutout(
-        self, source_url: str, ra_deg: float, dec_deg: float, size_deg: float
+        self, source_url: str, ra_deg: float, dec_deg: float, size_deg: float, label: str | None = None,
     ) -> bytes:
         """FITS bytes for a selected cutout; only IMAGE is guaranteed to be present.
 
@@ -307,15 +345,19 @@ class IrsaClient:
         if not math.isfinite(size_deg) or size_deg <= 0:
             raise ValueError("size_deg must be positive and finite.")
         deadline = self._deadline()
-        content = self._partial(
-            lambda: self.ranges.read_cutout(source_url, ra_deg, dec_deg, size_deg, deadline))
-        if content is not None:
-            return content
-        return self._service_cutout(source_url, ra_deg, dec_deg, size_deg, deadline)
+
+        def run(path):
+            content = self._partial(
+                lambda: self.ranges.read_cutout(source_url, ra_deg, dec_deg, size_deg, deadline))
+            if content is not None:
+                return content
+            path[0] = "service"
+            return self._service_cutout(source_url, ra_deg, dec_deg, size_deg, deadline)
+        return self._logged("cutout", label, run)
 
     def download_plane(
         self, source_url: str, ra_deg: float, dec_deg: float, size_deg: float,
-        extension: str, grid: tuple[float, float, int, int],
+        extension: str, grid: tuple[float, float, int, int], label: str | None = None,
     ) -> bytes:
         """FITS bytes holding `extension` on exactly the grid of an already loaded image.
 
@@ -333,10 +375,14 @@ class IrsaClient:
         if not (math.isfinite(crpix1) and math.isfinite(crpix2) and int(width) > 0 and int(height) > 0):
             raise ValueError("grid must hold a finite reference pixel and a positive size.")
         deadline = self._deadline()
-        content = self._partial(lambda: self.ranges.read_plane(source_url, extension, grid, deadline))
-        if content is not None:
-            return content
-        return align_plane(self._service_cutout(source_url, ra_deg, dec_deg, size_deg, deadline), extension, grid)
+
+        def run(path):
+            content = self._partial(lambda: self.ranges.read_plane(source_url, extension, grid, deadline))
+            if content is not None:
+                return content
+            path[0] = "service"
+            return align_plane(self._service_cutout(source_url, ra_deg, dec_deg, size_deg, deadline), extension, grid)
+        return self._logged(f"plane {extension}", label, run)
 
     def photometry_stamp(self, source_url: str, ra_deg: float, dec_deg: float, half: int):
         """Windows of one exposure around a position (see irsa_ranges.Stamp).

@@ -268,6 +268,17 @@ frame as the stars. It then runs the same search as §4.1 with
 `size_deg = size_arcmin / 60`. `at` is the time of the displayed sky, not an
 exposure filter.
 
+### 4.2b Search by sky box
+
+`POST /api/v1/images/search-box` receives the four corner directions of a box
+dragged on the sky, with the same observer, time and filters. The backend
+converts them to ICRS (`directions_to_icrs`), takes the normalised mean of the
+corner vectors as the centre, and uses the side of the north-aligned square
+that covers the box as `size_deg` (`box_selection`). Sizes outside 6.15″–0.5°
+return 422. The search itself is the §4.1 search, so IDs match a plain search
+with that centre and size; the response adds `selection` (centre, size and
+ICRS corners).
+
 ### 4.3 Load, pixels and projection
 
 ```mermaid
@@ -552,6 +563,7 @@ concurrently. The result stays consistent because publication is atomic.
 | `CatalogError` | 502 | The star catalog could not be retrieved. |
 | `CacheError` | 503 | The local image cache is unavailable. |
 | `MeshError` | 422 | This image's WCS cannot be projected accurately. Try a smaller size. |
+| `SelectionTooLarge` / `SelectionTooSmall` | 422 | The selected box spans N′; the maximum is 30′… / smaller than one pixel… |
 | `ArchiveTimeout` | 504 | IRSA timed out (also when the 120 s download budget runs out). |
 
 The handler picks the most specific class through the exception's MRO, so
@@ -574,8 +586,11 @@ accept both `detail` shapes: a string, or the 422 validation list.
 
 ## 10. Configuration
 
-`app/core/config.py`, frozen dataclass. **No environment-variable or `.env`
-loading yet.** Tests pass a custom `Settings` to `create_app`.
+`app/core/config.py`, frozen dataclass. At startup `Settings.from_env()` applies
+`ASTREA_CACHE_DIR`, `ASTREA_STAR_CACHE`, `ASTREA_CORS_ORIGINS`,
+`ASTREA_BAD_FLAGS`, `ASTREA_ARCHIVE_BUDGET_SECONDS` and `ASTREA_TARGETS_FILE` (see
+`backend/environment.md`); invalid values stop the server. No `.env` file is
+read. Tests pass a custom `Settings` to `create_app`.
 
 | Field | Default |
 | --- | --- |
@@ -592,7 +607,7 @@ Constants that behave like configuration but live in modules:
 
 | Constant | Where | Value |
 | --- | --- | --- |
-| `SIA_COLLECTIONS` | `integrations/irsa.py` | the four collections above |
+| `COLLECTION_TTL_SECONDS` / `COLLECTION_RETRY_SECONDS` | `integrations/irsa.py` | 3600 s / 60 s (SPHEREx collections discovered from IRSA's registry) |
 | `MAX_SEARCH_ROWS` | `integrations/irsa.py` | 10 000 |
 | `MAX_DOWNLOAD_BYTES` / `DOWNLOAD_SECONDS` | `integrations/irsa.py` | 80 MiB / 90 s |
 | `HEADER_GUESS` / `MAX_RANGES` / `MERGE_GAP` / `REQUEST_SECONDS` / `MAX_LAYOUTS` | `integrations/irsa_ranges.py` | 16 blocks / 96 / 256 B / 90 s / 256 |
@@ -698,6 +713,8 @@ All paths are prefixed with `/api/v1`.
 | --- | --- | --- | --- |
 | GET | `/images` | `ra_deg`, `dec_deg`, `size_deg`, `detector?`, `limit?`, `start_time?`, `end_time?` | `ImageSearchResponse`: discovery only, newest first, `has_more` |
 | POST | `/images/search` | `direction`, `observer`, `at`, `mode`, `size_arcmin`, `detector?`, `limit?`, dates | Same response, from a sky click |
+| GET | `/targets` | — | Acceptance targets from `targets.yaml`, positions propagated to the SPHEREx epoch, with ready-made search URLs |
+| POST | `/images/search-box` | `corners[4]`, `observer`, `at`, `mode`, `detector?`, `limit?`, dates | Same response plus `selection`, from a box dragged on the sky |
 | GET | `/images/{id}` | — | `ImageMetadata`; downloads and decodes on first access |
 | POST | `/images/load/{id}` | empty body | Same as `GET /images/{id}` |
 | GET | `/images/{id}/pixels` | `subtract_zodi?`, `mask_flags?`, `signal_to_noise?` (default false) | `application/octet-stream`, raw floats unless corrections are requested |
@@ -730,7 +747,11 @@ Test suite (all offline; IRSA and VizieR are replaced by fakes or mocks):
 | `test_irsa_ranges.py` | Window reads reproduce the exposure's pixels, compressed FLAGS, planes on the given grid (also shifted), layouts per reader, multipart parsing, refusing non-206, retries, fallback and no fallback on outages, `align_plane` padding/cropping, time budget |
 | `test_planes_api.py` | Plane metadata and flag bits, plane pixels downloaded once, corrections and their combinations, masking policy (`SOURCE` never), error mapping |
 | `test_fits_image.py` | Pixel order and values incl. NaN/∞, WCS with rotation and SIP, outer-edge footprint, provenance and `DATE` semantics, float64 not downcast, rejection of corrupt/missing/non-celestial/cube/oversized images |
-| `test_images_api.py` | Search without download, single download per ID, pixels-first and restart survival, ID stability, truncation, empty results, timezone dates, validation, 404, upstream status mapping, invalid FITS not cached, OpenAPI, click→load→pixels→projection, unprojectable WCS → 422, star routes |
+| `test_images_api.py` | Search without download, single download per ID, pixels-first and restart survival, ID stability, truncation, empty results, timezone dates, validation, 404, upstream status mapping, invalid FITS not cached, OpenAPI, click→load→pixels→projection, unprojectable WCS → 422, box search (centre/size, limits, malformed corners), NaN bodies → 422, two observations loaded and projected independently, star routes |
+| `test_config.py` | Defaults, each `ASTREA_*` override, invalid values and unknown names fail fast, `SOURCE` refused, `create_app` reads the environment |
+| `test_box_selection.py` | Box centre and covering size round trip through the sky calculation, RA 0°/360° wrap, pole, rotated box, size limits, invalid directions |
+| `test_targets.py` | `targets.yaml` validation, proper-motion propagation (Barnard's Star ~4.5′), independent position check, `/targets` route |
+| `test_warm.py` | Warm command: time-spread choice and manifest, cache reuse, offline verification without network, missing cache, exit codes, argument errors |
 | `test_sky.py` | Hipparcos epoch/units/missing data, catalog cache across restart, click inverts a rendered star direction, JSON and SKY1 agree, invalid clicks |
 
 Passing tests do not prove that IRSA or VizieR are available live, or that a
@@ -749,7 +770,7 @@ current API without waiting for quality/background processing.
 | 2 | **Configuration from environment** | `ASTREA_*` env vars for cache dirs, CORS, limits. Move module constants into `Settings`. |
 | 3 | **Quality and background variants** — *done* | `mask_flags` (by flag *name*, never `SOURCE`), `subtract_zodi` and `signal_to_noise` on `/pixels`; plane endpoints for flags, zodi and variance. Raw `/pixels` is unchanged. |
 | 4 | **Blink (epoch comparison)** | Frontend selects A/B, uses each observation's existing pixels and WCS projection, applies one shared display scale and alternates visibility. Future frontend sequences can include more than two observations. No new blink routes or common-grid resampling required; quantitative reprojection remains optional future work. Design: [`2026-11-14-spherex-backend-fastapi-design.md`](2026-11-14-spherex-backend-fastapi-design.md). |
-| 5 | **Pre-warm command** | CLI that fills the cache for the acceptance targets (Barnard's Star, ε Indi B, WISE 0855, RW Aur, R Dra), with proper-motion propagation. Needed for an offline demo. |
+| 5 | **Pre-warm command** — *implemented* (live run pending) | CLI that fills the cache for the acceptance targets (Barnard's Star, ε Indi B, WISE 0855, RW Aur, R Dra), with proper-motion propagation. Needed for an offline demo. |
 | 6 | **Spectra** | Wavelength at the target from `WCS-WAVE` (requires keeping that extension). |
 | 7 | **Pagination and full history** | Search beyond `limit`; date-window paging. |
 | 8 | **Observability** | Timings for search, download, decode and projection in logs. |

@@ -1,6 +1,12 @@
 {
   "title": "Preparation",
   "intro": "Click a point in the sky or search by coordinates.",
+  "confirmRegion": {
+    "title": "Change region?",
+    "description": "Do you want to change region?",
+    "cancel": "No",
+    "confirm": "Yes"
+  },
   "fields": {
     "size": {
       "label": "Cutout size (arcminutes)",
@@ -21,6 +27,7 @@
     }
   },
   "actions": {
+    "loadLatest": "Load latest observation",
     "search": "Search coordinates", "cancel": "Cancel operation",
     "cancelPreparation": "Cancel preparation", "clear": "Clear image and results"
   },
@@ -43,6 +50,10 @@
   },
   "notices": {
     "searching": "Searching for observations…", "loading": "Loading image…", "loaded": "Image loaded",
+    "searchFailed": "Could not search for observations in IRSA.",
+    "loadFailed": "Could not load the image.",
+    "cancelled": "Operation cancelled",
+    "empty": "No observations found in IRSA.",
     "found": { "one": "{{count}} image found in IRSA", "other": "{{count}} images found in IRSA" },
     "foundMore": { "one": "More than {{count}} image found in IRSA", "other": "More than {{count}} images found in IRSA" }
   }

@@ -388,3 +388,40 @@ def test_client_budget_maps_to_archive_timeout():
         with pytest.raises(ArchiveTimeout):
             IrsaClient(budget_seconds=0).download_cutout(URL, 150.0, 20.0, SIZE_DEG)
     service.assert_not_called()
+
+
+# ---- Timing logs ----
+
+def test_each_download_logs_one_timing_line(exposure, server, caplog):
+    reader = irsa_ranges.RangeReader()
+    with caplog.at_level("INFO", logger="app.integrations.irsa"):
+        cutout = IrsaClient(ranges=reader).download_cutout(URL, 150.0, 20.0, SIZE_DEG, label="abc123")
+        IrsaClient(ranges=reader).download_plane(URL, 150.0, 20.0, SIZE_DEG, "ZODI", grid_of(cutout), label="abc123")
+    lines = [record.getMessage() for record in caplog.records if record.getMessage().startswith("IRSA ")]
+    assert len(lines) == 2
+    assert lines[0].startswith("IRSA cutout image=abc123 path=ranges outcome=ok bytes=")
+    assert lines[1].startswith("IRSA plane ZODI image=abc123 path=ranges outcome=ok bytes=")
+    assert all("retries=0" in line for line in lines)
+
+
+def test_fallback_and_retries_appear_in_the_timing_line(caplog):
+    busy = FakeResponse(503, {"Retry-After": "1"})
+    busy.raise_for_status = lambda: (_ for _ in ()).throw(requests.HTTPError(response=busy))
+    with patch.object(irsa_ranges.RangeReader, "read_cutout", side_effect=irsa_ranges.PartialReadError("no")), \
+            patch("app.integrations.irsa.requests.get", side_effect=[busy, service_response()]), \
+            patch("app.integrations.http_retry.time.sleep"), \
+            caplog.at_level("INFO", logger="app.integrations.irsa"):
+        IrsaClient().download_cutout(URL, 150.0, 20.0, SIZE_DEG)
+    messages = [record.getMessage() for record in caplog.records]
+    assert any("using the IRSA cutout service" in message for message in messages)
+    line = next(message for message in messages if message.startswith("IRSA cutout"))
+    assert "image=- path=service outcome=ok" in line and "retries=1" in line
+
+
+def test_failed_download_is_logged_as_an_error(caplog):
+    with patch.object(irsa_ranges.RangeReader, "read_cutout", side_effect=requests.Timeout()), \
+            caplog.at_level("INFO", logger="app.integrations.irsa"):
+        with pytest.raises(ArchiveTimeout):
+            IrsaClient().download_cutout(URL, 150.0, 20.0, SIZE_DEG, label="x")
+    line = next(record.getMessage() for record in caplog.records if record.getMessage().startswith("IRSA cutout"))
+    assert "image=x path=ranges outcome=error bytes=0" in line

@@ -1,6 +1,6 @@
 export const DEFAULT_CUTOUT_SIZE = 7
 
-// 0 means "any detector": the most recent observation whichever array took it.
+// 0 selects the most recent observation from any detector
 export const ANY_DETECTOR = 0
 export const DETECTORS = [
   { value: 1, range: '0.75–1.09' }, { value: 2, range: '1.10–1.62' }, { value: 3, range: '1.63–2.41' },

@@ -110,12 +110,12 @@ def test_position_near_the_detector_edge_gives_no_stamp(monkeypatch):
 
 class FakeArchive:
     def __init__(self, stamp):
-        self.stamp, self.reads, self.searches = stamp, [], []
+        self.stamp, self.reads, self.searches, self.budget_seconds = stamp, [], [], 120.0
         self.rows = [ArchiveImage(source_url=URL.replace("image", name), observation_id=name, detector=2,
                                   collection="dr1", observed_start_mjd=60000.0 + index, observed_end_mjd=None)
                      for index, name in enumerate(("good", "edge", "broken"))]
 
-    def covering(self, **kwargs):
+    def search_all(self, **kwargs):
         self.searches.append(kwargs)
         return self.rows + [ArchiveImage(source_url=URL.replace("image", "other"), observation_id="other",
                                          detector=5, collection="dr1", observed_start_mjd=60005.0,
@@ -158,4 +158,5 @@ def test_endpoint_returns_one_point_per_measured_exposure_and_caches_it(tmp_path
     get()
     # Only the failed exposure is read again, and the archive is searched once for all detectors.
     assert [url.rsplit("/", 1)[1] for url in archive.reads[3:]] == ["broken.fits"]
-    assert archive.searches == [{"ra_deg": RA, "dec_deg": DEC}]
+    assert len(archive.searches) == 1 and archive.searches[0]["detector"] is None
+    assert archive.searches[0]["deadline"] > 0
