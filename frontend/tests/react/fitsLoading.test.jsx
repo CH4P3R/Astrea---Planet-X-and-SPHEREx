@@ -36,6 +36,7 @@ function Probe({ observer: currentObserver = observer, rendererReady = true, opt
     <output data-testid="state">{JSON.stringify({
       status: fits.status, images: fits.images, active: fits.active?.metadata.id ?? null,
       detail: fits.detail?.metadata.id ?? null, refining: fits.refining, error: fits.error,
+      notice: fits.notice,
       committed: fits.committed, commitPending: fits.commitPending,
       source: location?.observer?.source, locationError: location?.error,
     })}</output>
@@ -360,6 +361,46 @@ describe('FITS search and loading lifecycle', () => {
     expect(state()).toMatchObject({ active: 'manual', committed: null, commitPending: false })
     expect(loadMetadata).toHaveBeenCalledTimes(1)
     expect(onCommittedChange).not.toHaveBeenCalled()
+  })
+
+  it.each(['coordinates', 'sky'])('manual load without an observer supersedes an in-flight %s search', async (kind) => {
+    const pending = deferred(), onCommittedChange = vi.fn()
+    const options = { onCommittedChange }
+    if (kind === 'coordinates') searchCoordinates.mockReturnValueOnce(pending.promise)
+    else searchImages.mockReturnValueOnce(pending.promise)
+    const view = render(<Probe observer={kind === 'sky' ? observer : null} options={options} />)
+    click(kind === 'coordinates' ? 'A' : 'sky')
+    const signal = (kind === 'coordinates' ? searchCoordinates : searchImages).mock.lastCall[4]
+    view.rerender(<Probe observer={null} options={options} />)
+    click('load')
+    expect(signal.aborted).toBe(true)
+    expect(state()).toMatchObject({
+      status: 'idle', active: null, images: [], commitPending: false, error: 'location.notices.required', notice: null,
+      committed: kind === 'coordinates' ? { ra: 10, dec: 20, size: 7, detector: 0 } : null,
+    })
+    const superseded = state()
+    await act(async () => pending.resolve(result('old-search', 70, 80)))
+    expect(state()).toEqual(superseded)
+    view.rerender(<Probe options={options} />)
+    await flush()
+    expect(state()).toEqual(superseded)
+    expect(loadMetadata).not.toHaveBeenCalled()
+    expect(onCommittedChange.mock.calls).toEqual(kind === 'coordinates'
+      ? [[{ ra: 10, dec: 20, size: 7, detector: 0 }]] : [])
+  })
+
+  it('manual load without an observer keeps existing results but cancels their deferred load', async () => {
+    const view = render(<Probe observer={null} />)
+    click('A')
+    await status('results')
+    click('load')
+    expect(state()).toMatchObject({
+      status: 'results', images: [{ id: 'A' }], active: null, error: 'location.notices.required',
+    })
+    view.rerender(<Probe />)
+    await flush()
+    expect(loadMetadata).not.toHaveBeenCalled()
+    expect(state().status).toBe('results')
   })
 
   it.each(['cancel', 'clear', 'invalid', 'B', 'valid', 'unmount'])('%s supersedes initial hydration before dispatch', async (action) => {

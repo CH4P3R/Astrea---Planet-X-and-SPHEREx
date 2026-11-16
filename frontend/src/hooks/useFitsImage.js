@@ -136,17 +136,21 @@ export default function useFitsImage(observer, timeContext, catalog = 'archive',
     initialIntent.current = null
     pendingLoad.current = null
     const { observer, timeContext } = contextRef.current
-    if (!observer) return
     controller.current?.abort()
     setCommitPending(false)
     refinement.current?.abort()
     setDetail(null)
     setDetailError('')
     setRefining(false)
+    setPreparing(false)
+    if (!observer) {
+      setState((previous) => ({ ...previous, status: previous.active ? 'ready' : previous.images.length ? 'results' : 'idle',
+        error: 'location.notices.required', notice: null }))
+      return
+    }
     const job = new AbortController()
     job.kind = 'load'
     controller.current = job
-    setPreparing(false)
     setState((previous) => ({ ...previous, status: 'loading', error: '',
       notice: { status: 'loading', message: 'search.notices.loading' },
       loadObserver: observer, loadTime: timeContext }))
