@@ -4,8 +4,9 @@ import PanelContent from '../common/PanelContent.jsx'
 import InputField from '../common/InputField.jsx'
 import { coordinateError, cutoutSizeError } from '../../config/search.js'
 import useTranslation from '../../i18n/useTranslation.js'
+import ShareLink from '../../share/ShareLink.jsx'
 
-export default function FitsControls({ fits, observer, warning }) {
+export default function FitsControls({ fits, observer, warning, share }) {
   const { t } = useTranslation()
   const formId = useId()
   const { ra, dec } = fits.coordinates
@@ -50,6 +51,7 @@ export default function FitsControls({ fits, observer, warning }) {
           : (fits.status !== 'idle' || fits.active || hasResults || warning === 'share.notices.invalid') && <button type="button" onClick={fits.reset}>
             {t('search.actions.clear')}
           </button>}
+      {share && <ShareLink {...share} />}
     </>}>
     <form id={formId} onSubmit={submit}>
       <InputField label={t('search.fields.ra.label')} name="ra" type="number" min="0" max="360" step="any" required

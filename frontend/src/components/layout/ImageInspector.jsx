@@ -8,9 +8,10 @@ import ImageDataPanel from '../controls/ImageDataPanel.jsx'
 import ImageAppearancePanel from '../controls/ImageAppearancePanel.jsx'
 import ImageComparisonPanel from '../blink-hud/ImageComparisonPanel.jsx'
 import useTranslation from '../../i18n/useTranslation.js'
+import ShareLink from '../../share/ShareLink.jsx'
 
 export default function ImageInspector({ open, onClose, tab, onTabChange, fits, displayed,
-  appearance, comparison, playback, reason, primaryProjection, frames, projections, onCenter, tutorial = false }) {
+  appearance, comparison, playback, reason, primaryProjection, frames, projections, onCenter, share, tutorial = false }) {
   const { t } = useTranslation()
   const id = useId()
   if (!fits.active || !open) return null
@@ -39,6 +40,7 @@ export default function ImageInspector({ open, onClose, tab, onTabChange, fits, 
             <span className="inspector-release"><span>{t('inspector.release', { release: metadata.collection })}</span>
               </span>
           </div>
+          {share && <ShareLink {...share} />}
           <DetectorSelector value={metadata.detector} onChange={(value) => { playback.show(fits.active.metadata.id); fits.setDetector(value) }} disabled={busy} />
           {Object.values(appearance.appliedProcessing).some(Boolean) && <p className="context-note">
             {t(appearance.appliedProcessing.signal_to_noise ? 'inspector.appearance.dimensionless' : 'inspector.appearance.processed')}

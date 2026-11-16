@@ -8,7 +8,7 @@ import SkyControls from './SkyControls.jsx'
 import useTranslation from '../../i18n/useTranslation.js'
 
 const sections = ['time', 'location', 'search', 'sky']
-export default function ContextToolbar({ clock, location, fits, menu, warning, stars, surfaceVisible, setSurfaceVisible, idPrefix = '' }) {
+export default function ContextToolbar({ clock, location, fits, menu, warning, share, stars, surfaceVisible, setSurfaceVisible, idPrefix = '' }) {
   const { t, date } = useTranslation()
   const options = sections.map((id) => ({ id, label: t(`${id}.title`) }))
   const { active, hint, keepOpen, preview, leave } = menu
@@ -43,7 +43,7 @@ export default function ContextToolbar({ clock, location, fits, menu, warning, s
           label={label} visible={active === id}>
           {id === 'time' && <TimeControls clock={clock} />}
           {id === 'location' && <LocationControls {...location} />}
-          {id === 'search' && <FitsControls fits={fits} observer={location.observer} warning={warning} />}
+          {id === 'search' && <FitsControls fits={fits} observer={location.observer} warning={warning} share={share} />}
           {id === 'sky' && <SkyControls stars={stars} surfaceVisible={surfaceVisible} setSurfaceVisible={setSurfaceVisible} />}
         </ContextPanel>)}
       </div>

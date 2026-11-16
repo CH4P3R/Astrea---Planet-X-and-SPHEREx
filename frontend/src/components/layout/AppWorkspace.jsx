@@ -38,6 +38,10 @@ export default function AppWorkspace({ tutorial = false, suspended = false, onSt
     initialSearch: skyUrl.initialSearch,
     onCommittedChange: skyUrl.sync,
   })
+  const { committed, commitPending } = fits
+  const { shareHref } = skyUrl
+  const getShareHref = useCallback(() => shareHref(committed), [shareHref, committed])
+  const share = tutorial ? null : { getHref: getShareHref, disabled: !committed || commitPending }
   const stars = useStars(location.observer, clock.context, clock.timestamp)
   const starsNotice = useMemo(() => stars.status === 'loading' && !stars.snapshot
     ? { status: 'loading', message: 'sky.status.loadingNotice', icon: 'star' } : null,
@@ -129,13 +133,13 @@ export default function AppWorkspace({ tutorial = false, suspended = false, onSt
         </Canvas>
       </div>
       <div className="ui-layer">
-        <ContextToolbar clock={clock} location={location} fits={fits} menu={tourMenu} warning={skyUrl.warning}
+        <ContextToolbar clock={clock} location={location} fits={fits} menu={tourMenu} warning={skyUrl.warning} share={share}
           stars={stars} surfaceVisible={surfaceVisible} setSurfaceVisible={setSurfaceVisible}
           idPrefix={tutorial ? 'tutorial-' : ''} />
         <LanguageSelect onStartTour={onStartTour ? () => { playback.pause(); onStartTour() } : undefined} />
         <ImageInspector open={inspectorOpen} tab={tab} fits={fits} displayed={displayed} appearance={appearance}
           comparison={comparison} playback={playback} reason={t(reason)} primaryProjection={primaryProjection} frames={frames} projections={projections}
-          tutorial={tutorial}
+          tutorial={tutorial} share={share}
           onTabChange={(value) => { playback.pause(); setTab(value) }}
           onClose={() => { playback.pause(); fits.reset(); setTab('data'); open(null)
             requestAnimationFrame(() => rootRef.current?.focus({ preventScroll: true })) }}

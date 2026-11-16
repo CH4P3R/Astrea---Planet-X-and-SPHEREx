@@ -1,5 +1,5 @@
 import { StrictMode, useEffect } from 'react'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import AppWorkspace from '../../src/components/layout/AppWorkspace.jsx'
 import AppViewport from '../../src/components/layout/AppViewport.jsx'
@@ -76,8 +76,12 @@ const navigate = (href) => act(() => {
   window.history.pushState({}, '', href)
   window.dispatchEvent(new PopStateEvent('popstate'))
 })
+let clipboardDescriptor
+const copyButton = (container) => within(container).getByRole('button', { name: 'Copy link', hidden: true })
+const searchFooter = () => document.querySelector('#context-search .context-panel-footer')
 
 beforeEach(() => {
+  clipboardDescriptor = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
   vi.resetAllMocks()
   // jsdom has no layout tree; retain the real anchoring hook with a positioned parent.
   vi.spyOn(HTMLElement.prototype, 'offsetParent', 'get').mockImplementation(function () { return this.parentElement })
@@ -90,7 +94,84 @@ beforeEach(() => {
   loadPixels.mockResolvedValue(new ArrayBuffer(4))
   loadProjection.mockResolvedValue({})
 })
-afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers() })
+afterEach(() => {
+  if (clipboardDescriptor) Object.defineProperty(navigator, 'clipboard', clipboardDescriptor)
+  else delete navigator.clipboard
+  vi.restoreAllMocks()
+  vi.useRealTimers()
+})
+
+it('places live committed links in the search footer and inspector summary without exposing drafts, metadata detector, or private URL fields', async () => {
+  window.history.replaceState({}, '', '/?ra=10&dec=20&size=7&detector=0&latitude=51&foo=1#frag')
+  const writeText = vi.fn().mockResolvedValue()
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+  searchCoordinates.mockResolvedValueOnce(result(10, 20, [{ id: metadata.id }]))
+  mount()
+  await waitFor(() => expect(document.querySelector('.inspector-summary')).toBeTruthy())
+  const summary = document.querySelector('.inspector-summary')
+  expect(copyButton(searchFooter()).disabled).toBe(false)
+  expect(copyButton(summary).disabled).toBe(false)
+  fireEvent.click(copyButton(summary))
+  await flush()
+  expect(writeText).toHaveBeenLastCalledWith(`${window.location.origin}/?ra=10&dec=20&size=7&detector=0`)
+  openSearch()
+  edit(50, 60)
+  expect(within(summary).getByRole('status').textContent).toBe('Link copied')
+  fireEvent.click(copyButton(searchFooter()))
+  await flush()
+  expect(writeText).toHaveBeenLastCalledWith(`${window.location.origin}/?ra=10&dec=20&size=7&detector=0`)
+  submit()
+  await flush()
+  expect(within(searchFooter()).queryByRole('status')).toBeNull()
+  fireEvent.click(copyButton(searchFooter()))
+  await flush()
+  expect(writeText).toHaveBeenLastCalledWith(`${window.location.origin}/?ra=50&dec=60&size=7&detector=0`)
+})
+
+it.each(['empty', 'failed'])('keeps sharing enabled for a committed %s search', async (outcome) => {
+  window.history.replaceState({}, '', '/')
+  if (outcome === 'failed') searchCoordinates.mockRejectedValueOnce(new Error('offline'))
+  mount()
+  openSearch()
+  expect(copyButton(searchFooter()).disabled).toBe(true)
+  edit(10, 20)
+  submit()
+  await flush()
+  expect(scene.fits.status).toBe(outcome === 'empty' ? 'results' : 'error')
+  expect(copyButton(searchFooter()).disabled).toBe(false)
+})
+
+it('disables sharing of an existing commit while a sky click is unresolved and enables its newly resolved coordinates', async () => {
+  window.history.replaceState({}, '', '/?ra=1&dec=2')
+  mount()
+  await flush()
+  openSearch()
+  expect(copyButton(searchFooter()).disabled).toBe(false)
+  const pending = deferred()
+  searchImages.mockReturnValueOnce(pending.promise)
+  click('sky click')
+  expect(scene.fits.committed.ra).toBe(1)
+  expect(copyButton(searchFooter()).disabled).toBe(true)
+  await act(async () => pending.resolve(result(30, 40)))
+  expect(copyButton(searchFooter()).disabled).toBe(false)
+})
+
+it('copies committed coordinates even when history writes fail', async () => {
+  window.history.replaceState({}, '', '/?ra=bad&longitude=12#private')
+  const writeText = vi.fn().mockResolvedValue()
+  Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
+  mount()
+  vi.spyOn(window.history, 'replaceState').mockImplementation(() => { throw new Error('blocked') })
+  edit(10, 20)
+  submit()
+  await flush()
+  expect(copyButton(searchFooter()).disabled).toBe(false)
+  fireEvent.click(copyButton(searchFooter()))
+  await flush()
+  expect(writeText).toHaveBeenCalledExactlyOnceWith(`${window.location.origin}/?ra=10&dec=20&size=7&detector=0`)
+  expect(window.location.search).toBe('?ra=bad&longitude=12')
+  expect(document.querySelector('.status-region').textContent).toContain(historyWarning)
+})
 
 it('hydrates a shared URL atomically and does not overwrite it with defaults, including StrictMode', async () => {
   window.history.replaceState({}, '', '/?ra=83.63&dec=-5.39&size=12&detector=3&foo=1#frag')
@@ -287,10 +368,14 @@ it('isolates tutorial drafts and searches from the URL and navigation', async ()
   mount(<AppWorkspace tutorial onFinishTour={() => {}} />)
   await flush()
   expect(input('ra').value).toBe('269.4463')
+  expect(screen.queryByRole('button', { name: 'Copy link', hidden: true })).toBeNull()
   expect(input('dec').value).toBe('4.7679')
   expect(scene.fits.committed).toBeNull()
   expect(searchCoordinates).not.toHaveBeenCalled()
+  searchCoordinates.mockResolvedValueOnce(result(269.4463, 4.7679, [{ id: metadata.id }]))
   await act(async () => { await scene.fits.loadOnboarding() })
+  expect(document.querySelector('.inspector-summary')).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Copy link', hidden: true })).toBeNull()
   expect(searchCoordinates.mock.lastCall[5]).toBe('onboarding')
   navigate('/?ra=bad')
   expect(screen.queryByText(invalid)).toBeNull()
