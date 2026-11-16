@@ -26,6 +26,9 @@ export default function useFitsImage(observer, timeContext, catalog = 'archive',
   const [focus, setFocus] = useState(null)
   const controller = useRef(null)
   const refinement = useRef(null)
+  const searchId = useRef(0)
+  const pendingLoad = useRef(null)
+  const initialIntent = useRef(initialSearch)
   const [detail, setDetail] = useState(null)
   const [detailError, setDetailError] = useState('')
   const [refining, setRefining] = useState(false)
@@ -56,6 +59,9 @@ export default function useFitsImage(observer, timeContext, catalog = 'archive',
   useEffect(() => { onCommittedChangeRef.current = onCommittedChange }, [onCommittedChange])
 
   const reset = useCallback(({ notify = true } = {}) => {
+    initialIntent.current = null
+    pendingLoad.current = null
+    searchId.current += 1
     controller.current?.abort()
     refinement.current?.abort()
     setDetail(null)
@@ -72,6 +78,11 @@ export default function useFitsImage(observer, timeContext, catalog = 'archive',
   }, [])
 
   const cancel = useCallback(() => {
+    initialIntent.current = null
+    pendingLoad.current = null
+    searchId.current += 1
+    refinement.current?.abort()
+    setRefining(false)
     if (!['searching', 'loading'].includes(state.status)) return
     controller.current?.abort()
     setCommitPending(false)
@@ -80,7 +91,12 @@ export default function useFitsImage(observer, timeContext, catalog = 'archive',
     setPreparing(false)
   }, [state.status])
 
-  useEffect(() => () => { controller.current?.abort(); refinement.current?.abort() }, [])
+  useEffect(() => () => {
+    pendingLoad.current = null
+    searchId.current += 1
+    controller.current?.abort()
+    refinement.current?.abort()
+  }, [])
 
   const source = state.active
   useEffect(() => {
@@ -117,6 +133,8 @@ export default function useFitsImage(observer, timeContext, catalog = 'archive',
   }, [observer, timeContext])
 
   const load = useCallback(async (id) => {
+    initialIntent.current = null
+    pendingLoad.current = null
     const { observer, timeContext } = contextRef.current
     if (!observer) return
     controller.current?.abort()
@@ -153,8 +171,20 @@ export default function useFitsImage(observer, timeContext, catalog = 'archive',
     }
   }, [])
 
+  useEffect(() => {
+    const pending = pendingLoad.current
+    if (!observer || textureLimit <= 0 || !pending) return
+    pendingLoad.current = null
+    if (pending.searchId === searchId.current) load(pending.id)
+  }, [observer, textureLimit, load])
+
   const runSearch = useCallback(async (request, keepActive = false, skySearch = null) => {
+    initialIntent.current = null
+    pendingLoad.current = null
+    const id = ++searchId.current
     controller.current?.abort()
+    refinement.current?.abort()
+    setRefining(false)
     const job = new AbortController()
     controller.current = job
     setCommitPending(Boolean(skySearch))
@@ -180,8 +210,10 @@ export default function useFitsImage(observer, timeContext, catalog = 'archive',
           hasMore: result.has_more, query: result.query, notice: { status: count === 0 ? 'empty' : 'success', message } }))
         const { ra_deg: ra, dec_deg: dec, size_deg: sizeDeg } = result.query
         lastSearch.current = (chosen, signal) => searchCoordinates(ra, dec, sizeDeg * 60, chosen, signal, catalog)
-        // Load the most recent observation as soon as the search completes
-        if (result.images[0]) await load(result.images[0].id)
+        if (result.images[0]) {
+          if (contextRef.current.observer && maxTextureSize.current > 0) await load(result.images[0].id)
+          else pendingLoad.current = { searchId: id, id: result.images[0].id }
+        }
       }
     } catch (error) {
       if (!job.signal.aborted) {
@@ -230,6 +262,15 @@ export default function useFitsImage(observer, timeContext, catalog = 'archive',
     lastSearch.current = (chosen, signal) => searchCoordinates(search.ra, search.dec, search.size, chosen, signal, catalog)
     return runSearch((signal) => lastSearch.current(search.detector, signal))
   }, [catalog, commit, runSearch])
+
+  useEffect(() => {
+    let disposed = false
+    // Defer consumption until after Strict Mode's setup/cleanup/setup replay.
+    queueMicrotask(() => {
+      if (!disposed && initialIntent.current) restore(initialIntent.current)
+    })
+    return () => { disposed = true }
+  }, [restore])
 
   const applyUrl = useCallback((state) => {
     if (state.status === 'valid') return restore(state.search)
