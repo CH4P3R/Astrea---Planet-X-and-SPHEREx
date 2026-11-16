@@ -7,17 +7,18 @@ import ObservationDate from '../controls/ObservationDate.jsx'
 import ImageDataPanel from '../controls/ImageDataPanel.jsx'
 import ImageAppearancePanel from '../controls/ImageAppearancePanel.jsx'
 import ImageComparisonPanel from '../blink-hud/ImageComparisonPanel.jsx'
+import SpectrumPanel from '../spectrum/SpectrumPanel.jsx'
 import useTranslation from '../../i18n/useTranslation.js'
 import ShareLink from '../../share/ShareLink.jsx'
 
 export default function ImageInspector({ open, onClose, tab, onTabChange, fits, displayed,
-  appearance, comparison, playback, reason, primaryProjection, frames, projections, onCenter, share, highlightedTab, referenceObserver = false }) {
+  appearance, comparison, playback, reason, primaryProjection, frames, projections, onCenter, share, highlightedTab, referenceObserver = false, spectrum, spectrumSample = false }) {
   const { t } = useTranslation()
   const id = useId()
   if (!fits.active || !open) return null
   const metadata = displayed.metadata
   const busy = ['searching', 'loading'].includes(fits.status)
-  const items = ['data', 'appearance', 'compare'].map((name) => ({ id: name, label: t(`inspector.tabs.${name}`), icon: <InspectorIcon name={name} /> }))
+  const items = ['data', 'appearance', 'compare', ...(spectrum ? ['spectrum'] : [])].map((name) => ({ id: name, label: t(`inspector.tabs.${name}`), icon: <InspectorIcon name={name} /> }))
   return <>
     <aside className="image-inspector" data-open={open} data-active-tab={tab} inert={!open} aria-hidden={!open} aria-label={t('inspector.title')} data-image-obstacle data-select-obstacle>
       <div className="inspector-topbar">
@@ -63,6 +64,7 @@ export default function ImageInspector({ open, onClose, tab, onTabChange, fits, 
             {item.id === 'appearance' && <ImageAppearancePanel appearance={appearance} />}
             {item.id === 'compare' && <ImageComparisonPanel comparison={comparison} playback={playback} reason={reason}
               primary={fits.active} frames={frames} projections={projections} />}
+            {item.id === 'spectrum' && <SpectrumPanel spectrum={spectrum} image={fits.active.metadata} sample={spectrumSample} />}
           </div>)}
         </div>
       </div>

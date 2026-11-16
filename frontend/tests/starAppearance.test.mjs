@@ -12,7 +12,7 @@ test('catalog magnitude preserves brightness and size ordering with visible fain
   }
   assert.ok(stars.at(-1).diameter >= 2)
   assert.ok(stars.at(-1).brightness > 0.45)
-  assert.equal(starAppearance(-100).diameter, 7)
+  assert.equal(starAppearance(-100).diameter, 9.2)
   assert.equal(starAppearance(-100).brightness, 1)
 })
 

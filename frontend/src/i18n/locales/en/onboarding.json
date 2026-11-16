@@ -8,17 +8,18 @@
     "profile": "{{name}} on GitHub (opens in a new tab)",
     "repository": "Public repository",
     "repositoryDescription": "Explore the source code and development of Astrea on GitHub.",
-    "repositoryLink": "View the project on GitHub (opens in a new tab)",
+    "repositoryLink": "View the project on GitHub",
     "close": "Close"
   },
   "intro": {
     "title": "Welcome to Astrea",
-    "summary": "Explore the sky and discover real images from the SPHEREx space telescope, which observes infrared light our eyes cannot see.",
+    "summary": "Explore the sky and discover real images from SPHEREx, a space telescope that observes infrared light, invisible to our eyes.",
     "possibilities": "What can you do?",
-    "sky": "Explore the sky from a location and a date.",
-    "images": "Search a region and adjust its images to reveal more detail.",
-    "compare": "Compare observations from different dates and look for possible changes.",
-    "note": "Astrea makes astronomical data accessible to everyone: explore without learning scientific file formats. The guide helps you get started.",
+    "sky": "Drag to look around the sky and use the mouse wheel to zoom in or out.",
+    "images": "Choose a region and see images taken by the telescope.",
+    "compare": "Alternate between images from different dates to look for possible changes.",
+    "spectrum": "Explore how bright a point in the sky is in different parts of infrared light.",
+    "note": "You do not need experience in astronomy. The guide takes you through an example you can try, step by step.",
     "tutorial": "View tutorial",
     "explore": "Start exploring",
     "loading": "Preparing Astrea…"
@@ -31,81 +32,91 @@
   "restart": "View tutorial",
   "inspector": "Right panel",
   "try": "Try these steps",
-  "load": "Load Barnard FITS",
-  "loading": "Loading the local observation and its projection…",
-  "found": "Local Barnard observation found",
-  "empty": "No local FITS match these coordinates, size or detector. Use the Barnard field, 7 arcminutes and D3.",
+  "load": "Load Barnard image",
+  "loading": "Preparing the example image in the sky…",
+  "found": "Barnard example image found",
+  "empty": "This example uses the Barnard region, a size of 7 arcminutes and detector D3. Return to those settings to load it.",
   "welcome": {
     "title": "Explore Astrea",
-    "summary": "Learn the interface with real images of Barnard's Star.",
+    "summary": "Let's explore the region around Barnard's Star with real images. The highlighted area shows which part of the screen you can try.",
     "actions": {
-      "1": { "title": "Follow the tour", "description": "Click Next to discover the controls." },
-      "2": { "title": "Try it without losing your work", "description": "Your previous session returns when you leave." }
+      "1": { "title": "Find your way around the controls", "description": "The icons on the left open the sky options. Click Next to get to know them." },
+      "2": { "title": "Try things at your own pace", "description": "You can change the example's settings. When you leave, your session from before the guide will return." }
     },
-    "note": "You can skip the guide and reopen it from the question mark."
+    "note": "Move forward or back at your own pace. Leave with Skip all and open the guide again from the question mark icon."
   },
   "time": {
     "title": "Sky time",
-    "summary": "This clock orients the sky; it does not change image acquisition dates.",
+    "summary": "The sky shifts as the hours pass. This clock chooses the moment you are viewing, without changing when each image was taken.",
     "actions": {
-      "1": { "title": "Try the clock", "description": "Switch between Return to current time and Pause time." },
-      "2": { "title": "Choose another date", "description": "Enter a UTC date and click Apply date." }
+      "1": { "title": "See the sky as it is now", "description": "Click Return to current time. Use Pause time to keep that moment fixed." },
+      "2": { "title": "Travel to another moment", "description": "Choose a date and time, then click Apply date to see how the sky changes." }
     },
-    "note": "The tutorial starts with the clock paused; you can change it."
+    "note": "Times use UTC, a worldwide reference that may differ from your local time. The example starts with the clock paused."
   },
   "location": {
     "title": "Observer location",
-    "summary": "Location allows observations to be placed in the local sky.",
+    "summary": "Choose where on Earth you are viewing the sky from. This lets Astrea place the stars and images in the corresponding direction.",
     "actions": {
-      "1": { "title": "Check the reference", "description": "The tutorial uses Greenwich, not your actual location." },
-      "2": { "title": "Try another location", "description": "Enter latitude and longitude or use device location." }
+      "1": { "title": "Check the starting location", "description": "This example starts in Greenwich, United Kingdom. This does not mean we have detected your location." },
+      "2": { "title": "Try another place", "description": "Use device location, or enter latitude and longitude and click Apply manual location." }
     },
-    "note": "These changes only affect the tutorial."
+    "note": "Latitude and longitude describe a place on Earth. If you prefer to leave them as they are, you can continue with Greenwich."
   },
   "search": {
-    "title": "Search the Barnard field",
-    "summary": "Load the observation from the Preparation form.",
+    "title": "Find the Barnard region",
+    "summary": "Preparation lets you choose which part of the sky to view. RA and Dec are its address in the sky; Barnard's is already filled in.",
     "actions": {
-      "1": { "title": "Keep the prepared values", "description": "Leave the supplied coordinates and the 7-arcminute size." },
-      "2": { "title": "Find the observation", "description": "Click Search coordinates to open the FITS in the inspector." }
+      "1": { "title": "Start with this example", "description": "Keep RA, Dec and the size of 7 arcminutes: that size describes how much sky the image covers." },
+      "2": { "title": "Open the image", "description": "Click Search coordinates. You will see the image over the sky and its options in the right panel." }
     },
-    "note": "If you advance without searching, the guide loads the file automatically."
+    "note": "The guide loads this example if you move on without searching. Outside the guide, you can also choose a region by clicking the sky."
   },
   "sky": {
     "title": "Sky appearance",
-    "summary": "Control the stars and the reference surface.",
+    "summary": "These options change the surrounding sky, where the images you explore are placed.",
     "actions": {
-      "1": { "title": "Check the catalog", "description": "Review the star loading status." },
-      "2": { "title": "Try the surface", "description": "Toggle Show central surface." }
+      "1": { "title": "Try a guide for orientation", "description": "Turn on Show central surface: the grid provides a horizontal reference beneath your feet." },
+      "2": { "title": "Choose the background you prefer", "description": "Toggle Diffuse background to see the sky with or without that visual effect." }
     },
-    "note": "The next step opens Data in the right inspector."
+    "note": "The diffuse background is an illustration. The telescope images are real data, which you can explore in the right panel."
   },
   "data": {
     "title": "Data",
-    "summary": "The highlighted tab shows the observation's properties.",
+    "summary": "Each observation is an image taken by the telescope at a particular time. Data helps you identify the one you are looking at.",
     "actions": {
-      "1": { "title": "Inspect the image", "description": "Review the date, detector D3 and dimensions." },
-      "2": { "title": "Restore the framing", "description": "Click Center image to see the complete cutout." }
+      "1": { "title": "See when it was taken", "description": "Check the date. D3 identifies the detector that took it; each detector observes a part of the infrared range." },
+      "2": { "title": "Find the image again", "description": "Click Center image to bring it into the middle of your view and see the whole image." }
     },
-    "note": "Open original FITS remains available at the bottom of the panel."
+    "note": "You do not need to understand the technical data to explore. Open original FITS gives you access to the image's scientific file."
   },
   "appearance": {
     "title": "Appearance",
-    "summary": "The highlighted tab adjusts how the image is displayed.",
+    "summary": "Adjust the image to make its details easier to see. You can try these controls without changing the telescope's original file.",
     "actions": {
-      "1": { "title": "Try the appearance", "description": "Change the palette, brightness or opacity." },
-      "2": { "title": "Return to the initial look", "description": "Click Reset appearance to reset the visual settings." }
+      "1": { "title": "Find a look that helps you", "description": "Try another palette or adjust the brightness. Lower the opacity to see the sky behind the image too." },
+      "2": { "title": "Start again if you need to", "description": "Click Reset appearance to return to the initial settings." }
     },
-    "note": "Scientific filters use planes from the real FITS."
+    "note": "Colors show how bright each region is; they are not its real colors. You can leave the Processing options for later."
   },
   "compare": {
     "title": "Compare",
-    "summary": "The highlighted tab lets you alternate between two real observations.",
+    "summary": "Look at the same region at different times. Alternating between images makes possible differences easier to notice.",
     "actions": {
-      "1": { "title": "Choose the dates", "description": "Keep 2025 and the same D3 detector." },
-      "2": { "title": "Add another observation", "description": "Click Add on the available date." },
-      "3": { "title": "Play the sequence", "description": "Click Play and adjust the time per image." }
+      "1": { "title": "Find another date for this region", "description": "Keep the year 2025 and the same D3 detector. The image you already opened becomes reference A." },
+      "2": { "title": "Add the second image", "description": "Click Add beside the other available observation. Outside the guide, you can keep adding more." },
+      "3": { "title": "Move through the images", "description": "Drag the timeline or click Play to alternate between them. Time per image controls the speed." }
     },
-    "note": "The dates are 6.6 hours apart; visible motion is not guaranteed."
+    "note": "These two images were taken 6.6 hours apart. You may not see any motion; a visual difference alone does not confirm it either."
+  },
+  "spectrum": {
+    "title": "Spectrum",
+    "summary": "Spectrum shows how bright a point in the sky is at different wavelengths: different parts of infrared light.",
+    "actions": {
+      "1": { "title": "Load the example measurements", "description": "Keep PSF fit, the initial method for measuring stars, and click D3 within Spectrum." },
+      "2": { "title": "Read the chart", "description": "Wavelength changes from left to right. The higher a point sits, the greater the measured brightness." },
+      "3": { "title": "Explore each measurement", "description": "Point to a dot to see its date, brightness and margin of error. Each dot comes from one observation." }
+    },
+    "note": "The example measures a point near Barnard in two D3 images. Outside the guide, you can enable other detectors; loading may take a while."
   }
 }

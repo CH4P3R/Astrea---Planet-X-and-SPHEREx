@@ -10,6 +10,7 @@ export const tourSteps = [
   { id: 'data', target: '.image-inspector', tab: 'data' },
   { id: 'appearance', target: '.image-inspector', tab: 'appearance' },
   { id: 'compare', target: '.image-inspector', tab: 'compare', actionCount: 3 },
+  { id: 'spectrum', target: '.image-inspector', tab: 'spectrum', actionCount: 3 },
 ]
 
 export function shouldStartTour(storage) {

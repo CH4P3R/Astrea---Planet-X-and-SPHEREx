@@ -19,6 +19,8 @@ import useImageComparison from '../../hooks/useImageComparison.js'
 import useComparisonPresentation from '../../hooks/useComparisonPresentation.js'
 import useProjectedImage from '../../hooks/useProjectedImage.js'
 import OnboardingTour from '../onboarding/OnboardingTour.jsx'
+import useSpectrum from '../../hooks/useSpectrum.js'
+import { loadOnboardingSpectrum } from '../../services/onboardingSpectrum.js'
 import { tourSteps } from '../onboarding/tourState.js'
 import { barnardQuery, tutorialObserver, tutorialTimestamp } from '../../config/onboarding.js'
 import ConfirmRegionModal from '../common/ConfirmRegionModal.jsx'
@@ -49,6 +51,7 @@ export default function AppWorkspace({ tutorial = false, suspended = false, cove
   const getShareHref = useCallback(() => shareHref(committed), [shareHref, committed])
   const share = tutorial ? null : { getHref: getShareHref, disabled: !committed || commitPending }
   const stars = useStars(location.observer, clock.context, clock.timestamp)
+  const spectrum = useSpectrum(tutorial ? loadOnboardingSpectrum : undefined)
   const starsNotice = useMemo(() => stars.status === 'loading' && !stars.snapshot
     ? { status: 'loading', message: 'sky.status.loadingNotice', icon: 'star' } : null,
   [stars.status, stars.snapshot])
@@ -178,6 +181,7 @@ export default function AppWorkspace({ tutorial = false, suspended = false, cove
           comparison={comparison} playback={playback} reason={t(reason)} primaryProjection={primaryProjection} frames={frames} projections={projections}
           highlightedTab={tutorial ? tourSteps[tourIndex].tab : undefined} share={share}
           referenceObserver={observer?.source === 'reference'}
+          spectrum={spectrum} spectrumSample={tutorial}
           onTabChange={(value) => {
             const nextStep = tourSteps.findIndex((step) => step.tab === value)
             if (tutorial && tourSteps[tourIndex].tab && nextStep >= 0) changeTourStep(nextStep)

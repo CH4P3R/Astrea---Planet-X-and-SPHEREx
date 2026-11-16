@@ -1,0 +1,39 @@
+{
+  "title": "Spectrum",
+  "tutorialIntro": "Barnard is too bright to measure in these files. We use a point near Barnard to practise, with two real D3 measurements already prepared.",
+  "tutorialHint": "Each point is one observation: higher means brighter. Hover over a point or use Tab to see its date and margin of error. With only two points, no trend line is drawn.",
+  "target": "RA {{ra}}° · Dec {{dec}}° · {{method}}",
+  "counts": "{{measured}} of {{found}} exposures measured · {{skipped}} skipped · {{failed}} failed",
+  "empty": "No exposure of {{detectors}} could measure this point.",
+  "chart": "Flux against wavelength, one point per exposure",
+  "wavelengthAxis": "Wavelength (µm)",
+  "fluxAxis": "Flux (µJy)",
+  "clean": "Single measurement",
+  "doubtful": "Doubtful measurement",
+  "hint": "The line shows how bright the object is at each wavelength: higher means brighter. Point at a dot to see that measurement.",
+  "readout": "D{{detector}} · {{wavelength}} µm · {{flux}} ± {{error}} µJy · {{date}} · {{notes}}",
+  "badPixels": {
+    "one": "{{count}} pixel left out",
+    "other": "{{count}} pixels left out"
+  },
+  "crowded": "crowded background",
+  "noNotes": "no quality warnings",
+  "allDoubtful": "Almost every measurement here is doubtful (very bright or crowded target), so the dashed line is only a rough guide.",
+  "intro": "Pick the detectors you want to see. Each one is measured the first time you turn it on (10 to 50 seconds) and joins the chart in its own colour. Press it again to hide it.",
+  "errorBar": "Margin of error (shown when you point at a dot)",
+  "failed": "Could not finish measuring {{detectors}}. You can retry.",
+  "incomplete": "Some exposures of {{detectors}} could not be retrieved. You can retry to complete the measurements.",
+  "retry": "Retry D{{detector}}",
+  "detectorTrend": "D{{detector}} trend",
+  "choose": "Detectors to show",
+  "measuring": "Measuring {{detectors}}… Press a detector being measured to stop it.",
+  "method": {
+    "label": "Method",
+    "aperture": "Aperture",
+    "psf": "PSF fit",
+    "apertureNote": "3-pixel aperture",
+    "psfNote": "PSF fit",
+    "apertureHelp": "Adds up the light inside a 3-pixel circle. Simple, and good for bright isolated stars.",
+    "psfHelp": "Fits the known shape of a star at the exact point. Less noisy on faint objects and not thrown off by a bad pixel."
+  }
+}

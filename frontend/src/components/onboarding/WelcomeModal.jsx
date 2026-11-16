@@ -30,6 +30,7 @@ export default function WelcomeModal({ onTutorial, onExplore, loading = false, v
         <li>{t('onboarding.intro.sky')}</li>
         <li>{t('onboarding.intro.images')}</li>
         <li>{t('onboarding.intro.compare')}</li>
+        <li>{t('onboarding.intro.spectrum')}</li>
       </ul>
     </section>
     <p className="welcome-note">{t('onboarding.intro.note')}</p>

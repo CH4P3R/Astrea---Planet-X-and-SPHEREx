@@ -3,12 +3,14 @@ import { createPortal } from 'react-dom'
 
 export default function Modal({ children, header, footer, size = 'small', className = '', labelledBy,
   describedBy, onClose, initialFocusRef, dismissOnBackdrop = true, overlay, blocked = false,
-  closing = false, onExited }) {
+  closing = false, onExited, onRestoreFocus }) {
   const dialogRef = useRef(null)
   const closeRef = useRef(onClose)
   const exitRef = useRef(onExited)
+  const restoreFocusRef = useRef(onRestoreFocus)
   useEffect(() => { closeRef.current = onClose }, [onClose])
   useEffect(() => { exitRef.current = onExited }, [onExited])
+  useEffect(() => { restoreFocusRef.current = onRestoreFocus }, [onRestoreFocus])
 
   useEffect(() => {
     const dialog = dialogRef.current
@@ -16,7 +18,8 @@ export default function Modal({ children, header, footer, size = 'small', classN
     dialog.showModal()
     return () => {
       dialog.close()
-      if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true })
+      if (restoreFocusRef.current) restoreFocusRef.current()
+      else if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true })
     }
   }, [])
 

@@ -11,6 +11,7 @@ from app.core.config import Settings
 from app.integrations.cutout_store import CutoutStore
 from app.integrations.irsa import IrsaClient
 from app.services.images import ImageService
+from app.services.spectrum import SpectrumService
 from app.services.targets import TargetService
 
 
@@ -22,11 +23,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                        allow_methods=["GET", "POST"], allow_headers=["Content-Type"])
     app.add_middleware(GZipMiddleware, minimum_size=1000)
     app.state.star_service = StarService(settings.star_cache_path)
+    archive = IrsaClient(budget_seconds=settings.archive_budget_seconds)
     app.state.image_service = ImageService(
-        archive=IrsaClient(budget_seconds=settings.archive_budget_seconds),
-        store=CutoutStore(settings.cutout_cache_dir),
+        archive=archive, store=CutoutStore(settings.cutout_cache_dir),
         api_prefix=settings.api_prefix, bad_flags=settings.bad_flags,
     )
+    app.state.spectrum_service = SpectrumService(archive)
     app.state.target_service = TargetService(settings.targets_path, settings.api_prefix)
     register_exception_handlers(app)
     app.include_router(api_router, prefix=settings.api_prefix)
