@@ -25,7 +25,7 @@ import ConfirmRegionModal from '../common/ConfirmRegionModal.jsx'
 import useSkyUrl from '../../share/useSkyUrl.js'
 import { sharedReferenceObserver } from '../../share/referenceObserver.js'
 
-export default function AppWorkspace({ tutorial = false, suspended = false, covered = false, guideVisible = true, revealing = false, onStartTour, onFinishTour }) {
+export default function AppWorkspace({ tutorial = false, suspended = false, covered = false, guideVisible = true, revealing = false, onStartTour, onOpenAbout, onFinishTour }) {
   const { t, language } = useTranslation()
   const rootRef = useRef(null)
   const compassMarkerRef = useRef(null)
@@ -155,7 +155,7 @@ export default function AppWorkspace({ tutorial = false, suspended = false, cove
   return (<>
     <main ref={rootRef} inert={suspended || covered} aria-hidden={suspended || covered || undefined} tabIndex={-1}
       className={`app-viewport${tutorial ? ' tutorial-workspace' : ''}${suspended ? ' workspace-suspended' : ''}`}
-      data-tutorial={tutorial || undefined} data-revealing={revealing || undefined}
+      data-tutorial={tutorial || undefined} data-revealing={revealing || undefined} data-about-enabled={Boolean(onOpenAbout) || undefined}
       data-inspector-open={inspectorOpen} aria-label={t('common.viewport')}>
       <div className="scene-layer" aria-label={t('common.scene')}>
         <Canvas frameloop={suspended ? 'never' : 'always'} orthographic camera={{ position: [0, 0, 0], near: 0.01, far: 250 }}>
@@ -172,7 +172,8 @@ export default function AppWorkspace({ tutorial = false, suspended = false, cove
           dustVisible={dustVisible} setDustVisible={setDustVisible}
           idPrefix={tutorial ? 'tutorial-' : ''}
           compassMarkerRef={compassMarkerRef} />
-        <LanguageSelect suspended={suspended || covered} onStartTour={onStartTour ? () => { playback.pause(); onStartTour() } : undefined} />
+        <LanguageSelect suspended={suspended || covered} onStartTour={onStartTour ? () => { playback.pause(); onStartTour() } : undefined}
+          onOpenAbout={onOpenAbout ? () => { playback.pause(); onOpenAbout() } : undefined} />
         <ImageInspector open={inspectorOpen} tab={tab} fits={fits} displayed={displayed} appearance={appearance}
           comparison={comparison} playback={playback} reason={t(reason)} primaryProjection={primaryProjection} frames={frames} projections={projections}
           highlightedTab={tutorial ? tourSteps[tourIndex].tab : undefined} share={share}

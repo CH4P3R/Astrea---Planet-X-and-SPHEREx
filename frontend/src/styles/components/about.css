@@ -1,0 +1,70 @@
+.about-modal[data-size='large'] { --modal-width: 640px; }
+.about-modal { border-radius: 20px; overflow: hidden; }
+.about-modal[open] { display: flex; flex-direction: column; }
+.about-modal:focus { outline: none; }
+.about-modal .modal__content {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+  scrollbar-gutter: stable;
+}
+.about-modal .modal__footer { flex: 0 0 auto; display: flex; justify-content: flex-end; }
+.about-content h1 { margin: 0 0 12px; font-size: 20px; font-weight: 600; }
+.about-summary { margin: 0; color: var(--hud-text); }
+.about-heading { margin: 24px 0 16px; font-size: 14px; font-weight: 600; }
+.about-team { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 16px; margin: 0; padding: 0; list-style: none; }
+.about-team li { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.about-team img { width: 64px; height: 64px; flex-shrink: 0; border-radius: 14px; object-fit: cover; }
+.about-team__details { display: grid; gap: 4px; min-width: 0; flex: 1; }
+.about-team__name { color: var(--hud-text); font-size: 13px; font-weight: 600; }
+.about-team__details [lang='en'] { color: var(--hud-muted); font-size: 12px; line-height: 1.4; }
+.about-content a { color: var(--hud-focus); text-decoration: none; overflow-wrap: anywhere; }
+.about-github { display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; border-radius: 10px; background: var(--hud-field); }
+.about-repository p { margin: 0 0 10px; color: var(--hud-muted); font-size: 13px; }
+.about-repository > a { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; font-size: 14px; }
+.about-repository svg { flex-shrink: 0; }
+.about-launcher, .about-close {
+  position: relative;
+  isolation: isolate;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--hud-text);
+  font: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.about-launcher { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 112px; min-height: 44px; text-align: left; font-size: 14px; white-space: nowrap; }
+.about-launcher svg { flex-shrink: 0; }
+.about-launcher::before, .about-close::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--hud-field);
+  transition: transform var(--motion-duration) var(--motion-spring), background-color var(--motion-duration) ease;
+}
+.about-launcher::before { background: var(--hud-surface); }
+.about-launcher:disabled { opacity: 0.5; cursor: default; }
+.about-launcher:focus-visible, .about-close:focus-visible,
+.about-content a:focus-visible { outline: 2px solid var(--hud-focus); outline-offset: 3px; }
+.about-launcher:active:not(:disabled)::before, .about-close:active::before { transform: scale(0.985); }
+@media (hover: hover) {
+  .about-launcher:hover:not(:disabled)::before, .about-close:hover::before { background: var(--hud-hover); transform: scale(1.025); }
+  .about-github:hover { background: var(--hud-hover); }
+  .about-repository > a:hover { text-decoration: underline; }
+}
+@media (max-width: 540px) {
+  .about-team { grid-template-columns: minmax(0, 1fr); }
+  .about-modal { padding: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .about-modal, .about-modal[data-closing='true'] { animation: none; }
+  .about-launcher::before, .about-close::before { transform: none !important; }
+}

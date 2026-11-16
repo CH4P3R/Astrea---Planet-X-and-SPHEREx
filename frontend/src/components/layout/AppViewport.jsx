@@ -5,6 +5,7 @@ import WelcomeModal from '../onboarding/WelcomeModal.jsx'
 import StartupSplash from '../onboarding/StartupSplash.jsx'
 import { saveWelcomeStatus, shouldShowWelcome } from '../onboarding/welcomeState.js'
 import { parseSkyUrl } from '../../share/skyUrl.js'
+import AboutModal from './AboutModal.jsx'
 
 export default function AppViewport() {
   const [welcomeOpen, setWelcomeOpen] = useState(() => {
@@ -14,6 +15,7 @@ export default function AppViewport() {
   const [loading, setLoading] = useState(welcomeOpen)
   const [welcomeVisible, setWelcomeVisible] = useState(false)
   const [tourOpen, setTourOpen] = useState(false)
+  const [aboutOpen, setAboutOpen] = useState(false)
   const [destination, setDestination] = useState(null)
   const [revealedDestination, setRevealedDestination] = useState(null)
   const destinationRef = useRef(null)
@@ -50,10 +52,11 @@ export default function AppViewport() {
 
   return <>
     <AppWorkspace suspended={tourOpen} covered={welcomeOpen || loading}
-      revealing={revealedDestination === 'explore'} onStartTour={startTour} />
+      revealing={revealedDestination === 'explore'} onStartTour={startTour} onOpenAbout={() => setAboutOpen(true)} />
     {welcomeOpen && <WelcomeModal onTutorial={startTour} onExplore={explore} loading={loading}
       visible={welcomeVisible} closing={Boolean(destination)} onExited={finishWelcome} />}
     {loading && <StartupSplash onReveal={revealWelcome} onFinish={finishLoading} />}
     {tourOpen && <AppWorkspace tutorial guideVisible={!welcomeOpen} revealing={revealedDestination === 'tour'} onFinishTour={finishTour} />}
+    {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
   </>
 }

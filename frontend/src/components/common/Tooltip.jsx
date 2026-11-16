@@ -1,4 +1,4 @@
-import { cloneElement, useEffect, useId, useRef, useState } from 'react'
+import { cloneElement, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import useTooltipPosition from '../../hooks/useTooltipPosition.js'
 
@@ -8,6 +8,10 @@ export default function Tooltip({ children, message, tone = 'info', open, compac
   const tooltipId = id ?? generatedId
   const anchorRef = useRef(null)
   const tooltipRef = useRef(null)
+  const [portalTarget, setPortalTarget] = useState(document.body)
+  useLayoutEffect(() => {
+    setPortalTarget(anchorRef.current?.closest('dialog') ?? document.body)
+  }, [])
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
   const [dismissed, setDismissed] = useState(false)
@@ -31,7 +35,7 @@ export default function Tooltip({ children, message, tone = 'info', open, compac
     role={point ? tone === 'error' ? 'alert' : 'status' : 'tooltip'} data-open={visible} data-placement={placement}
     className={`tooltip-bubble tooltip-bubble-${tone}${compact ? ' tooltip-bubble-compact' : ''}`}>
     {message}
-  </span>, document.body)
+   </span>, portalTarget)
   if (point) return bubble
   const describedBy = [children.props['aria-describedby'], tooltipId].filter(Boolean).join(' ')
   return <span ref={anchorRef} className={`tooltip-anchor${inline ? ' tooltip-anchor-inline' : ''}`}
