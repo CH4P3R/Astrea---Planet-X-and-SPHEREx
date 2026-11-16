@@ -1,5 +1,17 @@
 {
   "title": "Guía de Astrea",
+  "intro": {
+    "title": "Bienvenido a Astrea",
+    "summary": "Explora el cielo y descubre imágenes reales del telescopio espacial SPHEREx, que observa luz infrarroja que nuestros ojos no pueden ver.",
+    "possibilities": "¿Qué puedes hacer?",
+    "sky": "Recorrer el cielo desde una ubicación y una fecha.",
+    "images": "Buscar una región y ajustar sus imágenes para ver más detalles.",
+    "compare": "Comparar observaciones de distintas fechas y buscar posibles cambios.",
+    "note": "Astrea acerca los datos astronómicos a todos: puedes explorarlos sin saber manejar archivos científicos. La guía te ayuda a empezar.",
+    "tutorial": "Ver tutorial",
+    "explore": "Empezar a explorar",
+    "loading": "Preparando Astrea…"
+  },
   "progress": "Paso {{current}} de {{total}}",
   "skip": "Saltar todo",
   "previous": "Anterior",

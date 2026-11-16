@@ -1,5 +1,17 @@
 {
   "title": "Astrea guide",
+  "intro": {
+    "title": "Welcome to Astrea",
+    "summary": "Explore the sky and discover real images from the SPHEREx space telescope, which observes infrared light our eyes cannot see.",
+    "possibilities": "What can you do?",
+    "sky": "Explore the sky from a location and a date.",
+    "images": "Search a region and adjust its images to reveal more detail.",
+    "compare": "Compare observations from different dates and look for possible changes.",
+    "note": "Astrea makes astronomical data accessible to everyone: explore without learning scientific file formats. The guide helps you get started.",
+    "tutorial": "View tutorial",
+    "explore": "Start exploring",
+    "loading": "Preparing Astrea…"
+  },
   "progress": "Step {{current}} of {{total}}",
   "skip": "Skip all",
   "previous": "Previous",

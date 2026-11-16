@@ -9,6 +9,11 @@
   overflow: hidden;
 }
 .scene-layer { position: absolute; inset: 0; }
+.app-viewport[data-revealing='true'] { animation: workspace-reveal var(--motion-duration) var(--motion-ease) both; }
+@keyframes workspace-reveal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 .scene-layer canvas { display: block; touch-action: none; }
 
 .language-region {

@@ -22,11 +22,11 @@ import { tourSteps } from '../onboarding/tourState.js'
 import { barnardQuery, tutorialObserver, tutorialTimestamp } from '../../config/onboarding.js'
 import ConfirmRegionModal from '../common/ConfirmRegionModal.jsx'
 
-export default function AppWorkspace({ tutorial = false, suspended = false, onStartTour, onFinishTour }) {
+export default function AppWorkspace({ tutorial = false, suspended = false, guideVisible = true, revealing = false, onStartTour, onFinishTour }) {
   const { t, language } = useTranslation()
   const rootRef = useRef(null)
   const [tourIndex, setTourIndex] = useState(0)
-  const tourActive = tutorial
+  const tourActive = tutorial && guideVisible
   const location = useObserver({ initialObserver: tutorial ? tutorialObserver : null, automatic: !tutorial })
   const clock = useSkyClock(tutorial ? tutorialTimestamp : null)
   const fits = useFitsImage(location.observer, clock.context, tutorial ? 'onboarding' : 'archive')
@@ -120,7 +120,8 @@ export default function AppWorkspace({ tutorial = false, suspended = false, onSt
   return (<>
     <main ref={rootRef} inert={suspended} aria-hidden={suspended || undefined} tabIndex={-1}
       className={`app-viewport${tutorial ? ' tutorial-workspace' : ''}${suspended ? ' workspace-suspended' : ''}`}
-      data-tutorial={tutorial || undefined} data-inspector-open={inspectorOpen} aria-label={t('common.viewport')}>
+      data-tutorial={tutorial || undefined} data-revealing={revealing || undefined}
+      data-inspector-open={inspectorOpen} aria-label={t('common.viewport')}>
       <div className="scene-layer" aria-label={t('common.scene')}>
         <Canvas frameloop={suspended ? 'never' : 'always'} orthographic camera={{ position: [0, 0, 0], near: 0.01, far: 250 }}>
           <SkyScene observer={observer} fits={fits} stars={stars} surfaceVisible={surfaceVisible}

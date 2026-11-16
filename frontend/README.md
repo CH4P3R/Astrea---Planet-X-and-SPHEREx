@@ -7,9 +7,12 @@ Consultar la [Guía de diseño e interacción](docs/UI_DESIGN_GUIDE.md), que re�
 ## Tutorial guiado
 
 El botón de interrogación encima del selector de idioma abre el tutorial, incluso si
-ya se completó o se saltó. La primera visita también lo abre automáticamente. Finalizar
+ya se completó o se saltó. La primera visita muestra un icono gris animado y revela
+una bienvenida con «Ver tutorial» y «Empezar a explorar». El tutorial solo comienza
+al elegirlo. La elección guarda `seen` en `astrea.welcome.v1`, evitando repetir la
+bienvenida y su transición de entrada en visitas posteriores. Finalizar
 guarda `completed` y Saltar todo o Escape guarda `skipped` en `localStorage`, bajo
-`astrea.onboarding.v1`; ambos estados desactivan únicamente la apertura automática.
+`astrea.onboarding.v1`; estos estados nunca deshabilitan el botón de ayuda.
 
 El recorrido reutiliza el espacio de trabajo y el inspector reales, incluidos Datos,
 Apariencia y Comparar. Los FITS originales de Barnard están en `backend/data/onboarding/`,
