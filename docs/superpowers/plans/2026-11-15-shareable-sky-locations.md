@@ -10,6 +10,32 @@
 
 **Spec:** `docs/superpowers/specs/2026-11-15-shareable-sky-locations-design.md`
 
+## Completion Record — 2026-11-15
+
+**Status:** All eight tasks complete. Whole-feature review and scoped re-review approved; both final Important findings resolved in `7833e7b`. Integration target remains unconfirmed; no merge or push was performed by the implementation agents.
+
+| Task | Completion commit(s) |
+| --- | --- |
+| 1 — Pure URL contract | `e345c86` |
+| 2 — React test harness | `21a397a` |
+| 3 — Committed search model | `8a98bb8` |
+| 4 — Delayed loading and cancellation | `1b15e80`, `c64607c` |
+| 5 — URL synchronization hook | `c765de8` |
+| 6 — Startup, workspace, localization | `3fd74d7`, `8c33f8e` |
+| 7 — Copy link and fallback | `c2eb998` |
+| 8 — Verification and smoke checks | No product changes required |
+| Final review fixes | `7833e7b` |
+
+**Final verification:** 92 Node + 115 React tests passed; lint, production build, and `git diff --check` passed on `7833e7b`. Independent re-review found no remaining Critical/Important issues.
+
+**Browser evidence:** Live-backend and explicit-fixture smoke checks passed at 1280×900 and 390×844: fresh-link search, denied geolocation/manual location, actual archive-image loading/focus, tutorial replay without rehydration, independent Clear/Close URL preservation, and keyboard-activated copy with denied-clipboard fallback. These checks ran on `c2eb998`; the final small fixes received automated regressions and re-review, not another browser run. Earlier EN/ES desktop/mobile checks also passed.
+
+**Review fixes included:** obsolete manual-load supersession; persistent history warnings; panel reopening on every invalid navigation; Clear remaining available for canceled committed searches; removal of URL username/password from generated share links.
+
+**Implementation clarifications:** Existing `jeffrey` working tree used; Node test discovery remained unchanged; initial hydration dispatch landed in Task 4; new coordinate submissions commit detector 0; Task 7's stylesheet import is `../styles/components/share.css`.
+
+**Remaining limitations:** Successful browser-to-system clipboard transfer was not verified (headed-browser navigation timed out). Physical devices, screen readers, other browser engines, and 200% zoom remain unverified. Live background `/api/v1/sky` returned 502 due to an empty/incomplete Hipparcos download; archive imagery still loaded successfully. The existing large-chunk advisory remains (main JS 1,371.77 kB / 392.34 kB gzip). Unrelated backend remediation and broad bundle optimization were not included.
+
 ## Global Constraints
 
 - URL parameters are exactly `ra`, `dec`, `size`, `detector`, serialized in that order.
@@ -51,7 +77,7 @@
   - `buildShareUrl(href: string, search): string` — absolute URL with only the four fields, no hash.
   - `syncSkyUrl(href: string, search | null): string` — absolute URL with supported fields replaced or removed and all unrelated query/hash state preserved.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Cover at least these assertions in `frontend/tests/skyUrl.test.mjs`:
 
@@ -116,23 +142,23 @@ test('share links drop unrelated query and hash; synchronization preserves them'
 })
 ```
 
-- [ ] **Step 2: Run the tests to confirm failure**
+- [x] **Step 2: Run the tests to confirm failure**
 
 Run: `cd frontend && node --test tests/skyUrl.test.mjs`
 Expected: FAIL because `src/share/skyUrl.js` does not exist.
 
-- [ ] **Step 3: Implement `frontend/src/share/skyUrl.js`**
+- [x] **Step 3: Implement `frontend/src/share/skyUrl.js`**
 
 Use a single decimal grammar for `ra`, `dec`, and `size`: `^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$`, followed by `Number.isFinite`. Use `^[+-]?\d+$` for `detector`, then `Number.isInteger` and range. Do not trim values: a raw `+` arrives as a space and must fail.
 
 `parseSkyUrl` must inspect `new URL(href).searchParams`, count `getAll(key).length` for duplicate detection, return `none` when no supported key exists, and return `invalid` on the first failed rule. Normalize negative zero with `value === 0 ? 0 : value`. `serializeSkySearch` writes `String(value)` for each field and relies on `URLSearchParams` encoding. `syncSkyUrl` deletes each supported key, appends the serialized fields when a search is supplied, and leaves `url.hash` untouched.
 
-- [ ] **Step 4: Run the tests to confirm pass**
+- [x] **Step 4: Run the tests to confirm pass**
 
 Run: `cd frontend && node --test tests/skyUrl.test.mjs`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/share/skyUrl.js frontend/tests/skyUrl.test.mjs
@@ -152,11 +178,11 @@ git commit -m "feat: add shareable sky URL contract"
 **Interfaces:**
 - Produces: `npm run test:react` for jsdom component tests; `npm test` runs the existing Node tests and then Vitest.
 
-- [ ] **Step 1: Install test-only dependencies**
+- [x] **Step 1: Install test-only dependencies**
 
 Run: `cd frontend && npm install --save-dev vitest jsdom @testing-library/react @testing-library/dom`
 
-- [ ] **Step 2: Add Vitest configuration and setup**
+- [x] **Step 2: Add Vitest configuration and setup**
 
 `frontend/vitest.config.js`:
 
@@ -201,21 +227,21 @@ Update scripts in `frontend/package.json` to:
 "test:react": "vitest run"
 ```
 
-- [ ] **Step 3: Write a smoke test**
+- [x] **Step 3: Write a smoke test**
 
 `frontend/tests/react/harness.test.jsx` imports `it`/`expect` from `vitest` and `render`/`screen`/`fireEvent` from `@testing-library/react`, renders a tiny component, clicks it with `fireEvent`, and asserts the DOM update with `expect`. This proves jsdom, React 19, and Testing Library are wired before feature work. Later test files follow the same explicit-import style.
 
-- [ ] **Step 4: Run the harness**
+- [x] **Step 4: Run the harness**
 
 Run: `cd frontend && npm run test:react`
 Expected: PASS.
 
-- [ ] **Step 5: Confirm the existing suite still runs**
+- [x] **Step 5: Confirm the existing suite still runs**
 
 Run: `cd frontend && npm run test:unit`
 Expected: existing 83 tests PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/package.json frontend/package-lock.json frontend/vitest.config.js frontend/tests/react/setup.js frontend/tests/react/harness.test.jsx
@@ -256,7 +282,7 @@ restore(search): void
 applyUrl(state): void
 ```
 
-- [ ] **Step 1: Write the failing commit tests**
+- [x] **Step 1: Write the failing commit tests**
 
 `frontend/tests/react/fitsCommit.test.jsx` must mock `../../src/services/images.js` and `../../src/three/core/imageDataUtils.js`. Use a probe component that calls the real hook and exposes buttons for `searchByCoordinates`, `search`, `setDetector`, `setSize`, `reset`, and `applyUrl`.
 
@@ -301,12 +327,12 @@ it('cancel preparation restores committed controls and reset clears the commit',
 
 Also render the real `FitsControls` inside an `I18nProvider` and assert that typing RA/Dec updates `fits.coordinates` and submitting calls `searchByCoordinates` with `Number` values. Assert that the tutorial path (`initialCoordinates`) still shows Barnard RA/Dec without a URL or automatic search.
 
-- [ ] **Step 2: Run the tests to confirm failure**
+- [x] **Step 2: Run the tests to confirm failure**
 
 Run: `cd frontend && npx vitest run tests/react/fitsCommit.test.jsx`
 Expected: FAIL because `coordinates`, `committed`, `commitPending`, `restore`, and `applyUrl` do not exist.
 
-- [ ] **Step 3: Implement the committed model in `useFitsImage`**
+- [x] **Step 3: Implement the committed model in `useFitsImage`**
 
 Required behavior:
 
@@ -320,11 +346,11 @@ Required behavior:
 - `reset()` clears `committed`, sets `commitPending = false`, notifies `null`, and keeps the existing size/detector/result reset behavior.
 - Store `onCommittedChange` in a ref so callback identity changes do not create effects or stale closures.
 
-- [ ] **Step 4: Convert `FitsControls` to controlled coordinates**
+- [x] **Step 4: Convert `FitsControls` to controlled coordinates**
 
 Remove its local `ra`/`dec` state and read `fits.coordinates`. Keep the local `validation` state. RA/Dec `onChange` clears validation and calls `fits.setCoordinate(field, value)`. Submit keeps the existing blank/coordinate validation and calls `fits.searchByCoordinates(Number(ra), Number(dec))`. Remove the now-unused `initialCoordinates` prop from `FitsControls` and `ContextToolbar`; `AppWorkspace` passes it to `useFitsImage` instead for the tutorial workspace.
 
-- [ ] **Step 5: Run the commit and existing tests**
+- [x] **Step 5: Run the commit and existing tests**
 
 Run: `cd frontend && npx vitest run tests/react/fitsCommit.test.jsx`
 Expected: PASS.
@@ -332,7 +358,7 @@ Expected: PASS.
 Run: `cd frontend && npm run test:unit`
 Expected: existing tests PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/src/hooks/useFitsImage.js frontend/src/components/controls/FitsControls.jsx frontend/src/components/controls/ContextToolbar.jsx frontend/src/components/layout/AppWorkspace.jsx frontend/tests/react/fitsCommit.test.jsx
@@ -351,7 +377,7 @@ git commit -m "feat: track one committed sky search"
 - Consumes: the committed model from Task 3.
 - Produces: no new public names; strengthens `applyUrl`, `search`, `searchByCoordinates`, `load`, `cancel`, and `reset` lifecycle behavior.
 
-- [ ] **Step 1: Write the failing lifecycle tests**
+- [x] **Step 1: Write the failing lifecycle tests**
 
 Use a deferred-promise helper and mock `loadMetadata`, `loadPixels`, and `loadProjection`. A probe must call `fits.setTextureLimit(4096)` in an effect to simulate renderer readiness.
 
@@ -396,12 +422,12 @@ it('leaves exactly one non-aborted request under Strict Mode', async () => {
 })
 ```
 
-- [ ] **Step 2: Run the tests to confirm failure**
+- [x] **Step 2: Run the tests to confirm failure**
 
 Run: `cd frontend && npx vitest run tests/react/fitsLoading.test.jsx`
 Expected: FAIL because results load immediately or pending intent is not tracked.
 
-- [ ] **Step 3: Implement pending auto-load and guards**
+- [x] **Step 3: Implement pending auto-load and guards**
 
 - Replace the unconditional `await load(result.images[0].id)` in `runSearch` with a readiness check: load immediately only when `contextRef.current.observer` exists and `maxTextureSize.current > 0`; otherwise store `pendingLoad.current = { searchId, id }`.
 - Add a `searchId` counter ref incremented at every search dispatch. Clear `pendingLoad.current` when a new search starts, on `cancel`, on `reset`, and on unmount.
@@ -410,12 +436,12 @@ Expected: FAIL because results load immediately or pending intent is not tracked
 - Initial URL hydration must dispatch once per mount. In Strict Mode, setup/cleanup/setup may abort the first attempt, so do not mark the initial intent consumed in a way that prevents the second attempt. The final result must be one non-aborted request.
 - Do not require an observer for a coordinate search itself; only projection/loading waits for one. Preserve the existing “Location required” behavior for sky clicks.
 
-- [ ] **Step 4: Run the lifecycle and commit tests**
+- [x] **Step 4: Run the lifecycle and commit tests**
 
 Run: `cd frontend && npx vitest run tests/react/fitsLoading.test.jsx tests/react/fitsCommit.test.jsx`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/hooks/useFitsImage.js frontend/tests/react/fitsLoading.test.jsx
@@ -444,7 +470,7 @@ useSkyUrl({ enabled = true, onRestore = () => {} } = {}): {
 }
 ```
 
-- [ ] **Step 1: Write the failing hook tests**
+- [x] **Step 1: Write the failing hook tests**
 
 Wrap the hook in a probe that renders `initial.status`, `initialSearch`, `warning`, and buttons that call `sync` and `shareHref`. Add tests with these expectations:
 
@@ -481,12 +507,12 @@ it('does nothing when disabled for the tutorial', () => {
 })
 ```
 
-- [ ] **Step 2: Run the tests to confirm failure**
+- [x] **Step 2: Run the tests to confirm failure**
 
 Run: `cd frontend && npx vitest run tests/react/skyUrlHook.test.jsx`
 Expected: FAIL because the hook does not exist.
 
-- [ ] **Step 3: Implement `useSkyUrl`**
+- [x] **Step 3: Implement `useSkyUrl`**
 
 - Capture the initial classification in a lazy `useState` initializer using `window.location.href`.
 - Initialize `warning` to `share.notices.invalid` for an invalid initial URL.
@@ -496,12 +522,12 @@ Expected: FAIL because the hook does not exist.
 - `shareHref(search)` returns `buildShareUrl(window.location.href, search)` or `''` when search is null.
 - Disabled mode is a no-op for reads, writes, and listeners.
 
-- [ ] **Step 4: Run the hook tests**
+- [x] **Step 4: Run the hook tests**
 
 Run: `cd frontend && npx vitest run tests/react/skyUrlHook.test.jsx`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/share/useSkyUrl.js frontend/tests/react/skyUrlHook.test.jsx
@@ -529,7 +555,7 @@ git commit -m "feat: synchronize committed sky searches with the URL"
 - Consumes: `parseSkyUrl`, `useSkyUrl`, and the committed hook API.
 - Produces: `initialTourOpen(href: string, storage): boolean`, which returns `false` for any URL with supported parameters (valid or invalid), otherwise delegates to `shouldStartTour`.
 
-- [ ] **Step 1: Write the startup tests**
+- [x] **Step 1: Write the startup tests**
 
 `frontend/tests/react/startup.test.jsx` tests both the pure helper and `AppViewport`:
 
@@ -554,7 +580,7 @@ it('renders the normal workspace without the tutorial and can still replay it', 
 })
 ```
 
-- [ ] **Step 2: Write the workspace integration tests**
+- [x] **Step 2: Write the workspace integration tests**
 
 `frontend/tests/react/workspace.test.jsx` renders the real `AppWorkspace` inside `I18nProvider`, with these boundaries mocked with Vitest: `@react-three/fiber` (`Canvas` renders children), `SkyScene.jsx` (calls `fits.setTextureLimit(4096)` in an effect and renders a sky-click button), `useObserver` (ready observer), `useSkyClock` (paused fixed time), `useStars`, `useImageViewport`, `useImageComparison`, `useComparisonPresentation`, `useProjectedImage`, and `services/images.js`. Mock `imageDataUtils` to avoid binary decoding.
 
@@ -612,12 +638,12 @@ it('shows a synchronization warning when history mutation throws but keeps the c
 })
 ```
 
-- [ ] **Step 3: Run the tests to confirm failure**
+- [x] **Step 3: Run the tests to confirm failure**
 
 Run: `cd frontend && npx vitest run tests/react/startup.test.jsx tests/react/workspace.test.jsx`
 Expected: FAIL because startup and workspace wiring do not exist.
 
-- [ ] **Step 4: Implement startup and wiring**
+- [x] **Step 4: Implement startup and wiring**
 
 - `startup.js` calls `parseSkyUrl(href)` inside `try/catch`; any status other than `none` returns `false`, and a parse failure falls through to ordinary startup. Otherwise return `shouldStartTour(storage)`. Keep the existing storage-failure fallback of `true`.
 - `AppViewport` initializes `tourOpen` with `initialTourOpen(window.location.href, storage)`, guarding the `window.localStorage` getter. Do not write tour status for shared links. Keep `startTour` available for replay.
@@ -630,7 +656,7 @@ Expected: FAIL because startup and workspace wiring do not exist.
 - Do not show sharing controls in the tutorial.
 - Keep the normal workspace mounted while the tutorial opens and closes; only the tutorial workspace mounts/unmounts. This is what prevents a replay from hydrating the shared URL again.
 
-- [ ] **Step 5: Add localized strings**
+- [x] **Step 5: Add localized strings**
 
 Create `share.json` in both locales with identical keys:
 
@@ -651,7 +677,7 @@ Spanish values: `Copiar enlace`, `Enlace copiado`, `Copia este enlace manualment
 
 Register both catalogs in `resources.js`. Add assertions to `tests/i18n.test.mjs` that English and Spanish return the expected copy and warning strings; the existing parity test covers key equality.
 
-- [ ] **Step 6: Run startup, workspace, and i18n tests**
+- [x] **Step 6: Run startup, workspace, and i18n tests**
 
 Run: `cd frontend && npx vitest run tests/react/startup.test.jsx tests/react/workspace.test.jsx`
 Expected: PASS.
@@ -659,7 +685,7 @@ Expected: PASS.
 Run: `cd frontend && node --test tests/i18n.test.mjs`
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add frontend/src/share/startup.js frontend/src/components/layout/AppViewport.jsx frontend/src/components/layout/AppWorkspace.jsx frontend/src/components/controls/ContextToolbar.jsx frontend/src/components/controls/FitsControls.jsx frontend/src/i18n/resources.js frontend/src/i18n/locales/en/share.json frontend/src/i18n/locales/es/share.json frontend/tests/i18n.test.mjs frontend/tests/react/startup.test.jsx frontend/tests/react/workspace.test.jsx
@@ -683,7 +709,7 @@ git commit -m "feat: restore shared searches from the URL"
 - Consumes: the `share = { getHref(): string, disabled: boolean } | null` object that `AppWorkspace` constructs in this task, plus the `share.*` strings from Task 6.
 - Produces: a native-button `ShareLink` used in both the search-panel footer and the inspector summary.
 
-- [ ] **Step 1: Write the failing ShareLink tests**
+- [x] **Step 1: Write the failing ShareLink tests**
 
 Every render goes inside `I18nProvider` because `ShareLink` calls `useTranslation`. Save and restore the original `navigator.clipboard` property descriptor in each test (or in `afterEach`) so a missing-clipboard test cannot leak into the next test.
 
@@ -709,20 +735,20 @@ it('does not copy while disabled or when the href is empty', () => {
 })
 ```
 
-- [ ] **Step 2: Run the tests to confirm failure**
+- [x] **Step 2: Run the tests to confirm failure**
 
 Run: `cd frontend && npx vitest run tests/react/shareLink.test.jsx`
 Expected: FAIL because `ShareLink.jsx` does not exist.
 
-- [ ] **Step 3: Implement `ShareLink`**
+- [x] **Step 3: Implement `ShareLink`**
 
 - Use a native `<button type="button" disabled={disabled}>` with `t('share.actions.copy')`.
 - On click, compute `href = getHref()`. If disabled or empty, return.
 - `try { await navigator.clipboard.writeText(href) }`; only after resolution set status to `share.notices.copied` and render it in a `role="status" aria-live="polite"` element.
 - On a missing API or rejection, set status to `share.notices.manual` and render a labeled read-only `<input value={href} onFocus={(event) => event.target.select()} />`. Do not focus it automatically; never announce success.
-- Import `../../styles/components/share.css`. Use existing fonts, colors, and focus conventions; add only layout for the fallback and status. No modal or new icon library.
+- Import `../styles/components/share.css`. Use existing fonts, colors, and focus conventions; add only layout for the fallback and status. No modal or new icon library.
 
-- [ ] **Step 4: Place the control**
+- [x] **Step 4: Place the control**
 
 - `ContextToolbar` accepts `share` and passes it to `FitsControls`.
 - `FitsControls` footer: render `<ShareLink {...share} />` after the existing Search/Clear controls when `share` is present. It must stay enabled for empty or failed searches because those have a committed search.
@@ -730,12 +756,12 @@ Expected: FAIL because `ShareLink.jsx` does not exist.
 - `AppWorkspace` passes `share={tutorial ? null : { getHref: () => skyUrl.shareHref(fits.committed), disabled: !fits.committed || fits.commitPending }}` to both `ContextToolbar` and `ImageInspector`, and passes `null` in the tutorial.
 - Add placement assertions to `tests/react/workspace.test.jsx`: the copy button appears in the search footer and in the inspector summary after a successful load, does not appear in the tutorial, stays enabled for an empty or failed search with a commit, is disabled while a sky click is unresolved, and remains enabled after a `history.replaceState` failure because the committed search is intact.
 
-- [ ] **Step 5: Run the share and workspace tests**
+- [x] **Step 5: Run the share and workspace tests**
 
 Run: `cd frontend && npx vitest run tests/react/shareLink.test.jsx tests/react/workspace.test.jsx`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/src/share/ShareLink.jsx frontend/src/styles/components/share.css frontend/src/components/controls/ContextToolbar.jsx frontend/src/components/controls/FitsControls.jsx frontend/src/components/layout/ImageInspector.jsx frontend/src/components/layout/AppWorkspace.jsx frontend/tests/react/shareLink.test.jsx frontend/tests/react/workspace.test.jsx
@@ -751,7 +777,7 @@ git commit -m "feat: add Copy link for committed sky searches"
 
 The design checklist already records approval and plan creation.
 
-- [ ] **Step 1: Run all automated checks**
+- [x] **Step 1: Run all automated checks**
 
 Run: `cd frontend && npm test`
 Expected: all Node tests and all Vitest tests pass.
@@ -762,7 +788,7 @@ Expected: 0 errors.
 Run: `cd frontend && npm run build`
 Expected: build succeeds. The existing large-chunk warning is acceptable.
 
-- [ ] **Step 2: Perform the browser smoke check**
+- [x] **Step 2: Perform the browser smoke check**
 
 Start the backend using the workflow in `backend/environment.md`, then `cd frontend && npm run dev`. At desktop and a narrow width:
 
