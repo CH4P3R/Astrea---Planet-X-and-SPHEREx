@@ -28,6 +28,11 @@ real en ambas sesiones. `OnboardingTour` utiliza un portal de React DOM y `box-s
 ES/EN y no se añaden dependencias. El aviso de carga de estrellas y las mejoras del
 inspector, los detectores y la cámara de los merges se mantienen.
 
+Las instrucciones se distribuyen en una frase de propósito, acciones numeradas y una
+nota breve. En Datos, Apariencia y Comparar se resalta la pestaña real en el panel
+derecho; pulsar otra pestaña actualiza el paso de la guía. No se añaden enlaces al
+encabezado del inspector: «Abrir FITS original» permanece dentro de Datos.
+
 ## Espacio de trabajo 3D
 
 La vista ocupa toda la ventana y muestra una esfera 3D desde su interior, con un
