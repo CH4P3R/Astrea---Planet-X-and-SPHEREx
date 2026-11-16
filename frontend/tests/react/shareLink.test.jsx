@@ -22,8 +22,36 @@ beforeEach(() => {
   window.localStorage.clear()
 })
 afterEach(() => {
+  vi.useRealTimers()
   if (clipboardDescriptor) Object.defineProperty(navigator, 'clipboard', clipboardDescriptor)
   else delete navigator.clipboard
+})
+
+it('shows the share icon and confirms successful copying in a temporary tooltip', async () => {
+  vi.useFakeTimers()
+  const writeText = vi.fn().mockResolvedValue()
+  clipboard(writeText)
+  render(view({ getHref: () => hrefA, disabled: false, iconOnly: true }))
+  expect(button().querySelector('svg')).toBeTruthy()
+  expect(button().textContent).toBe('')
+  fireEvent.click(button())
+  await act(async () => {})
+  expect(writeText).toHaveBeenCalledWith(hrefA)
+  expect(screen.getByRole('tooltip').textContent).toBe('Link copied')
+  expect(screen.getByRole('tooltip').dataset.open).toBe('true')
+  act(() => vi.advanceTimersByTime(2400))
+  expect(screen.queryByRole('status')).toBeNull()
+  expect(screen.getByRole('tooltip').textContent).toBe('Copy link')
+})
+
+it('does not claim success when copying from the icon fails', async () => {
+  clipboard(vi.fn().mockRejectedValue(new Error('denied')))
+  render(view({ getHref: () => hrefA, disabled: false, iconOnly: true }))
+  fireEvent.click(button())
+  await act(async () => {})
+  expect(screen.getByRole('tooltip').textContent).toBe('Copy this link manually.')
+  expect(screen.getByLabelText('Share link').value).toBe(hrefA)
+  expect(screen.queryByText('Link copied')).toBeNull()
 })
 
 it('builds a fresh link on every click and announces success only after resolution without moving focus', async () => {

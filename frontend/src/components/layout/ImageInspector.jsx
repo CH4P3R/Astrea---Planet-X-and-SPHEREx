@@ -31,13 +31,13 @@ export default function ImageInspector({ open, onClose, tab, onTabChange, fits, 
           <div className="inspector-observation-heading">
             <div><span className="context-note">{t('inspector.observation')}{comparison.observations.length ? ` · ${playback.frame}` : ''}</span>
               <strong><ObservationDate value={metadata.observation.start_utc} /></strong></div>
+            {share && <ShareLink {...share} iconOnly />}
           </div>
           <div className="inspector-identity">
             <span>{t('inspector.detector', { detector: metadata.detector ?? '—' })}</span>
             <span className="inspector-release"><span>{t('inspector.release', { release: metadata.collection })}</span>
               </span>
           </div>
-          {share && <ShareLink {...share} />}
           <DetectorSelector value={metadata.detector} onChange={(value) => { playback.show(fits.active.metadata.id); fits.setDetector(value) }} disabled={busy} />
           {Object.values(appearance.appliedProcessing).some(Boolean) && <p className="context-note">
             {t(appearance.appliedProcessing.signal_to_noise ? 'inspector.appearance.dimensionless' : 'inspector.appearance.processed')}

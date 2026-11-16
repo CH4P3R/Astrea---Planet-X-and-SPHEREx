@@ -7,6 +7,9 @@ import { initialTourOpen } from '../../src/share/startup.js'
 import { tourStorageKey } from '../../src/components/onboarding/tourState.js'
 
 const mounts = vi.hoisted(() => ({ normal: 0 }))
+vi.mock('../../src/components/onboarding/WelcomeModal.jsx', () => ({
+  default: () => <div>welcome modal</div>,
+}))
 vi.mock('../../src/components/layout/AppWorkspace.jsx', () => ({
   default: function Workspace({ tutorial, suspended, onStartTour, onFinishTour }) {
     useEffect(() => { if (!tutorial) mounts.normal += 1 }, [tutorial])
@@ -53,6 +56,7 @@ it.each([['/', true], ['/?ra=1&dec=2', false], ['/?ra=bad', false]])(
     window.history.replaceState({}, '', href)
     vi.spyOn(window, 'localStorage', 'get').mockImplementation(() => { throw new Error('blocked') })
     render(<I18nProvider><AppViewport /></I18nProvider>)
-    expect(Boolean(screen.queryByText('tutorial workspace'))).toBe(starts)
+    expect(screen.queryByText('tutorial workspace')).toBeNull()
+    expect(Boolean(screen.queryByText('welcome modal'))).toBe(starts)
   },
 )
