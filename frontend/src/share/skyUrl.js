@@ -56,6 +56,8 @@ export function serializeSkySearch(search) {
 
 export function buildShareUrl(href, search) {
   const url = new URL(href)
+  url.username = ''
+  url.password = ''
   url.search = serializeSkySearch(search)
   url.hash = ''
   return url.toString()

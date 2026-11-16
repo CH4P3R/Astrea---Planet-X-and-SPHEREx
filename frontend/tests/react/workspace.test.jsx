@@ -141,6 +141,50 @@ it.each(['empty', 'failed'])('keeps sharing enabled for a committed %s search', 
   expect(copyButton(searchFooter()).disabled).toBe(false)
 })
 
+it.each(['shared link', 'coordinate submission'])('keeps Clear available after canceling an unresolved %s and clears only supported URL fields', async (entry) => {
+  const shared = entry === 'shared link'
+  window.history.replaceState({ retained: true }, '', shared
+    ? '/sky?foo=1&ra=10&dec=20&size=7&detector=3#frag'
+    : '/sky?foo=1#frag')
+  const pending = deferred()
+  searchCoordinates.mockReturnValueOnce(pending.promise)
+  mount()
+  await flush()
+  openSearch()
+  if (!shared) {
+    edit(10, 20)
+    expect(screen.getByRole('button', { name: 'Cancel preparation' })).toBeTruthy()
+    submit()
+  }
+  const committed = { ra: 10, dec: 20, size: 7, detector: shared ? 3 : 0 }
+  expect(scene.fits.status).toBe('searching')
+  expect(scene.fits.committed).toEqual(committed)
+  expect(screen.queryByRole('button', { name: 'Clear image and results' })).toBeNull()
+  const href = window.location.href
+  const signal = searchCoordinates.mock.lastCall[4]
+  click('Cancel operation')
+  expect(signal.aborted).toBe(true)
+  expect(scene.fits.status).toBe('idle')
+  expect(scene.fits.images).toEqual([])
+  expect(scene.fits.active).toBeNull()
+  expect(scene.fits.preparing).toBe(false)
+  expect(scene.fits.committed).toEqual(committed)
+  expect(window.location.href).toBe(href)
+  expect(copyButton(searchFooter()).disabled).toBe(false)
+  click('Clear image and results')
+  expect(scene.fits.committed).toBeNull()
+  expect(window.location.pathname).toBe('/sky')
+  expect(window.location.search).toBe('?foo=1')
+  expect(window.location.hash).toBe('#frag')
+  expect(window.history.state).toEqual({ retained: true })
+  expect(copyButton(searchFooter()).disabled).toBe(true)
+  await act(async () => pending.resolve(result(10, 20, [{ id: metadata.id }])))
+  expect(scene.fits.status).toBe('idle')
+  expect(scene.fits.committed).toBeNull()
+  expect(window.location.search).toBe('?foo=1')
+  expect(loadMetadata).not.toHaveBeenCalled()
+})
+
 it('disables sharing of an existing commit while a sky click is unresolved and enables its newly resolved coordinates', async () => {
   window.history.replaceState({}, '', '/?ra=1&dec=2')
   mount()

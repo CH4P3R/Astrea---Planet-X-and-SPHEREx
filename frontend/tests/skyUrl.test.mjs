@@ -81,3 +81,12 @@ test('share links add the contract to URLs without a query or hash', () => {
   assert.equal(syncSkyUrl(base, null), base)
   assert.equal(syncSkyUrl(`${base}/?ra=1&dec=2#frag`, null), `${base}/#frag`)
 })
+
+test('share links exclude synthetic URL credentials and private fields without changing synchronization', () => {
+  const href = 'https://observer:synthetic-password@astrea.test:8443/sky/view?token=synthetic&ra=1#session'
+  const search = { ra: 83.63, dec: -5.39, size: 12.5, detector: 3 }
+  assert.equal(buildShareUrl(href, search),
+    'https://astrea.test:8443/sky/view?ra=83.63&dec=-5.39&size=12.5&detector=3')
+  assert.equal(syncSkyUrl(href, search),
+    'https://observer:synthetic-password@astrea.test:8443/sky/view?token=synthetic&ra=83.63&dec=-5.39&size=12.5&detector=3#session')
+})

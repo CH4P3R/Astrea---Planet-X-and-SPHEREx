@@ -48,7 +48,7 @@ export default function FitsControls({ fits, observer, warning, share }) {
         : fits.preparing ? <button type="button" onClick={() => { fits.cancelPreparation(); setValidation('') }}>
           {t('search.actions.cancelPreparation')}
         </button>
-          : (fits.status !== 'idle' || fits.active || hasResults || warning === 'share.notices.invalid') && <button type="button" onClick={fits.reset}>
+          : (fits.status !== 'idle' || fits.committed || fits.active || hasResults || warning === 'share.notices.invalid') && <button type="button" onClick={fits.reset}>
             {t('search.actions.clear')}
           </button>}
       {share && <ShareLink {...share} />}
