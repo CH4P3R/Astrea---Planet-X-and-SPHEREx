@@ -7,7 +7,9 @@ window.matchMedia ??= () => ({ matches: false, addEventListener() {}, removeEven
 globalThis.requestAnimationFrame ??= (callback) => setTimeout(() => callback(Date.now()), 0)
 globalThis.cancelAnimationFrame ??= (id) => clearTimeout(id)
 
+const replaceState = window.history.replaceState.bind(window.history)
+
 afterEach(() => {
   cleanup()
-  try { window.history.replaceState({}, '', '/') } catch { /* a test may still have a throwing spy installed */ }
+  replaceState({}, '', '/')
 })
