@@ -1,0 +1,10 @@
+{
+  "actions": { "copy": "Copy link" },
+  "notices": {
+    "copied": "Link copied",
+    "manual": "Copy this link manually.",
+    "invalid": "This shared link has invalid search settings. Correct the coordinates or clear the search.",
+    "history": "The address bar could not be updated, but the search still works."
+  },
+  "fallback": { "label": "Share link" }
+}

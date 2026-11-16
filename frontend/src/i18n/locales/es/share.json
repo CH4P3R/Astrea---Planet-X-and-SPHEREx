@@ -1,0 +1,10 @@
+{
+  "actions": { "copy": "Copiar enlace" },
+  "notices": {
+    "copied": "Enlace copiado",
+    "manual": "Copia este enlace manualmente.",
+    "invalid": "Este enlace compartido tiene ajustes de búsqueda no válidos. Corrige las coordenadas o limpia la búsqueda.",
+    "history": "No se pudo actualizar la barra de direcciones, pero la búsqueda sigue funcionando."
+  },
+  "fallback": { "label": "Enlace para compartir" }
+}

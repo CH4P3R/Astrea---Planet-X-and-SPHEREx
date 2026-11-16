@@ -6,16 +6,18 @@ import LocationControls from './LocationControls.jsx'
 import FitsControls from './FitsControls.jsx'
 import SkyControls from './SkyControls.jsx'
 import useTranslation from '../../i18n/useTranslation.js'
+import SkyCompass from './SkyCompass.jsx'
 
 const sections = ['time', 'location', 'search', 'sky']
-export default function ContextToolbar({ clock, location, fits, menu, stars, surfaceVisible, setSurfaceVisible, idPrefix = '', initialCoordinates }) {
+export default function ContextToolbar({ clock, location, fits, menu, warning, share, stars, surfaceVisible, setSurfaceVisible, idPrefix = '', compassMarkerRef }) {
   const { t, date } = useTranslation()
   const options = sections.map((id) => ({ id, label: t(`${id}.title`) }))
   const { active, hint, keepOpen, preview, leave } = menu
 
   return <>
-    <div className="sky-clock" aria-label={t('common.localTime')} data-select-obstacle data-image-obstacle>
-      <time dateTime={new Date(clock.timestamp).toISOString()}>
+    <div className="sky-clock" data-select-obstacle data-image-obstacle>
+      <SkyCompass markerRef={compassMarkerRef} />
+      <time aria-label={t('common.localTime')} dateTime={new Date(clock.timestamp).toISOString()}>
         <strong>{date(clock.timestamp, { hour: 'numeric', minute: '2-digit', second: '2-digit' })}</strong>
         <span>{date(clock.timestamp, { day: 'numeric', month: 'short', year: 'numeric' })}</span>
       </time>
@@ -43,7 +45,7 @@ export default function ContextToolbar({ clock, location, fits, menu, stars, sur
           label={label} visible={active === id}>
           {id === 'time' && <TimeControls clock={clock} />}
           {id === 'location' && <LocationControls {...location} />}
-          {id === 'search' && <FitsControls fits={fits} observer={location.observer} initialCoordinates={initialCoordinates} />}
+          {id === 'search' && <FitsControls fits={fits} observer={location.observer} warning={warning} share={share} />}
           {id === 'sky' && <SkyControls stars={stars} surfaceVisible={surfaceVisible} setSurfaceVisible={setSurfaceVisible} />}
         </ContextPanel>)}
       </div>

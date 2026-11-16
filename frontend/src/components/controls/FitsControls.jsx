@@ -4,12 +4,12 @@ import PanelContent from '../common/PanelContent.jsx'
 import InputField from '../common/InputField.jsx'
 import { coordinateError, cutoutSizeError } from '../../config/search.js'
 import useTranslation from '../../i18n/useTranslation.js'
+import ShareLink from '../../share/ShareLink.jsx'
 
-export default function FitsControls({ fits, observer, initialCoordinates }) {
+export default function FitsControls({ fits, observer, warning, share }) {
   const { t } = useTranslation()
   const formId = useId()
-  const [ra, setRa] = useState(initialCoordinates ? String(initialCoordinates.ra_deg) : '')
-  const [dec, setDec] = useState(initialCoordinates ? String(initialCoordinates.dec_deg) : '')
+  const { ra, dec } = fits.coordinates
   const [validation, setValidation] = useState('')
   const busy = fits.status === 'searching' || fits.status === 'loading'
   const hasResults = fits.images.length > 0
@@ -26,10 +26,9 @@ export default function FitsControls({ fits, observer, initialCoordinates }) {
     if (!error) fits.searchByCoordinates(Number(ra), Number(dec))
   }
 
-  function edit(setValue, value) {
-    setValue(value)
+  function edit(field, value) {
+    fits.setCoordinate(field, value)
     setValidation('')
-    fits.beginPreparation()
   }
 
   return <PanelContent title={t('search.title')}
@@ -49,21 +48,23 @@ export default function FitsControls({ fits, observer, initialCoordinates }) {
         : fits.preparing ? <button type="button" onClick={() => { fits.cancelPreparation(); setValidation('') }}>
           {t('search.actions.cancelPreparation')}
         </button>
-          : (fits.status !== 'idle' || fits.active || hasResults) && <button type="button" onClick={fits.reset}>
+          : (fits.status !== 'idle' || fits.committed || fits.active || hasResults || warning === 'share.notices.invalid') && <button type="button" onClick={fits.reset}>
             {t('search.actions.clear')}
           </button>}
+      {share && <ShareLink {...share} />}
     </>}>
     <form id={formId} onSubmit={submit}>
       <InputField label={t('search.fields.ra.label')} name="ra" type="number" min="0" max="360" step="any" required
         value={ra} disabled={busy} placeholder={t('search.fields.ra.placeholder')}
         help={t('search.fields.ra.help')}
-        onChange={(event) => edit(setRa, event.target.value)} />
+        onChange={(event) => edit('ra', event.target.value)} />
       <InputField label={t('search.fields.dec.label')} name="dec" type="number" min="-90" max="90" step="any" required
         value={dec} disabled={busy} placeholder={t('search.fields.dec.placeholder')}
         help={t('search.fields.dec.help')}
-        onChange={(event) => edit(setDec, event.target.value)} />
+        onChange={(event) => edit('dec', event.target.value)} />
       {validation && <p role="alert">{t(validation)}</p>}
     </form>
+    {warning === 'share.notices.invalid' && <p role="status">{t(warning)}</p>}
     {!fits.active && fits.error && <p role="alert">{t(fits.error)}</p>}
     {!busy && !fits.preparing && !fits.active && fits.status === 'results' && !hasResults && <p role="status">{t('search.results.empty')}</p>}
     {!busy && !fits.preparing && hasResults && !fits.active && <Tooltip message={projectionReason} tone="error">

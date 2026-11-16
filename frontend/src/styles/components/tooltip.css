@@ -7,7 +7,8 @@
   top: var(--tooltip-y, 0px);
   left: var(--tooltip-x, 0px);
   z-index: 1000;
-  width: min(280px, calc(100vw - 24px));
+  width: max-content;
+  max-width: min(280px, calc(100vw - 24px));
   padding: 12px 14px;
   border-radius: 12px;
   background: var(--tooltip-background);
@@ -43,7 +44,7 @@
 
 .tooltip-bubble-error { --tooltip-background: #b42332; }
 .tooltip-bubble[data-open='true'] { visibility: visible; opacity: 1; transform: scale(1); }
-.tooltip-bubble-compact { width: max-content; max-width: min(190px, calc(100vw - 24px)); text-align: center; }
+.tooltip-bubble-compact { max-width: min(190px, calc(100vw - 24px)); text-align: center; }
 
 @media (prefers-reduced-motion: reduce) {
   .tooltip-bubble { transition: none; }

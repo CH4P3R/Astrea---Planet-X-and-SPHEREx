@@ -1,23 +1,100 @@
 {
   "title": "Astrea guide",
+  "intro": {
+    "title": "Welcome to Astrea",
+    "summary": "Explore the sky and discover real images from the SPHEREx space telescope, which observes infrared light our eyes cannot see.",
+    "possibilities": "What can you do?",
+    "sky": "Explore the sky from a location and a date.",
+    "images": "Search a region and adjust its images to reveal more detail.",
+    "compare": "Compare observations from different dates and look for possible changes.",
+    "note": "Astrea makes astronomical data accessible to everyone: explore without learning scientific file formats. The guide helps you get started.",
+    "tutorial": "View tutorial",
+    "explore": "Start exploring",
+    "loading": "Preparing Astrea…"
+  },
   "progress": "Step {{current}} of {{total}}",
   "skip": "Skip all",
   "previous": "Previous",
   "next": "Next",
   "finish": "Finish",
   "restart": "View tutorial",
-  "realData": "Tutorial · Barnard's Star field · Real SPHEREx FITS",
-  "download": "Download local FITS",
+  "inspector": "Right panel",
+  "try": "Try these steps",
   "load": "Load Barnard FITS",
   "loading": "Loading the local observation and its projection…",
   "found": "Local Barnard observation found",
   "empty": "No local FITS match these coordinates, size or detector. Use the Barnard field, 7 arcminutes and D3.",
-  "welcome": { "title": "Explore Astrea", "body": "This is Astrea's real interface. The guide opens a practice session with real Barnard FITS stored in the project; your work stays separate. Use Next to advance or Skip all to leave. The question mark above the language selector lets you repeat it." },
-  "time": { "title": "Sky time", "body": "Try these real controls to pause the clock, return to the current time or apply a UTC date. Practice starts on August 17, 2025 at 21:00 UTC. This clock orients the sky: it does not change the FITS acquisition dates." },
-  "location": { "title": "Observer location", "body": "Practice uses Greenwich as a reference location, not as your actual location. Try the latitude and longitude fields or request your device location. Changes affect only this tutorial session. The observer allows the FITS to be projected onto the local sky." },
-  "search": { "title": "Search the Barnard field", "body": "Barnard's coordinates are prefilled in the real form. Keep the 7-arcminute cutout and click Search coordinates to load the local FITS. The tutorial collection contains only two D3 observations of this region; it does not query IRSA. If you advance without searching, the guide loads the observation automatically." },
-  "sky": { "title": "Sky appearance", "body": "This real panel shows star loading status and lets you hide the central surface. The next step opens the right inspector with the Barnard FITS pixels and WCS geometry, not a generated image." },
-  "data": { "title": "Real inspector: Data", "body": "These are real FITS properties: date, detector D3, dimensions, coordinates and WCS header. Try Data and Center image; you can also download the saved FITS. Other detectors have no bundled files and return an empty result without replacing the image. If you close the inspector, Load Barnard FITS lets you continue." },
-  "appearance": { "title": "Real inspector: Appearance", "body": "Try palette, brightness and opacity: they change the real sky image. You can also apply flags, subtract zodiacal light or show signal-to-noise; these planes come from the local FITS. Restore appearance resets visual adjustments. There are no simulated controls or data." },
-  "compare": { "title": "Real inspector: Compare", "body": "For 2025 and the same D3 detector, add the other available observation. Use the sequence, Show, Play and time per image to compare the two real FITS. Their dates are about 6.6 hours apart: this example teaches blink controls, not guaranteed visible Barnard motion. Finishing returns to your previous session." }
+  "welcome": {
+    "title": "Explore Astrea",
+    "summary": "Learn the interface with real images of Barnard's Star.",
+    "actions": {
+      "1": { "title": "Follow the tour", "description": "Click Next to discover the controls." },
+      "2": { "title": "Try it without losing your work", "description": "Your previous session returns when you leave." }
+    },
+    "note": "You can skip the guide and reopen it from the question mark."
+  },
+  "time": {
+    "title": "Sky time",
+    "summary": "This clock orients the sky; it does not change image acquisition dates.",
+    "actions": {
+      "1": { "title": "Try the clock", "description": "Switch between Return to current time and Pause time." },
+      "2": { "title": "Choose another date", "description": "Enter a UTC date and click Apply date." }
+    },
+    "note": "The tutorial starts with the clock paused; you can change it."
+  },
+  "location": {
+    "title": "Observer location",
+    "summary": "Location allows observations to be placed in the local sky.",
+    "actions": {
+      "1": { "title": "Check the reference", "description": "The tutorial uses Greenwich, not your actual location." },
+      "2": { "title": "Try another location", "description": "Enter latitude and longitude or use device location." }
+    },
+    "note": "These changes only affect the tutorial."
+  },
+  "search": {
+    "title": "Search the Barnard field",
+    "summary": "Load the observation from the Preparation form.",
+    "actions": {
+      "1": { "title": "Keep the prepared values", "description": "Leave the supplied coordinates and the 7-arcminute size." },
+      "2": { "title": "Find the observation", "description": "Click Search coordinates to open the FITS in the inspector." }
+    },
+    "note": "If you advance without searching, the guide loads the file automatically."
+  },
+  "sky": {
+    "title": "Sky appearance",
+    "summary": "Control the stars and the reference surface.",
+    "actions": {
+      "1": { "title": "Check the catalog", "description": "Review the star loading status." },
+      "2": { "title": "Try the surface", "description": "Toggle Show central surface." }
+    },
+    "note": "The next step opens Data in the right inspector."
+  },
+  "data": {
+    "title": "Data",
+    "summary": "The highlighted tab shows the observation's properties.",
+    "actions": {
+      "1": { "title": "Inspect the image", "description": "Review the date, detector D3 and dimensions." },
+      "2": { "title": "Restore the framing", "description": "Click Center image to see the complete cutout." }
+    },
+    "note": "Open original FITS remains available at the bottom of the panel."
+  },
+  "appearance": {
+    "title": "Appearance",
+    "summary": "The highlighted tab adjusts how the image is displayed.",
+    "actions": {
+      "1": { "title": "Try the appearance", "description": "Change the palette, brightness or opacity." },
+      "2": { "title": "Return to the initial look", "description": "Click Reset appearance to reset the visual settings." }
+    },
+    "note": "Scientific filters use planes from the real FITS."
+  },
+  "compare": {
+    "title": "Compare",
+    "summary": "The highlighted tab lets you alternate between two real observations.",
+    "actions": {
+      "1": { "title": "Choose the dates", "description": "Keep 2025 and the same D3 detector." },
+      "2": { "title": "Add another observation", "description": "Click Add on the available date." },
+      "3": { "title": "Play the sequence", "description": "Click Play and adjust the time per image." }
+    },
+    "note": "The dates are 6.6 hours apart; visible motion is not guaranteed."
+  }
 }

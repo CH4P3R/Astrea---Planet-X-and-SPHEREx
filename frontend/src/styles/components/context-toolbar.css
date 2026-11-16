@@ -1,3 +1,6 @@
+.sky-clock,
+.context-toolbar { --rail-width: 88px; }
+
 .sky-clock {
   position: absolute;
   top: max(var(--ui-edge-y), env(safe-area-inset-top));
@@ -23,7 +26,6 @@
   --context-field: var(--hud-field);
   --context-hover: var(--hud-hover);
   pointer-events: none;
-  --rail-width: 88px;
   --tool-height: 72px;
   --panel-gap: 26px;
 }
@@ -282,11 +284,12 @@
 }
 
 @media (max-width: 1440px), (max-height: 800px) {
+  .sky-clock,
+  .context-toolbar { --rail-width: clamp(60px, 5.2vw, 72px); }
   .sky-clock strong { font-size: clamp(20px, 3dvh, 24px); }
   .sky-clock span { font-size: 14px; }
   .context-toolbar {
     --toolbar-top: max(calc(var(--ui-edge-y) + 84px), min(24dvh, 190px));
-    --rail-width: clamp(60px, 5.2vw, 72px);
     --tool-height: clamp(44px, 7.3dvh, 60px);
     --panel-gap: clamp(12px, 1.5vw, 20px);
   }
@@ -308,7 +311,7 @@
 }
 
 @media (max-width: 600px) {
-  .sky-clock { top: 24px; left: 20px; }
+  .sky-clock { top: 24px; left: max(16px, env(safe-area-inset-left)); --rail-width: 64px; }
   .sky-clock strong { font-size: 22px; }
   .context-toolbar { left: max(16px, env(safe-area-inset-left)); --toolbar-top: clamp(112px, 20dvh, 160px); --rail-width: 64px; --tool-height: clamp(44px, 7dvh, 58px); --panel-gap: 18px; }
   .context-rail { padding: 12px 6px; gap: 10px; border-radius: 16px; }

@@ -1,0 +1,41 @@
+.share-link { display: grid; gap: 8px; min-width: 0; }
+.share-link > button { justify-self: start; }
+.share-link [role='status'], .context-panel .share-link label { margin: 0; }
+.share-link label { display: grid; gap: 6px; min-width: 0; }
+.share-link--icon { justify-items: end; width: 100%; }
+.share-link--icon > label { width: 100%; }
+.image-inspector .share-icon-button {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 10px;
+  background: transparent;
+  touch-action: manipulation;
+}
+.share-icon-button svg { width: 22px; height: 22px; }
+.share-icon-button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--hud-field);
+  pointer-events: none;
+  transition: transform var(--motion-duration) var(--motion-spring), background-color var(--motion-duration) ease;
+}
+.share-icon-button:focus-visible:not(:disabled)::before { background: var(--hud-hover); transform: scale(1.025); }
+.share-icon-button:active:not(:disabled)::before { transform: scale(0.985); }
+@media (hover: hover) {
+  .share-icon-button:hover:not(:disabled)::before { background: var(--hud-hover); transform: scale(1.025); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .share-icon-button::before { transition: none; transform: none !important; }
+}
+.share-link .share-announcement { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.share-link input {
+  box-sizing: border-box; min-width: 0; width: 100%; padding: 12px;
+  border: 0; border-radius: 10px; background: var(--hud-field); color: var(--hud-text);
+}

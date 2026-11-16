@@ -7,9 +7,12 @@ Consultar la [Guía de diseño e interacción](docs/UI_DESIGN_GUIDE.md), que re�
 ## Tutorial guiado
 
 El botón de interrogación encima del selector de idioma abre el tutorial, incluso si
-ya se completó o se saltó. La primera visita también lo abre automáticamente. Finalizar
+ya se completó o se saltó. La primera visita muestra un icono gris animado y revela
+una bienvenida con «Ver tutorial» y «Empezar a explorar». El tutorial solo comienza
+al elegirlo. La elección guarda `seen` en `astrea.welcome.v1`, evitando repetir la
+bienvenida y su transición de entrada en visitas posteriores. Finalizar
 guarda `completed` y Saltar todo o Escape guarda `skipped` en `localStorage`, bajo
-`astrea.onboarding.v1`; ambos estados desactivan únicamente la apertura automática.
+`astrea.onboarding.v1`; estos estados nunca deshabilitan el botón de ayuda.
 
 El recorrido reutiliza el espacio de trabajo y el inspector reales, incluidos Datos,
 Apariencia y Comparar. Los FITS originales de Barnard están en `backend/data/onboarding/`,
@@ -27,6 +30,11 @@ real en ambas sesiones. `OnboardingTour` utiliza un portal de React DOM y `box-s
 `scrollTo: false` y foco con `preventScroll` evitan desplazar el lienzo. Los textos son
 ES/EN y no se añaden dependencias. El aviso de carga de estrellas y las mejoras del
 inspector, los detectores y la cámara de los merges se mantienen.
+
+Las instrucciones se distribuyen en una frase de propósito, acciones numeradas y una
+nota breve. En Datos, Apariencia y Comparar se resalta la pestaña real en el panel
+derecho; pulsar otra pestaña actualiza el paso de la guía. No se añaden enlaces al
+encabezado del inspector: «Abrir FITS original» permanece dentro de Datos.
 
 ## Espacio de trabajo 3D
 

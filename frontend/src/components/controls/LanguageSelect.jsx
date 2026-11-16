@@ -6,12 +6,13 @@ import { useId } from 'react'
 import Question2Fill from '../common/Question2Fill.jsx'
 import Tooltip from '../common/Tooltip.jsx'
 
-export default function LanguageSelect({ onStartTour }) {
+export default function LanguageSelect({ onStartTour, suspended = false }) {
   const { t, language, setLanguage } = useTranslation()
   const id = useId()
   const current = languages.find((option) => option.value === language)
   return <div className="language-region" data-image-obstacle>
-    {onStartTour && <Tooltip message={t('onboarding.restart')} inline>
+    {onStartTour && <Tooltip key={suspended ? 'suspended' : 'ready'} message={t('onboarding.restart')}
+      inline hoverOnly open={suspended ? false : undefined}>
       <button type="button" className="tour-launcher" data-tour-launcher aria-label={t('onboarding.restart')} onClick={onStartTour}>
         <Question2Fill />
       </button>

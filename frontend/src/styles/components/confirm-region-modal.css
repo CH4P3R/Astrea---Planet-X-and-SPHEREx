@@ -1,0 +1,18 @@
+.confirm-region-modal p { margin: 0; color: var(--hud-muted); line-height: 1.5; }
+.confirm-region-modal__actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.confirm-region-modal__actions button {
+  min-height: 44px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--hud-field);
+  color: var(--hud-text);
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background-color var(--motion-duration) ease, color var(--motion-duration) ease;
+}
+.confirm-region-modal__actions button:hover { background: var(--hud-hover); }
+.confirm-region-modal__actions button:focus-visible { outline: 2px solid var(--hud-focus); outline-offset: 3px; }
+.confirm-region-modal__actions .confirm-region-modal__confirm { background: var(--hud-hover); color: var(--hud-focus); }
+.confirm-region-modal__actions .confirm-region-modal__confirm:hover { background: var(--hud-field); }

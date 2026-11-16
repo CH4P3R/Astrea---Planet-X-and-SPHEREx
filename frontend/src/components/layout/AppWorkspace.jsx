@@ -20,24 +20,42 @@ import useProjectedImage from '../../hooks/useProjectedImage.js'
 import OnboardingTour from '../onboarding/OnboardingTour.jsx'
 import { tourSteps } from '../onboarding/tourState.js'
 import { barnardQuery, tutorialObserver, tutorialTimestamp } from '../../config/onboarding.js'
+import ConfirmRegionModal from '../common/ConfirmRegionModal.jsx'
+import useSkyUrl from '../../share/useSkyUrl.js'
 
-export default function AppWorkspace({ tutorial = false, suspended = false, onStartTour, onFinishTour }) {
+export default function AppWorkspace({ tutorial = false, suspended = false, guideVisible = true, revealing = false, onStartTour, onFinishTour }) {
   const { t, language } = useTranslation()
   const rootRef = useRef(null)
+  const compassMarkerRef = useRef(null)
   const [tourIndex, setTourIndex] = useState(0)
-  const tourActive = tutorial
+  const tourActive = tutorial && guideVisible
   const location = useObserver({ initialObserver: tutorial ? tutorialObserver : null, automatic: !tutorial })
   const clock = useSkyClock(tutorial ? tutorialTimestamp : null)
-  const fits = useFitsImage(location.observer, clock.context, tutorial ? 'onboarding' : 'archive')
+  const restoreUrlRef = useRef(null)
+  const onRestore = useCallback((state) => restoreUrlRef.current?.(state), [])
+  const skyUrl = useSkyUrl({ enabled: !tutorial, onRestore })
+  const fits = useFitsImage(location.observer, clock.context, tutorial ? 'onboarding' : 'archive', tutorial ? {
+    initialCoordinates: { ra: barnardQuery.ra_deg, dec: barnardQuery.dec_deg },
+  } : {
+    initialSearch: skyUrl.initialSearch,
+    onCommittedChange: skyUrl.sync,
+  })
+  const { committed, commitPending } = fits
+  const { shareHref } = skyUrl
+  const getShareHref = useCallback(() => shareHref(committed), [shareHref, committed])
+  const share = tutorial ? null : { getHref: getShareHref, disabled: !committed || commitPending }
   const stars = useStars(location.observer, clock.context, clock.timestamp)
   const starsNotice = useMemo(() => stars.status === 'loading' && !stars.snapshot
     ? { status: 'loading', message: 'sky.status.loadingNotice', icon: 'star' } : null,
   [stars.status, stars.snapshot])
+  const historyNotice = useMemo(() => skyUrl.warning === 'share.notices.history'
+    ? { status: 'error', message: skyUrl.warning } : null, [skyUrl.warning])
   const [surfaceVisible, setSurfaceVisible] = useState(true)
   const [notice, setNotice] = useState(null)
   const [tab, setTab] = useState('data')
   const [focusVersion, setFocusVersion] = useState(0)
   const [searchDirection, setSearchDirection] = useState(null)
+  const [pendingRegion, setPendingRegion] = useState(null)
   const activeId = fits.active?.metadata.id
   const inspectorOpen = Boolean(activeId)
   const searchPending = fits.preparing || (!fits.active && ['searching', 'loading', 'results', 'error'].includes(fits.status))
@@ -59,8 +77,16 @@ export default function AppWorkspace({ tutorial = false, suspended = false, onSt
   const frameImages = useMemo(() => tab === 'compare' ? comparisonFrames
     : baseProjection.ready ? [baseProjection.image] : [],
   [tab, comparisonFrames, baseProjection.ready, baseProjection.image])
-  const { size, search } = fits
+  const { size, search, applyUrl } = fits
   const { open } = menu
+  useEffect(() => {
+    restoreUrlRef.current = (state) => {
+      setPendingRegion(null)
+      setSearchDirection(null)
+      applyUrl(state)
+      if (state.status === 'invalid') open('search')
+    }
+  }, [applyUrl, open])
   const finishTour = useCallback((status) => {
     playback.pause()
     onFinishTour(status)
@@ -76,19 +102,42 @@ export default function AppWorkspace({ tutorial = false, suspended = false, onSt
   const tourMenu = tourActive ? { ...menu, active: tourSteps[tourIndex].panel ?? null, hint: null,
     keepOpen: () => {}, preview: () => {}, leave: () => {}, cancelPreview: () => {}, open: () => {} } : menu
   useEffect(() => { if (activeId) open(null) }, [activeId, open])
+  useEffect(() => {
+    if (skyUrl.warning === 'share.notices.invalid') open('search')
+  }, [skyUrl.warning, open])
   const onSkyClick = useCallback((direction, point) => {
-    if (activeId || tutorial) return
+    if (tutorial || suspended) return
     const reason = !observer ? 'location' : cutoutSizeError(size) ? 'size' : null
     if (reason) {
       setNotice((previous) => ({ id: (previous?.id ?? 0) + 1, point, reason }))
       return
     }
     setNotice(null)
+    if (searchDirection || activeId) {
+      setPendingRegion({ direction, observer, context: clock.context })
+      return
+    }
     setSearchDirection(direction)
     open('search')
     search(direction)
     return true
-  }, [observer, size, search, open, activeId, tutorial])
+  }, [observer, size, search, open, activeId, tutorial, suspended, searchDirection, clock.context])
+  const regionConfirmationOpen = pendingRegion && !tutorial && !suspended
+    && pendingRegion.observer === observer && pendingRegion.context === clock.context
+  const dismissRegion = () => {
+    setPendingRegion(null)
+    requestAnimationFrame(() => rootRef.current?.focus({ preventScroll: true }))
+  }
+  const confirmRegion = () => {
+    if (!regionConfirmationOpen) return
+    const { direction } = pendingRegion
+    dismissRegion()
+    playback.pause()
+    setTab('data')
+    setSearchDirection(direction)
+    open('search')
+    search(direction)
+  }
   const locating = location.status === 'loading'
   const noticeMessage = notice?.reason === 'location' && !observer
     ? locating ? 'location.notices.locating'
@@ -98,35 +147,42 @@ export default function AppWorkspace({ tutorial = false, suspended = false, onSt
   return (<>
     <main ref={rootRef} inert={suspended} aria-hidden={suspended || undefined} tabIndex={-1}
       className={`app-viewport${tutorial ? ' tutorial-workspace' : ''}${suspended ? ' workspace-suspended' : ''}`}
-      data-tutorial={tutorial || undefined} data-inspector-open={inspectorOpen} aria-label={t('common.viewport')}>
+      data-tutorial={tutorial || undefined} data-revealing={revealing || undefined}
+      data-inspector-open={inspectorOpen} aria-label={t('common.viewport')}>
       <div className="scene-layer" aria-label={t('common.scene')}>
         <Canvas frameloop={suspended ? 'never' : 'always'} orthographic camera={{ position: [0, 0, 0], near: 0.01, far: 250 }}>
           <SkyScene observer={observer} fits={fits} stars={stars} surfaceVisible={surfaceVisible}
             timestamp={clock.timestamp} onSkyClick={onSkyClick} frameImages={frameImages} viewport={viewport} focusVersion={focusVersion}
             layers={layers} appearance={appearance} frameId={playback.frameId}
             onImageZoom={tab === 'compare' ? undefined : fits.refine}
-            searchDirection={searchDirection} />
+            searchDirection={searchDirection} compassMarkerRef={compassMarkerRef} />
         </Canvas>
       </div>
       <div className="ui-layer">
-        <ContextToolbar clock={clock} location={location} fits={fits} menu={tourMenu}
+        <ContextToolbar clock={clock} location={location} fits={fits} menu={tourMenu} warning={skyUrl.warning} share={share}
           stars={stars} surfaceVisible={surfaceVisible} setSurfaceVisible={setSurfaceVisible}
-          idPrefix={tutorial ? 'tutorial-' : ''} initialCoordinates={tutorial ? barnardQuery : undefined} />
-        <LanguageSelect onStartTour={onStartTour ? () => { playback.pause(); onStartTour() } : undefined} />
+          idPrefix={tutorial ? 'tutorial-' : ''}
+          compassMarkerRef={compassMarkerRef} />
+        <LanguageSelect suspended={suspended} onStartTour={onStartTour ? () => { playback.pause(); onStartTour() } : undefined} />
         <ImageInspector open={inspectorOpen} tab={tab} fits={fits} displayed={displayed} appearance={appearance}
           comparison={comparison} playback={playback} reason={t(reason)} primaryProjection={primaryProjection} frames={frames} projections={projections}
-          tutorial={tutorial}
-          onTabChange={(value) => { playback.pause(); setTab(value) }}
-          onClose={() => { playback.pause(); fits.reset(); setTab('data'); open(null)
+          highlightedTab={tutorial ? tourSteps[tourIndex].tab : undefined} share={share}
+          onTabChange={(value) => {
+            const nextStep = tourSteps.findIndex((step) => step.tab === value)
+            if (tutorial && tourSteps[tourIndex].tab && nextStep >= 0) changeTourStep(nextStep)
+            else { playback.pause(); setTab(value) }
+          }}
+          onClose={() => { playback.pause(); fits.reset(); setSearchDirection(null); setPendingRegion(null); setTab('data'); open(null)
             requestAnimationFrame(() => rootRef.current?.focus({ preventScroll: true })) }}
           onCenter={() => { fits.refine(1); setFocusVersion((value) => value + 1) }} />
         <div className="status-region">
-          <StatusNotice notice={starsNotice ?? fits.notice} />
+          <StatusNotice notice={historyNotice ?? starsNotice ?? fits.notice} duration={historyNotice ? 0 : undefined} />
         </div>
         {notice && <Tooltip key={notice.id} point={notice.point} message={t(noticeMessage)} open
           tone={notice.reason === 'location' && locating ? 'info' : 'error'} />}
       </div>
     </main>
+    {regionConfirmationOpen && <ConfirmRegionModal onConfirm={confirmRegion} onCancel={dismissRegion} />}
     {tourActive && <OnboardingTour index={tourIndex} scopeRef={rootRef} onChange={changeTourStep} onFinish={finishTour}
       imageReady={Boolean(fits.active)} loading={['searching', 'loading'].includes(fits.status)}
       error={fits.error} onLoad={fits.loadOnboarding} />}
