@@ -20,8 +20,8 @@
   },
   "detectors": {
     "title": "Explore detectors",
-    "spectrumDescription": "Nominal SPHEREx wavelength bands from 0.75 to 5 micrometers, with 17 channels per detector. Widths are proportional to wavelength intervals. Colors identify detectors; this is not calibrated per-pixel coverage.",
-    "help": "Each segment loads the latest observation of this region from that detector; its date may change. Pastel colors identify options, not real colors or intensities. Ranges are nominal: the actual wavelength varies across each detector.",
+    "spectrumDescription": "Nominal SPHEREx wavelength bands from 0.75 to 5 micrometers, with 17 channels per detector. Widths are proportional to wavelength intervals. Illustrative colors progress from violet at shorter wavelengths to golden orange at longer wavelengths; this is not calibrated per-pixel coverage.",
+    "help": "Each segment loads the latest observation of this region from that detector; its date may change. Illustrative colors follow wavelength from violet to golden orange, not real colors or intensities. Ranges are nominal: the actual wavelength varies across each detector.",
     "range": "D{{detector}}: {{range}} µm",
     "latest": "Latest from any detector",
     "empty": "No observation was found for the requested detector. The previous image is retained."

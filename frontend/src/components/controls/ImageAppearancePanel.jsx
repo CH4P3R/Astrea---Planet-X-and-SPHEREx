@@ -3,6 +3,7 @@ import PanelContent from '../common/PanelContent.jsx'
 import HelpButton from '../common/HelpButton.jsx'
 import Select from '../common/Select.jsx'
 import RangeField from '../common/RangeField.jsx'
+import CheckboxField from '../common/CheckboxField.jsx'
 import useTranslation from '../../i18n/useTranslation.js'
 
 export default function ImageAppearancePanel({ appearance }) {
@@ -29,8 +30,8 @@ export default function ImageAppearancePanel({ appearance }) {
     <section className="inspector-section">
       <h3>{t('inspector.appearance.processing')}</h3>
       {['mask_flags', 'subtract_zodi', 'signal_to_noise'].map((key) => <div className="inspector-toggle" key={key}>
-        <label><input type="checkbox" checked={appearance.processing[key]} onChange={(event) => appearance.process(key, event.target.checked)} />
-          <span>{t(`inspector.appearance.${key}`)}</span></label>
+        <CheckboxField label={t(`inspector.appearance.${key}`)} checked={appearance.processing[key]}
+          onChange={(event) => appearance.process(key, event.target.checked)} />
         <HelpButton label={t(`inspector.appearance.${key}`)} message={t(`inspector.help.${key}`)} />
       </div>)}
       {appearance.loading && <p role="status">{t('inspector.appearance.loading')}</p>}

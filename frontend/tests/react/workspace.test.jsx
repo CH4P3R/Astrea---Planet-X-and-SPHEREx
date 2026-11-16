@@ -65,7 +65,7 @@ const deferred = () => {
 const mount = (element = <AppWorkspace />) => render(<I18nProvider>{element}</I18nProvider>)
 const flush = () => act(async () => {})
 const input = (name) => document.querySelector(`input[name="${name}"]`)
-const sizeInput = () => document.querySelector('#context-search input[type="number"]')
+const sizeInput = () => document.querySelector('#context-search input[type="range"]')
 const click = (name) => fireEvent.click(screen.getByRole('button', { name, exact: true }))
 const openSearch = () => click('Preparation')
 const edit = (ra, dec) => {

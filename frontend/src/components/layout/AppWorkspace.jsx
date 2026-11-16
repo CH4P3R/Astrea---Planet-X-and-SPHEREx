@@ -9,6 +9,7 @@ import useContextMenu from '../../hooks/useContextMenu.js'
 import Tooltip from '../common/Tooltip.jsx'
 import StatusNotice from '../common/StatusNotice.jsx'
 import { cutoutSizeError } from '../../config/search.js'
+import { SKY_DUST } from '../../config/skyDust.js'
 import useStars from '../../hooks/useStars.js'
 import useTranslation from '../../i18n/useTranslation.js'
 import LanguageSelect from '../controls/LanguageSelect.jsx'
@@ -54,6 +55,7 @@ export default function AppWorkspace({ tutorial = false, suspended = false, cove
   const historyNotice = useMemo(() => skyUrl.warning === 'share.notices.history'
     ? { status: 'error', message: skyUrl.warning } : null, [skyUrl.warning])
   const [surfaceVisible, setSurfaceVisible] = useState(true)
+  const [dustVisible, setDustVisible] = useState(SKY_DUST.enabled)
   const [notice, setNotice] = useState(null)
   const [tab, setTab] = useState('data')
   const [focusVersion, setFocusVersion] = useState(0)
@@ -157,7 +159,7 @@ export default function AppWorkspace({ tutorial = false, suspended = false, cove
       data-inspector-open={inspectorOpen} aria-label={t('common.viewport')}>
       <div className="scene-layer" aria-label={t('common.scene')}>
         <Canvas frameloop={suspended ? 'never' : 'always'} orthographic camera={{ position: [0, 0, 0], near: 0.01, far: 250 }}>
-          <SkyScene observer={observer} fits={fits} stars={stars} surfaceVisible={surfaceVisible}
+          <SkyScene observer={observer} fits={fits} stars={stars} surfaceVisible={surfaceVisible} dustVisible={dustVisible}
             timestamp={clock.timestamp} onSkyClick={onSkyClick} frameImages={frameImages} viewport={viewport} focusVersion={focusVersion}
             layers={layers} appearance={appearance} frameId={playback.frameId}
             onImageZoom={tab === 'compare' ? undefined : fits.refine}
@@ -167,6 +169,7 @@ export default function AppWorkspace({ tutorial = false, suspended = false, cove
       <div className="ui-layer" data-hidden={covered || undefined} inert={covered} aria-hidden={covered || undefined}>
         <ContextToolbar clock={clock} location={location} fits={fits} menu={tourMenu} warning={skyUrl.warning} share={share}
           stars={stars} surfaceVisible={surfaceVisible} setSurfaceVisible={setSurfaceVisible}
+          dustVisible={dustVisible} setDustVisible={setDustVisible}
           idPrefix={tutorial ? 'tutorial-' : ''}
           compassMarkerRef={compassMarkerRef} />
         <LanguageSelect suspended={suspended || covered} onStartTour={onStartTour ? () => { playback.pause(); onStartTour() } : undefined} />
