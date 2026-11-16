@@ -49,6 +49,17 @@ test('plural selection and numeric interpolation use the active language', () =>
   assert.equal(en('sky.directions.west.short'), 'W')
 })
 
+test('share actions and recoverable warnings are localized', () => {
+  const en = createTranslator('en')
+  const es = createTranslator('es')
+  assert.equal(en('share.actions.copy'), 'Copy link')
+  assert.equal(es('share.actions.copy'), 'Copiar enlace')
+  assert.equal(en('share.notices.invalid'), 'This shared link has invalid search settings. Correct the coordinates or clear the search.')
+  assert.equal(es('share.notices.invalid'), 'Este enlace compartido tiene ajustes de búsqueda no válidos. Corrige las coordenadas o limpia la búsqueda.')
+  assert.equal(en('share.notices.history'), 'The address bar could not be updated, but the search still works.')
+  assert.equal(es('share.notices.history'), 'No se pudo actualizar la barra de direcciones, pero la búsqueda sigue funcionando.')
+})
+
 test('pending notices and nested errors can be translated again without changing state', () => {
   const error = { key: 'errors.image.projection', values: { reason: errorMessage(new LocalizedError('errors.image.gpuLimit', {
     width: 8192, height: 1024, maxTextureSize: 4096,

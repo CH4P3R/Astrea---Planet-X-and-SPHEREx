@@ -4,9 +4,11 @@ import { saveTourStatus } from '../onboarding/tourState.js'
 import WelcomeModal from '../onboarding/WelcomeModal.jsx'
 import StartupSplash from '../onboarding/StartupSplash.jsx'
 import { saveWelcomeStatus, shouldShowWelcome } from '../onboarding/welcomeState.js'
+import { parseSkyUrl } from '../../share/skyUrl.js'
 
 export default function AppViewport() {
   const [welcomeOpen, setWelcomeOpen] = useState(() => {
+    if (parseSkyUrl(window.location.href).status !== 'none') return false
     try { return shouldShowWelcome(window.localStorage) } catch { return true }
   })
   const [loading, setLoading] = useState(welcomeOpen)

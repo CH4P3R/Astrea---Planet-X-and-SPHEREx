@@ -9,7 +9,7 @@ import useTranslation from '../../i18n/useTranslation.js'
 import SkyCompass from './SkyCompass.jsx'
 
 const sections = ['time', 'location', 'search', 'sky']
-export default function ContextToolbar({ clock, location, fits, menu, stars, surfaceVisible, setSurfaceVisible, idPrefix = '', initialCoordinates, compassMarkerRef }) {
+export default function ContextToolbar({ clock, location, fits, menu, warning, share, stars, surfaceVisible, setSurfaceVisible, idPrefix = '', compassMarkerRef }) {
   const { t, date } = useTranslation()
   const options = sections.map((id) => ({ id, label: t(`${id}.title`) }))
   const { active, hint, keepOpen, preview, leave } = menu
@@ -45,7 +45,7 @@ export default function ContextToolbar({ clock, location, fits, menu, stars, sur
           label={label} visible={active === id}>
           {id === 'time' && <TimeControls clock={clock} />}
           {id === 'location' && <LocationControls {...location} />}
-          {id === 'search' && <FitsControls fits={fits} observer={location.observer} initialCoordinates={initialCoordinates} />}
+          {id === 'search' && <FitsControls fits={fits} observer={location.observer} warning={warning} share={share} />}
           {id === 'sky' && <SkyControls stars={stars} surfaceVisible={surfaceVisible} setSurfaceVisible={setSurfaceVisible} />}
         </ContextPanel>)}
       </div>
