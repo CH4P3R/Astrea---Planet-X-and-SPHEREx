@@ -39,6 +39,8 @@ MAX_RANGES = 96             # Ranges per request; keeps the Range header well un
 MERGE_GAP = 256             # Cheaper to download a small gap than to pay for another part.
 REQUEST_SECONDS = 90
 MAX_LAYOUTS = 256
+EPSF_DATA_GUESS = 3862080   # Usual padded size of the EPSF table (detector 3 differs); verified on every read.
+MAX_PSF_TABLES = 12         # One table (about 4 MB) per detector and calibration file.
 DTYPES = {8: "u1", 16: ">i2", 32: ">i4", 64: ">i8", -32: ">f4", -64: ">f8"}
 # Header cards that must travel with a plane for it to be interpreted.
 PLANE_CARDS = ("BUNIT", "MSKN", "MSKD")
@@ -69,6 +71,11 @@ class Stamp:
     variance: np.ndarray
     flags: np.ndarray
     spectral_table: bytes      # The WCS-WAVE extension, header and data.
+    # Effective PSF of the detector zone holding the position (EPSF extension):
+    # a square array sampled `psf_oversample` times per pixel, centred on its
+    # middle sample, summing to 1. None unless it was asked for.
+    psf: np.ndarray | None = None
+    psf_oversample: int = 1
 
 
 def _content_range(text):
@@ -157,6 +164,7 @@ class RemoteExposure:
         self.hdus = []    # Contiguous from byte 0: {name, header, offset, data, size}.
         self._spare = {}  # Bytes already downloaded, keyed by their file offset.
         self._trailing = {}  # Whole small extensions read from the end of the file.
+        self._located = {}   # Large extensions found from the end of the file, by name.
         self._guard = RLock()  # One exposure at a time; different exposures in parallel.
 
     def _next_offset(self):
@@ -210,6 +218,36 @@ class RemoteExposure:
             if name not in self._trailing:
                 self._trailing[name] = self._tail(name, deadline) or self._whole(name, deadline)
             return self._trailing[name]
+
+    def before_trailing(self, name, trailing, guess, deadline=None):
+        """Entry of a large extension stored just before a trailing one (EPSF before WCS-WAVE).
+
+        `guess` is its expected padded data size. A header found that way must
+        account for every byte up to the trailing extension; otherwise the
+        extensions are walked from the start. None when the file has no such extension.
+        The reader remembers the size each detector turned out to have.
+        """
+        name = name.upper()
+        with self._guard:
+            if name not in self._located:
+                end = self.total - len(self.trailing(trailing, deadline))
+                size, found = 3 * BLOCK, None
+                detector = next((entry["header"].get("DETECTOR") for entry in self.hdus if "DETECTOR" in entry["header"]), "")
+                learned = (name, str(detector).strip())
+                start = end - self.reader._sizes.get(learned, guess) - size
+                if start > 0:
+                    buffer = self._read([(start, size)], deadline)[0]
+                    for at in range(size - BLOCK, -1, -BLOCK):
+                        parsed = _header_at(buffer[at:]) if buffer.startswith(b"XTENSION", at) else None
+                        if (parsed and str(parsed[0].get("EXTNAME", "")).strip().upper() == name
+                                and start + at + parsed[1] + _padded(_data_size(parsed[0])) == end):
+                            found = {"name": name, "header": parsed[0], "offset": start + at,
+                                     "data": start + at + parsed[1], "size": _data_size(parsed[0])}
+                            break
+                self._located[name] = found or self.find(name, deadline)
+                if self._located[name]:
+                    self.reader._sizes[learned] = _padded(self._located[name]["size"])
+            return self._located[name]
 
     def _tail(self, name, deadline=None):
         size = min(4 * BLOCK, self.total // BLOCK * BLOCK)
@@ -384,6 +422,8 @@ class RangeReader:
         self.max_layouts = max_layouts
         self._lock = RLock()
         self._layouts = OrderedDict()
+        self._psf_tables = OrderedDict()
+        self._sizes = {}  # Padded data size of a large extension, per (name, detector).
 
     def _request(self, url, spec, limit, deadline=None):
         """One ranged GET, retried when the archive is briefly busy."""
@@ -444,10 +484,51 @@ class RangeReader:
         fits.HDUList([fits.PrimaryHDU(), fits.ImageHDU(data, header=header, name=extension)]).writeto(output)
         return output.getvalue()
 
-    def read_stamp(self, url, ra_deg, dec_deg, half, deadline=None):
+    def _psf_table(self, exposure, deadline=None):
+        """(zone x centres, zone y centres, models, oversampling) of an exposure's EPSF extension.
+
+        The table is a calibration product shared by every exposure of a
+        detector, so it is downloaded once per calibration file and kept.
+        """
+        entry = exposure.before_trailing("EPSF", "WCS-WAVE", EPSF_DATA_GUESS, deadline)
+        if entry is None:
+            raise PartialReadError("The exposure has no EPSF extension.")
+        header = entry["header"]
+        # The HISTORY lines name the calibration file or, at least, when it was
+        # standardized; either identifies the product. Without them the table
+        # is not assumed to be shared between exposures.
+        history = tuple(str(line) for line in header.get("HISTORY", []))
+        key = (str(header.get("DETECTOR", "")).strip(), history or exposure.url, entry["size"])
+        with self._lock:
+            table = self._psf_tables.get(key)
+            if table is not None:
+                self._psf_tables.move_to_end(key)
+                return table
+        raw = exposure._read([(entry["offset"], entry["data"] - entry["offset"] + _padded(entry["size"]))], deadline)[0]
+        blob = fits.PrimaryHDU().header.tostring(padding=True).encode("ascii") + raw
+        try:
+            with fits.open(BytesIO(blob), memmap=False) as hdus:
+                rows = hdus[1].data
+                models = np.array(rows["EPSF"], dtype=np.float64)
+                table = (np.array(rows["XCENTER"], dtype=np.float64), np.array(rows["YCENTER"], dtype=np.float64),
+                         models, int(header["OVSMPX"]))
+                if (models.ndim != 3 or models.shape[1] != models.shape[2] or models.shape[1] % 2 == 0
+                        or int(header["OVSMPY"]) != table[3] or table[3] < 1):
+                    raise PartialReadError("The EPSF table has an unsupported layout.")
+        except (OSError, ValueError, TypeError, KeyError, IndexError) as error:
+            raise PartialReadError("The EPSF table could not be decoded.") from error
+        with self._lock:
+            table = self._psf_tables.setdefault(key, table)
+            while len(self._psf_tables) > MAX_PSF_TABLES:
+                self._psf_tables.popitem(last=False)
+        return table
+
+    def read_stamp(self, url, ra_deg, dec_deg, half, deadline=None, psf=False):
         """IMAGE, VARIANCE and FLAGS over (2 * half + 1) pixels a side, centred on a sky position.
 
-        Raises OutsideExposure when that window does not fit on the detector.
+        With `psf`, also the effective PSF of the detector zone nearest the
+        position, as notebooks/03-psf-models selects it. Raises OutsideExposure
+        when the window does not fit on the detector.
         """
         exposure = self.open(url, deadline)
         header = _science(exposure, deadline)["header"]
@@ -471,4 +552,10 @@ class RangeReader:
             variance=exposure.window("VARIANCE", x0, y0, side, side, deadline),
             flags=exposure.window("FLAGS", x0, y0, side, side, deadline),
             spectral_table=exposure.trailing("WCS-WAVE", deadline),
+            **self._zone_psf(exposure, x, y, deadline) if psf else {},
         )
+
+    def _zone_psf(self, exposure, x, y, deadline=None):
+        centres_x, centres_y, models, oversample = self._psf_table(exposure, deadline)
+        zone = int(np.argmin((centres_x - x) ** 2 + (centres_y - y) ** 2))
+        return {"psf": models[zone], "psf_oversample": oversample}

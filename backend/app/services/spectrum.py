@@ -2,11 +2,15 @@
 
 A SPHEREx exposure measures a source at the single wavelength its position on
 the detector's linear variable filter selects, so the spectrum is one
-measurement per exposure. The method follows notebooks/04-source-discovery-tool
-(section 12): a circular aperture, a local background and the VARIANCE plane
-for the error. Quality rules and the flux unit follow IRSA's Spectrophotometry
-Tool so the two can be compared; that tool fits the PSF instead, so aperture
-fluxes run somewhat lower than its values.
+measurement per exposure. Two methods share the local background, the quality
+rules and the flux unit (those of IRSA's Spectrophotometry Tool):
+
+- "aperture" follows notebooks/04-source-discovery-tool (section 12): the flux
+  summed in a circle, with the VARIANCE plane for the error.
+- "psf" fits the file's effective PSF (notebooks/03-psf-models) at the fixed
+  position, as IRSA's tool does. Pixels are weighted by how much of the star
+  they hold, so faint sources are less noisy and an unusable pixel costs
+  precision instead of flux.
 """
 
 from collections import OrderedDict
@@ -44,6 +48,8 @@ ANNULUS = (6.0, 9.0)        # Inner and outer radius of the background ring, in 
 STAMP_HALF = 10             # The window must hold the ring whatever the sub-pixel position.
 MIN_ANNULUS_PIXELS = 20
 MIN_APERTURE_FRACTION = 0.5
+MIN_PSF_FRACTION = 0.25     # Share of the star's light that must fall on usable pixels for a PSF fit.
+METHODS = ("psf", "aperture")  # The PSF fit is the default; the aperture is the fallback.
 WORKERS = 8                 # Parallel exposures, as in the notebook.
 MAX_CACHED = 20000
 SEARCH_TTL_SECONDS = 600    # New exposures of a position appear days apart.
@@ -103,12 +109,38 @@ def pixel_solid_angle(header, x: float, y: float) -> float:
     return area
 
 
-def measure(stamp: Stamp, radius: float) -> dict:
-    """Background-subtracted flux of the source in one exposure, within the aperture.
+def psf_fractions(shape, x, y, model, oversample):
+    """Share of a star's light on each pixel, for a star centred at (x, y).
+
+    `model` is the effective PSF: it already includes the pixel's area, so it
+    is read at each pixel centre's offset from the star, not integrated.
+    Linear interpolation between its samples; normalised so the shares sum to 1.
+    """
+    centre = (model.shape[0] - 1) / 2
+    rows, columns = np.indices(shape)
+    u, v = centre + oversample * (columns - x), centre + oversample * (rows - y)
+    limit = model.shape[0] - 1
+    inside = (u >= 0) & (u <= limit) & (v >= 0) & (v <= limit)
+    u0 = np.clip(np.floor(u).astype(int), 0, limit - 1)
+    v0 = np.clip(np.floor(v).astype(int), 0, limit - 1)
+    fu, fv = u - u0, v - v0
+    values = (model[v0, u0] * (1 - fu) * (1 - fv) + model[v0, u0 + 1] * fu * (1 - fv)
+              + model[v0 + 1, u0] * (1 - fu) * fv + model[v0 + 1, u0 + 1] * fu * fv)
+    values = np.where(inside, values, 0.0)
+    total = values.sum()
+    if not (np.isfinite(total) and total > 0):
+        raise Unmeasurable("The PSF model does not cover the source.")
+    return values / total
+
+
+def measure(stamp: Stamp, radius: float, method: str = "psf") -> dict:
+    """Background-subtracted flux of the source in one exposure.
 
     Flux is in microjanskys: surface brightness (MJy/sr) times the pixel
-    solid angle. Ignored pixels inside the aperture are dropped, not filled in,
-    so `bad_pixels` > 0 means some of the source's light is missing.
+    solid angle. With "aperture", ignored pixels inside the circle are dropped,
+    not filled in, so `bad_pixels` > 0 means some of the source's light is
+    missing. With "psf" the fit uses the pixels that remain, so the flux is
+    complete and only less precise.
     """
     bits = flag_bits(stamp.flags_header)
     ignored_mask = sum(bits.get(name, 0) for name in IGNORED_FLAGS)
@@ -130,20 +162,35 @@ def measure(stamp: Stamp, radius: float) -> dict:
     background = float(np.median(image[ring]))
     scatter = 1.4826 * float(np.median(np.abs(image[ring] - background)))
 
-    weights = aperture_weights(image.shape, x, y, radius)
-    kept = np.where(usable, weights, 0.0)
-    if kept.sum() < MIN_APERTURE_FRACTION * weights.sum():
-        raise Unmeasurable("Most of the aperture is flagged as unusable.")
     to_ujy = pixel_solid_angle(stamp.header, stamp.x, stamp.y) * 1e12
-    flux = float((kept * np.where(usable, image - background, 0.0)).sum()) * to_ujy
-
     variance = stamp.variance.astype(np.float64)
-    inside = kept > 0
+    residual = np.where(usable, image - background, 0.0)
     error = None
-    if (np.isfinite(variance[inside]) & (variance[inside] > 0)).all():
-        # Pixel noise in the aperture plus the uncertainty of the background level.
-        total = (kept[inside] ** 2 * variance[inside]).sum() + kept.sum() ** 2 * scatter ** 2 / int(ring.sum())
-        error = float(np.sqrt(total)) * to_ujy
+    if method == "psf":
+        if stamp.psf is None:
+            raise Unmeasurable("The exposure has no PSF model.")
+        weights = psf_fractions(image.shape, x, y, stamp.psf, stamp.psf_oversample)
+        fitted = usable & (weights > 0) & np.isfinite(variance) & (variance > 0)
+        if weights[fitted].sum() < MIN_PSF_FRACTION:
+            raise Unmeasurable("Too little of the source falls on usable pixels.")
+        # Least squares of (image - background) = flux * share, each pixel weighted by 1 / variance.
+        precision = float((weights[fitted] ** 2 / variance[fitted]).sum())
+        amplitude = float((weights[fitted] * residual[fitted] / variance[fitted]).sum()) / precision
+        flux = amplitude * to_ujy
+        # Fit noise plus the uncertainty of the background level it was measured against.
+        leverage = float((weights[fitted] / variance[fitted]).sum()) / precision
+        error = float(np.sqrt(1 / precision + leverage ** 2 * scatter ** 2 / int(ring.sum()))) * to_ujy
+    else:
+        weights = aperture_weights(image.shape, x, y, radius)
+        kept = np.where(usable, weights, 0.0)
+        if kept.sum() < MIN_APERTURE_FRACTION * weights.sum():
+            raise Unmeasurable("Most of the aperture is flagged as unusable.")
+        flux = float((kept * residual).sum()) * to_ujy
+        inside = kept > 0
+        if (np.isfinite(variance[inside]) & (variance[inside] > 0)).all():
+            # Pixel noise in the aperture plus the uncertainty of the background level.
+            total = (kept[inside] ** 2 * variance[inside]).sum() + kept.sum() ** 2 * scatter ** 2 / int(ring.sum())
+            error = float(np.sqrt(total)) * to_ujy
 
     near = int(np.bitwise_or.reduce(stamp.flags[distance <= WARNING_RADIUS], initial=0))
     wavelength, bandwidth = spectral_coordinates(stamp.header, stamp.spectral_table, stamp.x, stamp.y)
@@ -164,17 +211,17 @@ class SpectrumService:
         self._searches: OrderedDict = OrderedDict()
         self._lock = Lock()
 
-    def _point(self, image, ra_deg: float, dec_deg: float, radius: float):
+    def _point(self, image, ra_deg: float, dec_deg: float, radius: float, method: str):
         """A measurement dict, None when the exposure cannot measure the source, or the archive error."""
-        key = (image.source_url, ra_deg, dec_deg, radius)
+        key = (image.source_url, ra_deg, dec_deg, radius, method)
         with self._lock:
             if key in self._cache:
                 self._cache.move_to_end(key)
                 return self._cache[key]
         try:
-            stamp = self.archive.photometry_stamp(image.source_url, ra_deg, dec_deg, STAMP_HALF)
+            stamp = self.archive.photometry_stamp(image.source_url, ra_deg, dec_deg, STAMP_HALF, psf=method == "psf")
             point = None if stamp is None else {
-                **measure(stamp, radius),
+                **measure(stamp, radius, method),
                 "detector": image.detector, "observation_id": image.observation_id,
                 "observed_mjd": image.observed_start_mjd,
                 "observed_utc": f"{Time(image.observed_start_mjd, format='mjd', scale='utc').isot}Z",
@@ -208,17 +255,18 @@ class SpectrumService:
                 self._searches.popitem(last=False)
         return images
 
-    def spectrum(self, ra_deg: float, dec_deg: float, detector: int, radius_px: float = 3.0) -> dict:
+    def spectrum(self, ra_deg: float, dec_deg: float, detector: int, radius_px: float = 3.0,
+                 method: str = "psf") -> dict:
         """One detector's exposures of the position, measured and sorted by wavelength."""
         images = [image for image in self._covering(ra_deg, dec_deg) if image.detector == detector]
         with ThreadPoolExecutor(max_workers=self.workers) as pool:
-            results = list(pool.map(lambda image: self._point(image, ra_deg, dec_deg, radius_px), images))
+            results = list(pool.map(lambda image: self._point(image, ra_deg, dec_deg, radius_px, method), images))
         points = sorted((result for result in results if isinstance(result, dict)),
                         key=lambda point: point["wavelength_um"])
         failed = sum(isinstance(result, ArchiveError) for result in results)
         return {
             "position": {"ra_deg": ra_deg, "dec_deg": dec_deg, "frame": "ICRS"},
-            "detector": detector,
+            "detector": detector, "method": method,
             "aperture": {"radius_px": radius_px, "annulus_px": list(ANNULUS)},
             "exposures": {"found": len(images), "measured": len(points), "failed": failed,
                           "skipped": len(images) - len(points) - failed},

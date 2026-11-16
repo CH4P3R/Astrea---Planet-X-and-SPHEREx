@@ -2,53 +2,67 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { loadSpectrum } from '../services/spectrum.js'
 import { errorMessage } from '../i18n/messages.js'
 
-// `series` holds one entry per detector asked for: { status, data, error }.
-const idle = { status: 'idle', target: null, series: {}, queue: [] }
-const samePoint = (target, ra, dec) => target && target.ra === ra && target.dec === dec
+// `series` holds one entry per detector the user turned on:
+// { status: 'loading' | 'ready' | 'error', visible, data, error }.
+const empty = { target: null, series: {} }
+const sameTarget = (target, ra, dec, method) => Boolean(target) && target.ra === ra && target.dec === dec && target.method === method
 
 export default function useSpectrum() {
-  const [state, setState] = useState(idle)
-  const controller = useRef(null)
-  const current = useRef(idle)
+  const [state, setState] = useState(empty)
+  const current = useRef(empty)
+  const jobs = useRef(new Map())            // detector -> AbortController of its pending measurement
+  const chain = useRef(Promise.resolve())   // measurements run one after another
   const update = useCallback((change) => {
-    current.current = typeof change === 'function' ? change(current.current) : change
+    current.current = change(current.current)
     setState(current.current)
   }, [])
+  const setEntry = useCallback((detector, entry) => update((previous) => {
+    const series = { ...previous.series }
+    if (entry) series[detector] = entry
+    else delete series[detector]
+    return { ...previous, series }
+  }), [update])
 
-  useEffect(() => () => controller.current?.abort(), [])
-
-  // Stops the detectors still pending; the ones already measured stay on screen.
-  const cancel = useCallback(() => {
-    controller.current?.abort()
-    update((previous) => {
-      const series = Object.fromEntries(Object.entries(previous.series).filter(([, entry]) => entry.status !== 'loading'))
-      return { ...previous, series, queue: [], status: Object.keys(series).length ? 'ready' : 'idle' }
-    })
+  const reset = useCallback(() => {
+    jobs.current.forEach((job) => job.abort())
+    jobs.current.clear()
+    update(() => empty)
   }, [update])
 
-  // Measures the detectors one after another, so the archive is not asked for
-  // six detectors' worth of exposures at once and each appears as it finishes.
-  const request = useCallback(async (ra, dec, detectors) => {
-    controller.current?.abort()
+  useEffect(() => () => jobs.current.forEach((job) => job.abort()), [])
+
+  // Turning a detector on measures it the first time and shows it afterwards;
+  // turning it off hides it, or stops it if it is still being measured.
+  const toggle = useCallback((ra, dec, detector, method) => {
+    // Another sky point or another method starts a new chart.
+    if (!sameTarget(current.current.target, ra, dec, method)) {
+      reset()
+      update(() => ({ target: { ra, dec, method }, series: {} }))
+    }
+    const entry = current.current.series[detector]
+    if (entry?.status === 'ready') return setEntry(detector, { ...entry, visible: !entry.visible })
+    if (entry?.status === 'loading') {
+      jobs.current.get(detector)?.abort()
+      jobs.current.delete(detector)
+      return setEntry(detector, null)
+    }
     const job = new AbortController()
-    controller.current = job
-    const kept = samePoint(current.current.target, ra, dec)
-      ? Object.fromEntries(Object.entries(current.current.series).filter(([, entry]) => entry.status === 'ready')) : {}
-    const queue = detectors.filter((detector) => !kept[detector])
-    update({ status: queue.length ? 'loading' : 'ready', target: { ra, dec }, series: kept, queue })
-    for (const detector of queue) {
-      update((previous) => ({ ...previous, series: { ...previous.series, [detector]: { status: 'loading' } } }))
-      let entry
+    jobs.current.set(detector, job)
+    setEntry(detector, { status: 'loading' })
+    // One detector at a time: six at once would flood the archive.
+    chain.current = chain.current.then(async () => {
+      if (job.signal.aborted) return
+      let result
       try {
-        entry = { status: 'ready', data: await loadSpectrum(ra, dec, detector, job.signal) }
+        result = { status: 'ready', visible: true, data: await loadSpectrum(ra, dec, detector, method, job.signal) }
       } catch (error) {
-        entry = { status: 'error', error: errorMessage(error) }
+        result = { status: 'error', error: errorMessage(error) }
       }
       if (job.signal.aborted) return
-      update((previous) => ({ ...previous, series: { ...previous.series, [detector]: entry } }))
-    }
-    if (queue.length) update((previous) => ({ ...previous, status: 'ready', queue: [] }))
-  }, [update])
+      jobs.current.delete(detector)
+      setEntry(detector, result)
+    })
+  }, [reset, update, setEntry])
 
-  return { ...state, request, cancel }
+  return { ...state, toggle, reset }
 }

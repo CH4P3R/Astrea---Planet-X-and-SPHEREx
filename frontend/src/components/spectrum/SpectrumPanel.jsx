@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import PanelContent from '../common/PanelContent.jsx'
+import { DETECTORS } from '../../config/search.js'
 import useTranslation from '../../i18n/useTranslation.js'
 import '../../styles/components/spectrum.css'
 
@@ -131,55 +132,65 @@ function Chart({ series, selected, onSelect }) {
   </svg>
 }
 
-const ALL_DETECTORS = [1, 2, 3, 4, 5, 6]
+// The PSF fit comes first; the aperture stays as the fallback.
+const METHODS = ['psf', 'aperture']
 
-// Inspector tab. `image` is the loaded image's metadata: its sky position and
-// detector are what gets measured. Nothing is requested until the button is pressed.
+// Inspector tab. `image` is the loaded image's metadata: its sky position is what
+// gets measured. Each detector is measured when the user turns it on, and can be
+// hidden and shown again without measuring it twice.
 export default function SpectrumPanel({ spectrum, image }) {
   const { t, date } = useTranslation()
   const [selected, setSelected] = useState(null)
-  const [every, setEvery] = useState(false)
-  const available = image?.detector && image.requested ? image : null
-  const { target, series: loaded } = spectrum
-  const loading = spectrum.status === 'loading'
-  const wanted = every ? ALL_DETECTORS : available ? [available.detector] : []
-  // The chart on screen may belong to a point that is no longer the loaded image.
-  const elsewhere = Boolean(target && available
-    && (available.requested.ra_deg !== target.ra || available.requested.dec_deg !== target.dec))
-  const shown = (elsewhere || !available ? ALL_DETECTORS : wanted)
-    .filter((detector) => loaded[detector]?.status === 'ready' && loaded[detector].data.points.length)
-    .map((detector) => ({ detector, points: loaded[detector].data.points }))
-  const missing = wanted.filter((detector) => loaded[detector]?.status !== 'ready')
-  const failed = ALL_DETECTORS.filter((detector) => loaded[detector]?.status === 'error')
-  // Detectors of the running request that have already answered.
-  const finished = spectrum.queue.filter((detector) => ['ready', 'error'].includes(loaded[detector]?.status)).length
+  const [method, setMethod] = useState('psf')
+  const position = image?.requested
+  const { target, series: loaded, reset } = spectrum
+  // Measurements of another sky point or method are discarded: a new choice starts clean.
+  const elsewhere = Boolean(target && position
+    && (position.ra_deg !== target.ra || position.dec_deg !== target.dec || method !== target.method))
+  useEffect(() => { if (elsewhere) reset() }, [elsewhere, reset])
+  const entries = elsewhere ? {} : loaded
+  const shown = DETECTORS.map(({ value }) => value)
+    .filter((detector) => entries[detector]?.status === 'ready' && entries[detector].visible && entries[detector].data.points.length)
+    .map((detector) => ({ detector, points: entries[detector].data.points }))
+  const names = (status, test = () => true) => DETECTORS.map(({ value }) => value)
+    .filter((detector) => entries[detector]?.status === status && test(entries[detector])).map((detector) => `D${detector}`).join(', ')
+  const measuring = names('loading')
+  const failed = names('error')
+  const blank = names('ready', (entry) => entry.data.points.length === 0)
   const points = shown.flatMap((entry) => entry.points)
   const point = selected != null ? points[selected] : null
   const fixed = (value, digits) => value.toFixed(digits)
-  const total = (field) => String(shown.reduce((sum, entry) => sum + loaded[entry.detector].data.exposures[field], 0))
-  const generate = () => {
-    setSelected(null)
-    spectrum.request(available.requested.ra_deg, available.requested.dec_deg, wanted)
-  }
+  const total = (field) => String(shown.reduce((sum, entry) => sum + entries[entry.detector].data.exposures[field], 0))
 
   return <PanelContent title={t('spectrum.title')}
-    footer={available && <div className="spectrum-controls">
-      <label className="spectrum-every">
-        <input type="checkbox" checked={every} disabled={loading} onChange={(event) => { setSelected(null); setEvery(event.target.checked) }} />
-        <span>{t('spectrum.every')}</span>
-      </label>
-      {loading ? <button type="button" onClick={spectrum.cancel}>{t('spectrum.cancel')}</button>
-        : (elsewhere || missing.length > 0) && <button type="button" onClick={generate}>
-          {every ? t('spectrum.generateEvery') : t('spectrum.generate', { detector: String(available.detector) })}
-        </button>}
+    footer={position && <div className="spectrum-controls">
+      <div className="spectrum-methods" role="group" aria-label={t('spectrum.method.label')}>
+        <span>{t('spectrum.method.label')}</span>
+        {METHODS.map((name) => <button key={name} type="button" aria-pressed={method === name}
+          title={t(`spectrum.method.${name}Help`)} onClick={() => { setSelected(null); setMethod(name) }}>
+          {t(`spectrum.method.${name}`)}
+        </button>)}
+      </div>
+      <div className="spectrum-detectors" role="group" aria-label={t('spectrum.choose')}>
+      {DETECTORS.map(({ value: detector, range }) => {
+        const entry = entries[detector]
+        return <button key={detector} type="button" className={`spectrum-detector-${detector}`}
+          aria-pressed={entry?.status === 'loading' || Boolean(entry?.status === 'ready' && entry.visible)}
+          aria-busy={entry?.status === 'loading' || undefined}
+          title={t('search.fields.detector.option', { detector, range })}
+          onClick={() => { setSelected(null); spectrum.toggle(position.ra_deg, position.dec_deg, detector, method) }}>
+          <span className="spectrum-chip-dot" />D{detector}{entry?.status === 'loading' ? '…' : ''}
+        </button>
+      })}
+      </div>
     </div>}>
     <section className="inspector-section spectrum-panel" aria-label={t('spectrum.title')}>
-      {spectrum.status === 'idle' && <p>{t('spectrum.intro')}</p>}
-      {target && <p className="context-note">{t('spectrum.target', { ra: fixed(target.ra, 5), dec: fixed(target.dec, 5) })}</p>}
-      {elsewhere && !loading && <p className="spectrum-warning">{t('spectrum.stale')}</p>}
-      {loading && <p role="status">{t('spectrum.progress', { done: String(finished), total: String(spectrum.queue.length) })}</p>}
-      {!loading && failed.length > 0 && <p role="alert">{t('spectrum.failed', { detectors: failed.map((detector) => `D${detector}`).join(', ') })} {t(loaded[failed[0]].error)}</p>}
+      <p>{t('spectrum.intro')}</p>
+      {measuring && <p role="status">{t('spectrum.measuring', { detectors: measuring })}</p>}
+      {failed && <p role="alert">{t('spectrum.failed', { detectors: failed })}</p>}
+      {blank && <p role="status">{t('spectrum.empty', { detectors: blank })}</p>}
       {shown.length > 0 && <>
+        <p className="context-note">{t('spectrum.target', { ra: fixed(target.ra, 5), dec: fixed(target.dec, 5), method: t(`spectrum.method.${target.method}Note`) })}</p>
         <p className="context-note">{t('spectrum.counts', { found: total('found'), measured: total('measured'), skipped: total('skipped'), failed: total('failed') })}</p>
         <Chart series={shown} selected={selected} onSelect={setSelected} />
         <ul className="spectrum-legend">
@@ -200,7 +211,6 @@ export default function SpectrumPanel({ spectrum, image }) {
           }) : t('spectrum.hint')}
         </p>
       </>}
-      {!loading && spectrum.status === 'ready' && shown.length === 0 && failed.length === 0 && missing.length === 0 && <p role="status">{t('spectrum.empty')}</p>}
     </section>
   </PanelContent>
 }

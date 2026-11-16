@@ -1,9 +1,8 @@
 {
   "title": "Espectro",
-  "generate": "Generar espectro (detector {{detector}})",
-  "target": "RA {{ra}}° · Dec {{dec}}° · apertura de 3 píxeles",
+  "target": "RA {{ra}}° · Dec {{dec}}° · {{method}}",
   "counts": "{{measured}} de {{found}} exposiciones medidas · {{skipped}} omitidas · {{failed}} con error",
-  "empty": "Ninguna exposición pudo medir este punto.",
+  "empty": "Ninguna exposición de {{detectors}} pudo medir este punto.",
   "chart": "Flujo frente a longitud de onda, un punto por exposición",
   "wavelengthAxis": "Longitud de onda (µm)",
   "fluxAxis": "Flujo (µJy)",
@@ -18,13 +17,19 @@
   "crowded": "fondo saturado de fuentes",
   "noNotes": "sin avisos de calidad",
   "allDoubtful": "Casi todas las mediciones aquí son dudosas (objeto muy brillante o zona con muchas fuentes), así que la línea discontinua es solo orientativa.",
-  "intro": "Mide cuánto brilla este punto en cada longitud de onda, usando todas las observaciones que un detector tomó de él. No se descarga nada hasta que pulses el botón.",
-  "stale": "Este gráfico es de otro punto. Genéralo de nuevo para actualizarlo.",
+  "intro": "Elige los detectores que quieres ver. Cada uno se mide la primera vez que lo activas (de 10 a 50 segundos) y se suma al gráfico con su color. Púlsalo otra vez para ocultarlo.",
   "errorBar": "Margen de error (al señalar un punto)",
-  "every": "Los seis detectores (0,75–5 µm). Tarda de 1 a 5 minutos.",
-  "generateEvery": "Generar espectro (6 detectores)",
-  "cancel": "Detener",
-  "progress": "Midiendo… {{done}} de {{total}} detectores listos. Cada uno aparece al terminar.",
-  "failed": "No se pudo medir {{detectors}}. Pulsa generar para reintentar.",
-  "detectorTrend": "Tendencia D{{detector}}"
+  "failed": "No se pudo medir {{detectors}}. Púlsalo otra vez para reintentar.",
+  "detectorTrend": "Tendencia D{{detector}}",
+  "choose": "Detectores a mostrar",
+  "measuring": "Midiendo {{detectors}}… Pulsa un detector en curso para detenerlo.",
+  "method": {
+    "label": "Método",
+    "aperture": "Apertura",
+    "psf": "Ajuste de PSF",
+    "apertureNote": "apertura de 3 píxeles",
+    "psfNote": "ajuste de PSF",
+    "apertureHelp": "Suma la luz dentro de un círculo de 3 píxeles. Simple, y bueno para estrellas brillantes y aisladas.",
+    "psfHelp": "Ajusta la forma conocida de una estrella en el punto exacto. Menos ruido en objetos débiles y no se altera por un píxel dañado."
+  }
 }

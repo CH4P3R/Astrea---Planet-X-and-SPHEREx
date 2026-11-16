@@ -26,7 +26,7 @@ details in this document.
 | GET | `/star-catalog` | JSON | Catalog version and render metadata | Star catalog and observer sky |
 | POST | `/sky` | JSON or binary | Star directions for an observer and time | Star catalog and observer sky |
 | GET | `/targets` | JSON | Acceptance targets, positions propagated to the SPHEREx epoch | Acceptance targets |
-| GET | `/spectrum` | JSON | Flux against wavelength of a sky position, one point per exposure | 7 |
+| GET | `/spectrum` | JSON | Flux against wavelength of a sky position, one point per exposure (PSF fit, or aperture) | 7 |
 
 ## Local onboarding data
 
@@ -359,7 +359,8 @@ variable filter selects, so the spectrum is built from many exposures.
 | `ra_deg` | Required ICRS right ascension, degrees, `0 <= ra < 360`. |
 | `dec_deg` | Required ICRS declination, degrees, `-90 <= dec <= 90`. |
 | `detector` | Required integer from 1 to 6. One detector per request. |
-| `radius_px` | Aperture radius in pixels: 3 (default), 4 or 5. |
+| `radius_px` | Aperture radius in pixels: 3 (default), 4 or 5. Not used by `method=psf`. |
+| `method` | `psf` (default) or `aperture`, the fallback. See **Method** below. |
 
 ```json
 {
@@ -367,7 +368,7 @@ variable filter selects, so the spectrum is built from many exposures.
   "detector": 2,
   "aperture": {"radius_px": 3.0, "annulus_px": [6.0, 9.0]},
   "exposures": {"found": 48, "measured": 48, "skipped": 0, "failed": 0},
-  "method": "aperture", "flux_unit": "uJy", "wavelength_unit": "um",
+  "method": "psf", "flux_unit": "uJy", "wavelength_unit": "um",
   "points": [{
     "wavelength_um": 1.2351, "bandwidth_um": 0.0301,
     "flux_ujy": 74236.0, "flux_error_ujy": 299.0, "background_mjy_sr": 0.251,
@@ -382,23 +383,34 @@ variable filter selects, so the spectrum is built from many exposures.
 The values in this example are illustrative. `points` is sorted by wavelength
 and is not averaged.
 
-**Method.** Aperture photometry, following
-`notebooks/04-source-discovery-tool` (section 12). The flux is summed inside a
-circle centred on the position (pixels on the edge count by the fraction
-inside), after subtracting a local background: the median of a ring 6 to 9
-pixels out, leaving out pixels of catalogued sources. Surface brightness
-(MJy/sr) times the pixel's solid angle gives microjanskys. The error comes
-from the VARIANCE plane plus the uncertainty of the background. The ZODI plane
-is not used: the local background already contains the zodiacal light.
+**Method.** Both methods subtract the same local background first: the median
+of a ring 6 to 9 pixels out, leaving out pixels of catalogued sources. Surface
+brightness (MJy/sr) times the pixel's solid angle gives microjanskys. The ZODI
+plane is not used: the local background already contains the zodiacal light.
+
+- `aperture` follows `notebooks/04-source-discovery-tool` (section 12). The
+  flux is summed inside a circle centred on the position (pixels on the edge
+  count by the fraction inside). The error comes from the VARIANCE plane plus
+  the uncertainty of the background.
+- `psf` fits the file's effective PSF at the fixed position, as IRSA's
+  Spectrophotometry Tool does. The model is the `EPSF` extension's entry for
+  the detector zone nearest the source (`notebooks/03-psf-models`), read at
+  each pixel's offset from the source. The flux is the least-squares amplitude
+  with each pixel weighted by 1 / variance. Pixels holding more of the star
+  count more, so a faint source is measured with about a third of the noise,
+  and an unusable pixel costs precision instead of flux.
+
+The response's `method` says which one produced the points. Everything else
+has the same shape for both.
 
 **Quality.** Rules follow IRSA's Spectrophotometry Tool.
 
 | Field | Meaning |
 | --- | --- |
-| `bad_pixels` | Aperture pixels left out because they carry `SUR_ERROR`, `NONFUNC`, `MISSING_DATA`, `HOT`, `COLD`, `NONLINEAR`, `PERSIST`, `BLOOM`, `SNOWBALL`, `HALO` or `SATELLITE_HALO`, or are not finite. Above 0, some source light is missing. |
+| `bad_pixels` | Pixels of the aperture, or of the PSF footprint, left out because they carry `SUR_ERROR`, `NONFUNC`, `MISSING_DATA`, `HOT`, `COLD`, `NONLINEAR`, `PERSIST`, `BLOOM`, `SNOWBALL`, `HALO` or `SATELLITE_HALO`, or are not finite. With `aperture`, above 0 some source light is missing; with `psf` the flux stays complete. |
 | `flags` | Names of quality flags found within 2.5 pixels of the source: the ones above plus `TRANSIENT`, `OVERFLOW`, `DICHROIC`, `CROSSTALK`, `GHOST`, `GHOST_FPA`, `GHOST_EXT` and `STREAK`. Non-empty means doubtful, not unusable. |
 | `crowded` | The background ring held only pixels of catalogued sources, so all of it was used. This also happens around one bright star, whose own mask fills the ring; it is information, not a defect. |
-| `exposures.skipped` | Source too near the detector edge, or more than half of the aperture unusable. |
+| `exposures.skipped` | Source too near the detector edge, more than half of the aperture unusable, or (`psf`) less than a quarter of the star's light on usable pixels. |
 | `exposures.failed` | Archive errors. Repeating the request retries only these. |
 
 **Limits.**
@@ -407,18 +419,27 @@ is not used: the local background already contains the zodiacal light.
   then flagged; treat the spectrum as unreliable.
 - The position is fixed: an object that moves between exposures is measured
   where it was, not where it is.
-- IRSA's tool fits the PSF instead, so its fluxes can differ by a few percent
-  and it copes better with faint or blended sources.
+- The PSF model reaches 3.2 pixels from the source and one model serves a
+  whole detector zone, so `psf` fluxes carry a few percent of model error.
+- `psf` fits one star at a fixed position. A close neighbour is not fitted
+  separately, as IRSA's tool can do.
+- Neither method has been compared with IRSA's tool, which has no API.
 
 **Validation.** For three isolated 2MASS stars of K magnitude 10 to 11 near
 RA 133.8°, Dec −7.2°, the median flux of the points inside each 2MASS band
-(J, H, Ks; detectors 2 and 3) matched the catalogue within 5 %. Detectors 1
-and 4 to 6 have no such check yet.
+(J, H, Ks; detectors 2 and 3) matched the catalogue from −4.6 % to +3.5 % with
+`aperture` and from −6.1 % to +4.0 % with `psf`. Detectors 1 and 4 to 6 have
+no catalogue check; on one of those stars the two methods agree within 1.5 %
+in every detector except 4, where `psf` reads 7 % higher. On an empty-looking
+position `aperture` read 463 ± 98 µJy per exposure and `psf` 53 ± 30 µJy: the
+circle was collecting light that is not at the position itself.
 
 **Cost.** Each exposure costs about 280 kB and 1 s at IRSA, eight in parallel.
 A detector has about 50 exposures of a position: 10 to 50 s the first time.
-Measurements and the archive search are kept in memory, so a repeat is
-immediate until the server restarts. There is no disk cache.
+`psf` adds one 8 kB read per exposure and, once per detector, the 4 MB PSF
+table, which every exposure of that detector shares. Measurements, PSF tables
+and the archive search are kept in memory, so a repeat is immediate until the
+server restarts. There is no disk cache.
 
 ## Errors and storage
 

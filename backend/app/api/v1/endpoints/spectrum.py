@@ -14,8 +14,8 @@ Service = Annotated[SpectrumService, Depends(get_spectrum_service)]
 
 @router.get("/spectrum", response_model=SpectrumResponse)
 def spectrum(query: Annotated[SpectrumQuery, Query()], service: Service):
-    """Aperture photometry of the position on every exposure one detector took of it.
+    """Photometry of the position on every exposure one detector took of it (PSF fit, or aperture).
 
     One point per exposure. Measurements are kept in memory, so repeats are fast.
     """
-    return service.spectrum(query.ra_deg, query.dec_deg, query.detector, float(query.radius_px))
+    return service.spectrum(query.ra_deg, query.dec_deg, query.detector, float(query.radius_px), query.method)
