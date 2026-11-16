@@ -1,0 +1,58 @@
+.spectrum-panel {
+  position: absolute;
+  right: max(48px, env(safe-area-inset-right));
+  bottom: max(32px, env(safe-area-inset-bottom));
+  z-index: var(--z-status);
+  width: min(680px, calc(100% - 32px));
+  padding: 16px 20px;
+  border-radius: 16px;
+  color: var(--hud-text);
+  background: var(--hud-surface);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 24%);
+  font-size: 14px;
+  pointer-events: auto;
+}
+
+.spectrum-panel header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.spectrum-panel h2 { margin: 0; font-size: 16px; }
+.spectrum-panel p { margin: 4px 0; color: var(--hud-muted); }
+.spectrum-panel [role='alert'] { color: #ffb8ad; }
+.spectrum-panel button {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 8px;
+  color: inherit;
+  background: var(--hud-field);
+}
+.spectrum-panel button:hover { background: var(--hud-hover); }
+
+.spectrum-chart { display: block; width: 100%; height: auto; margin-top: 8px; }
+.spectrum-grid { stroke: var(--border); stroke-width: 1; opacity: 0.5; }
+.spectrum-zero { stroke: var(--hud-muted); stroke-width: 1; }
+.spectrum-tick { fill: var(--hud-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.spectrum-axis { fill: var(--hud-muted); font-size: 12px; }
+/* The line carries the colour; the measurements stay quiet behind it. */
+.spectrum-trend { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+/* Error bars would crowd the plot: only the pointed measurement shows its own. */
+.spectrum-trend.is-uncertain { stroke-dasharray: 6 5; }
+.spectrum-error { stroke: var(--hud-text); stroke-width: 1; opacity: 0; }
+.spectrum-mark { fill: var(--hud-muted); stroke: var(--hud-surface); stroke-width: 1.5; opacity: 0.7; }
+/* Doubtful points are hollow, so the difference does not rest on colour. */
+.spectrum-point.is-doubtful .spectrum-mark { fill: var(--hud-surface); stroke: var(--hud-muted); stroke-width: 1.5; }
+.spectrum-point.is-doubtful .spectrum-error { stroke-dasharray: 2 3; }
+.spectrum-point.is-selected .spectrum-mark { stroke: var(--hud-focus); stroke-width: 2; opacity: 1; }
+.spectrum-point.is-selected .spectrum-error { opacity: 1; }
+.spectrum-hit { fill: transparent; outline: none; }
+
+.spectrum-legend { display: flex; gap: 20px; margin: 4px 0 0; padding: 0; list-style: none; color: var(--hud-muted); font-size: 12px; }
+.spectrum-legend li { display: flex; align-items: center; gap: 6px; }
+.spectrum-swatch { width: 9px; height: 9px; border-radius: 50%; background: var(--hud-muted); opacity: 0.7; }
+.spectrum-swatch.is-doubtful { background: transparent; box-shadow: inset 0 0 0 1.5px var(--hud-muted); }
+.spectrum-swatch.is-trend { width: 18px; height: 2px; border-radius: 1px; background: var(--accent); opacity: 1; }
+.spectrum-panel .spectrum-warning { color: #f0c987; }
+.spectrum-panel .spectrum-readout { min-height: 2.8em; margin-top: 8px; color: var(--hud-text); font-variant-numeric: tabular-nums; }
+
+@media (max-width: 760px) {
+  .spectrum-panel { right: 16px; bottom: 16px; padding: 12px; }
+}

@@ -17,6 +17,7 @@ exceptions for the caller to translate.
 
 from bisect import bisect_right
 from collections import OrderedDict
+from dataclasses import dataclass
 from io import BytesIO
 from threading import RLock
 import time
@@ -44,6 +45,30 @@ PLANE_CARDS = ("BUNIT", "MSKN", "MSKD")
 
 class PartialReadError(Exception):
     """The file cannot be read by ranges; use the cutout service instead."""
+
+
+class OutsideExposure(PartialReadError):
+    """The position is off the detector or too near its edge for the window."""
+
+
+@dataclass(frozen=True)
+class Stamp:
+    """Square windows of one exposure around a sky position, for photometry.
+
+    `x`, `y` locate the position in zero-based pixels of the full detector
+    frame; `x0`, `y0` is the frame pixel held by element [0, 0] of the windows.
+    """
+
+    header: fits.Header        # IMAGE header of the full frame, every WCS included.
+    flags_header: fits.Header  # Carries the MSKN flag names.
+    x: float
+    y: float
+    x0: int
+    y0: int
+    image: np.ndarray
+    variance: np.ndarray
+    flags: np.ndarray
+    spectral_table: bytes      # The WCS-WAVE extension, header and data.
 
 
 def _content_range(text):
@@ -131,6 +156,7 @@ class RemoteExposure:
         self.total = None
         self.hdus = []    # Contiguous from byte 0: {name, header, offset, data, size}.
         self._spare = {}  # Bytes already downloaded, keyed by their file offset.
+        self._trailing = {}  # Whole small extensions read from the end of the file.
         self._guard = RLock()  # One exposure at a time; different exposures in parallel.
 
     def _next_offset(self):
@@ -172,6 +198,37 @@ class RemoteExposure:
                         return entry
                 if not self._extend(deadline=deadline):
                     return None
+
+    def trailing(self, name, deadline=None):
+        """Bytes (header and data) of a small extension stored last in the file.
+
+        WCS-WAVE closes a SPHEREx exposure, 60 MB in. One read of the file's
+        tail finds it without walking the extensions in between.
+        """
+        name = name.upper()
+        with self._guard:
+            if name not in self._trailing:
+                self._trailing[name] = self._tail(name, deadline) or self._whole(name, deadline)
+            return self._trailing[name]
+
+    def _tail(self, name, deadline=None):
+        size = min(4 * BLOCK, self.total // BLOCK * BLOCK)
+        buffer = self._read([(self.total - size, size)], deadline)[0]
+        for start in range(size - 2 * BLOCK, -1, -BLOCK):
+            if not buffer.startswith(b"XTENSION", start):
+                continue
+            parsed = _header_at(buffer[start:])
+            # Data may hold anything: accept only a header that accounts for every byte left.
+            if (parsed and str(parsed[0].get("EXTNAME", "")).strip().upper() == name
+                    and start + parsed[1] + _padded(_data_size(parsed[0])) == size):
+                return buffer[start:]
+        return None
+
+    def _whole(self, name, deadline=None):
+        entry = self.find(name, deadline)
+        if entry is None:
+            raise PartialReadError(f"The exposure has no {name} extension.")
+        return self._read([(entry["offset"], entry["data"] - entry["offset"] + _padded(entry["size"]))], deadline)[0]
 
     def _read(self, ranges, deadline=None):
         """Download byte ranges [(start, length)], merging neighbours into few requests."""
@@ -386,3 +443,32 @@ class RangeReader:
         output = BytesIO()
         fits.HDUList([fits.PrimaryHDU(), fits.ImageHDU(data, header=header, name=extension)]).writeto(output)
         return output.getvalue()
+
+    def read_stamp(self, url, ra_deg, dec_deg, half, deadline=None):
+        """IMAGE, VARIANCE and FLAGS over (2 * half + 1) pixels a side, centred on a sky position.
+
+        Raises OutsideExposure when that window does not fit on the detector.
+        """
+        exposure = self.open(url, deadline)
+        header = _science(exposure, deadline)["header"]
+        try:
+            x, y = (float(v) for v in WCS(header).celestial.world_to_pixel(
+                SkyCoord(ra=ra_deg * u.deg, dec=dec_deg * u.deg, frame="icrs")))
+            full_width, full_height = int(header["NAXIS1"]), int(header["NAXIS2"])
+        except (KeyError, ValueError, TypeError) as error:
+            raise PartialReadError("The exposure has no usable celestial WCS.") from error
+        if not np.isfinite([x, y]).all():
+            raise OutsideExposure("The position cannot be located in this exposure.")
+        x0, y0, side = int(np.floor(x + 0.5)) - half, int(np.floor(y + 0.5)) - half, 2 * half + 1
+        if x0 < 0 or y0 < 0 or x0 + side > full_width or y0 + side > full_height:
+            raise OutsideExposure("The position is too near the edge of this exposure.")
+        flags_entry = exposure.find("FLAGS", deadline)
+        if flags_entry is None:
+            raise PartialReadError("The exposure has no FLAGS extension.")
+        return Stamp(
+            header=header, flags_header=flags_entry["header"], x=x, y=y, x0=x0, y0=y0,
+            image=exposure.window("IMAGE", x0, y0, side, side, deadline),
+            variance=exposure.window("VARIANCE", x0, y0, side, side, deadline),
+            flags=exposure.window("FLAGS", x0, y0, side, side, deadline),
+            spectral_table=exposure.trailing("WCS-WAVE", deadline),
+        )

@@ -212,9 +212,16 @@ class IrsaClient:
         Date bounds are inclusive and apply to the observation start time.
         Fetch complete metadata before sorting, filtering, and limiting locally.
         """
-        _coordinates(ra_deg, dec_deg)
         if type(limit) is not int or not 1 <= limit <= 100:
             raise ValueError("limit must be an integer from 1 to 100.")
+        return self._matches(ra_deg, dec_deg, detector, start_mjd, end_mjd)[:limit + 1]
+
+    def covering(self, *, ra_deg: float, dec_deg: float, detector: int | None = None) -> list[ArchiveImage]:
+        """Every exposure whose footprint holds the position, newest first."""
+        return self._matches(ra_deg, dec_deg, detector, None, None)
+
+    def _matches(self, ra_deg, dec_deg, detector, start_mjd, end_mjd) -> list[ArchiveImage]:
+        _coordinates(ra_deg, dec_deg)
         if detector is not None and (type(detector) is not int or not 1 <= detector <= 6):
             raise ValueError("detector must be an integer from 1 to 6.")
         for value in (start_mjd, end_mjd):
@@ -275,7 +282,7 @@ class IrsaClient:
                 )
             return sorted(images.values(), key=lambda item: (
                 -item.observed_start_mjd, item.source_url,
-            ))[:limit + 1]
+            ))
         except DALOverflowWarning as exc:
             raise SearchTooBroad("Narrow the observation dates to complete the search.") from exc
         except requests.Timeout as exc:
@@ -330,6 +337,25 @@ class IrsaClient:
         if content is not None:
             return content
         return align_plane(self._service_cutout(source_url, ra_deg, dec_deg, size_deg, deadline), extension, grid)
+
+    def photometry_stamp(self, source_url: str, ra_deg: float, dec_deg: float, half: int):
+        """Windows of one exposure around a position (see irsa_ranges.Stamp).
+
+        None when the position is too near the detector edge. There is no
+        cutout-service fallback: it would cost megabytes per exposure.
+        """
+        source_url, _ = _image_url(source_url)
+        _coordinates(ra_deg, dec_deg)
+        try:
+            return self.ranges.read_stamp(source_url, ra_deg, dec_deg, half, self._deadline())
+        except irsa_ranges.OutsideExposure:
+            return None
+        except requests.Timeout as exc:
+            raise ArchiveTimeout("IRSA download timed out. Please try again.") from exc
+        except requests.RequestException as exc:
+            raise ArchiveError("IRSA download is temporarily unavailable.") from exc
+        except (irsa_ranges.PartialReadError, OSError, ValueError, TypeError, KeyError, IndexError) as exc:
+            raise ArchiveError("This exposure cannot be read for photometry.") from exc
 
     @staticmethod
     def _partial(read):

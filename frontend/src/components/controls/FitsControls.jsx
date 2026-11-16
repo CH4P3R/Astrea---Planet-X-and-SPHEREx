@@ -7,7 +7,7 @@ import { ANY_DETECTOR, coordinateError, cutoutSizeError, DETECTORS } from '../..
 import useScrollHint from '../../hooks/useScrollHint.js'
 import useTranslation from '../../i18n/useTranslation.js'
 
-export default function FitsControls({ fits, observer, visible }) {
+export default function FitsControls({ fits, spectrum, observer, visible }) {
   const { t, date } = useTranslation()
   const formId = useId()
   const detectorId = useId()
@@ -66,6 +66,11 @@ export default function FitsControls({ fits, observer, visible }) {
         {t('search.imageSummary', { width: fits.active.metadata.image.width,
           height: fits.active.metadata.image.height, unit: fits.active.metadata.image.unit ?? t('search.noUnit') })}
       </p>}
+      {fits.active?.metadata.detector && <button type="button" disabled={spectrum.status === 'loading'}
+        onClick={() => spectrum.request(fits.active.metadata.requested.ra_deg, fits.active.metadata.requested.dec_deg,
+          fits.active.metadata.detector)}>
+        {t('search.spectrum.generate', { detector: String(fits.active.metadata.detector) })}
+      </button>}
       {!busy && <Tooltip message={sizeError} tone="error">
         <button type="submit" form={formId} aria-disabled={Boolean(sizeError)}
           onClick={(event) => { if (sizeError) event.preventDefault() }}>{t('search.actions.search')}</button>

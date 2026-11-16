@@ -9,5 +9,9 @@ def get_image_service(request: Request) -> ImageService:
     return request.app.state.image_service
 
 
+def get_spectrum_service(request: Request):
+    return request.app.state.spectrum_service
+
+
 def get_star_service(request: Request):
     return request.app.state.star_service

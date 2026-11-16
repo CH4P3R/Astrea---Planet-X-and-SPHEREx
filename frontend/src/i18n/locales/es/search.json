@@ -7,7 +7,8 @@
       "help": "Cuánto cielo cubre cada lado de la imagen. Se aplica al editarlo, tanto al clic en el cielo como a RA/Dec. Un valor mayor suele generar una matriz con más píxeles."
     },
     "ra": {
-      "label": "Ascensión recta, RA (°)", "placeholder": "0 a menos de 360",
+      "label": "Ascensión recta, RA (°)",
+      "placeholder": "0 a menos de 360",
       "help": "La posición este/oeste del punto en el cielo, en el sistema ICRS. Introduce grados decimales desde 0 hasta menos de 360, no horas; por ejemplo, 83,63."
     },
     "detector": {
@@ -16,13 +17,16 @@
       "option": "Detector {{detector}} · {{range}} µm"
     },
     "dec": {
-      "label": "Declinación, Dec (°)", "placeholder": "−90 a 90",
+      "label": "Declinación, Dec (°)",
+      "placeholder": "−90 a 90",
       "help": "La posición al norte o al sur del ecuador celeste, en el sistema ICRS. Introduce grados decimales entre −90 y 90; por ejemplo, −5,39. No es tu latitud terrestre."
     }
   },
   "actions": {
-    "search": "Buscar coordenadas", "cancel": "Cancelar operación",
-    "cancelPreparation": "Cancelar preparación", "clear": "Limpiar imagen y resultados"
+    "search": "Buscar coordenadas",
+    "cancel": "Cancelar operación",
+    "cancelPreparation": "Cancelar preparación",
+    "clear": "Limpiar imagen y resultados"
   },
   "validation": {
     "size": "Introduce un tamaño de entre 0,1 y 30 minutos de arco en Preparación.",
@@ -42,8 +46,40 @@
     "limit": "Solo se muestra la observación más reciente. Cambia el detector para ver otra banda."
   },
   "notices": {
-    "searching": "Buscando observaciones…", "loading": "Cargando imagen…", "loaded": "Imagen cargada",
-    "found": { "one": "{{count}} imagen encontrada en IRSA", "other": "{{count}} imágenes encontradas en IRSA" },
-    "foundMore": { "one": "Más de {{count}} imagen encontrada en IRSA", "other": "Más de {{count}} imágenes encontradas en IRSA" }
+    "searching": "Buscando observaciones…",
+    "loading": "Cargando imagen…",
+    "loaded": "Imagen cargada",
+    "found": {
+      "one": "{{count}} imagen encontrada en IRSA",
+      "other": "{{count}} imágenes encontradas en IRSA"
+    },
+    "foundMore": {
+      "one": "Más de {{count}} imagen encontrada en IRSA",
+      "other": "Más de {{count}} imágenes encontradas en IRSA"
+    }
+  },
+  "spectrum": {
+    "title": "Espectro",
+    "generate": "Generar espectro (detector {{detector}})",
+    "close": "Cerrar",
+    "target": "Detector {{detector}} · RA {{ra}}° · Dec {{dec}}° · apertura de 3 píxeles",
+    "loading": "Midiendo todas las exposiciones de este punto. Puede tardar hasta un minuto…",
+    "counts": "{{measured}} de {{found}} exposiciones medidas · {{skipped}} omitidas · {{failed}} con error",
+    "empty": "Ninguna exposición de este detector pudo medir este punto.",
+    "chart": "Flujo frente a longitud de onda, un punto por exposición",
+    "wavelengthAxis": "Longitud de onda (µm)",
+    "fluxAxis": "Flujo (µJy)",
+    "clean": "Medición individual",
+    "doubtful": "Medición dudosa",
+    "hint": "La línea muestra cuánto brilla el objeto en cada longitud de onda: más arriba es más brillante. Señala un punto para ver esa medición.",
+    "readout": "{{wavelength}} µm · {{flux}} ± {{error}} µJy · {{date}} · {{notes}}",
+    "badPixels": {
+      "one": "{{count}} píxel descartado",
+      "other": "{{count}} píxeles descartados"
+    },
+    "crowded": "fondo saturado de fuentes",
+    "noNotes": "sin avisos de calidad",
+    "trend": "Tendencia del brillo",
+    "allDoubtful": "Casi todas las mediciones aquí son dudosas (objeto muy brillante o zona con muchas fuentes), así que la línea discontinua es solo orientativa."
   }
 }

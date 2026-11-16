@@ -257,6 +257,7 @@ def test_openapi_describes_routes_and_binary_response(backend):
         "/api/v1/images/search", "/api/v1/images/load/{image_id}",
         "/api/v1/images/{image_id}/projection",
         "/api/v1/stars", "/api/v1/star-catalog", "/api/v1/sky",
+        "/api/v1/spectrum",
     }
     content = paths["/api/v1/images/{image_id}/pixels"]["get"]["responses"]["200"]["content"]
     assert content["application/octet-stream"]["schema"]["format"] == "binary"
