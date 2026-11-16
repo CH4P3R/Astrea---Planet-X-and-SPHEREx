@@ -1,0 +1,39 @@
+{
+  "title": "Espectro",
+  "tutorialIntro": "Barnard es demasiado brillante para medirla en estos archivos. Por eso practicamos con un punto cercano, con dos mediciones reales de D3 ya preparadas.",
+  "tutorialHint": "Cada punto es una observación: más arriba significa más brillo. Señala un punto con el cursor o usa Tab para ver su fecha y margen de error. Con solo dos puntos no se dibuja una línea de tendencia.",
+  "target": "RA {{ra}}° · Dec {{dec}}° · {{method}}",
+  "counts": "{{measured}} de {{found}} exposiciones medidas · {{skipped}} omitidas · {{failed}} con error",
+  "empty": "Ninguna exposición de {{detectors}} pudo medir este punto.",
+  "chart": "Flujo frente a longitud de onda, un punto por exposición",
+  "wavelengthAxis": "Longitud de onda (µm)",
+  "fluxAxis": "Flujo (µJy)",
+  "clean": "Medición individual",
+  "doubtful": "Medición dudosa",
+  "hint": "La línea muestra cuánto brilla el objeto en cada longitud de onda: más arriba es más brillante. Señala un punto para ver esa medición.",
+  "readout": "D{{detector}} · {{wavelength}} µm · {{flux}} ± {{error}} µJy · {{date}} · {{notes}}",
+  "badPixels": {
+    "one": "{{count}} píxel descartado",
+    "other": "{{count}} píxeles descartados"
+  },
+  "crowded": "fondo saturado de fuentes",
+  "noNotes": "sin avisos de calidad",
+  "allDoubtful": "Casi todas las mediciones aquí son dudosas (objeto muy brillante o zona con muchas fuentes), así que la línea discontinua es solo orientativa.",
+  "intro": "Elige los detectores que quieres ver. Cada uno se mide la primera vez que lo activas (de 10 a 50 segundos) y se suma al gráfico con su color. Púlsalo otra vez para ocultarlo.",
+  "errorBar": "Margen de error (al señalar un punto)",
+  "failed": "No se pudo terminar de medir {{detectors}}. Puedes reintentarlo.",
+  "incomplete": "No se pudieron obtener algunas exposiciones de {{detectors}}. Puedes reintentar para completar las mediciones.",
+  "retry": "Reintentar D{{detector}}",
+  "detectorTrend": "Tendencia D{{detector}}",
+  "choose": "Detectores a mostrar",
+  "measuring": "Midiendo {{detectors}}… Pulsa un detector en curso para detenerlo.",
+  "method": {
+    "label": "Método",
+    "aperture": "Apertura",
+    "psf": "Ajuste de PSF",
+    "apertureNote": "apertura de 3 píxeles",
+    "psfNote": "ajuste de PSF",
+    "apertureHelp": "Suma la luz dentro de un círculo de 3 píxeles. Simple, y bueno para estrellas brillantes y aisladas.",
+    "psfHelp": "Ajusta la forma conocida de una estrella en el punto exacto. Menos ruido en objetos débiles y no se altera por un píxel dañado."
+  }
+}

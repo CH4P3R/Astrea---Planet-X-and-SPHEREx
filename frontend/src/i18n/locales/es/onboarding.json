@@ -8,17 +8,18 @@
     "profile": "{{name}} en GitHub (se abre en una pestaña nueva)",
     "repository": "Repositorio público",
     "repositoryDescription": "Explora el código fuente y el desarrollo de Astrea en GitHub.",
-    "repositoryLink": "Ver el proyecto en GitHub (se abre en una pestaña nueva)",
+    "repositoryLink": "Ver el proyecto en GitHub",
     "close": "Cerrar"
   },
   "intro": {
     "title": "Bienvenido a Astrea",
-    "summary": "Explora el cielo y descubre imágenes reales del telescopio espacial SPHEREx, que observa luz infrarroja que nuestros ojos no pueden ver.",
+    "summary": "Recorre el cielo y descubre imágenes reales de SPHEREx, un telescopio espacial que observa luz infrarroja, invisible a nuestros ojos.",
     "possibilities": "¿Qué puedes hacer?",
-    "sky": "Recorrer el cielo desde una ubicación y una fecha.",
-    "images": "Buscar una región y ajustar sus imágenes para ver más detalles.",
-    "compare": "Comparar observaciones de distintas fechas y buscar posibles cambios.",
-    "note": "Astrea acerca los datos astronómicos a todos: puedes explorarlos sin saber manejar archivos científicos. La guía te ayuda a empezar.",
+    "sky": "Recorrer el cielo arrastrando y acercarte o alejarte con la rueda del ratón.",
+    "images": "Elegir una zona y ver imágenes tomadas por el telescopio.",
+    "compare": "Alternar entre imágenes de distintas fechas para buscar posibles cambios.",
+    "spectrum": "Explorar cuánto brilla un punto del cielo en distintas partes de la luz infrarroja.",
+    "note": "No necesitas experiencia en astronomía. La guía te acompaña paso a paso con un ejemplo que puedes probar.",
     "tutorial": "Ver tutorial",
     "explore": "Empezar a explorar",
     "loading": "Preparando Astrea…"
@@ -31,81 +32,91 @@
   "restart": "Ver tutorial",
   "inspector": "Panel derecho",
   "try": "Prueba estos pasos",
-  "load": "Cargar FITS de Barnard",
-  "loading": "Cargando la observación local y su proyección…",
-  "found": "Observación local de Barnard encontrada",
-  "empty": "No hay FITS locales para estas coordenadas, tamaño o detector. Usa el campo de Barnard, 7 minutos de arco y D3.",
+  "load": "Cargar imagen de Barnard",
+  "loading": "Preparando la imagen de ejemplo en el cielo…",
+  "found": "Imagen de ejemplo de Barnard encontrada",
+  "empty": "Este ejemplo usa la zona de Barnard, un tamaño de 7 minutos de arco y el detector D3. Vuelve a esos valores para cargarlo.",
   "welcome": {
     "title": "Explora Astrea",
-    "summary": "Conoce la interfaz con imágenes reales de la estrella de Barnard.",
+    "summary": "Vamos a explorar la zona de la estrella de Barnard con imágenes reales. La zona iluminada indica qué parte de la pantalla puedes probar.",
     "actions": {
-      "1": { "title": "Sigue el recorrido", "description": "Pulsa «Siguiente» para conocer los controles." },
-      "2": { "title": "Prueba sin perder tu trabajo", "description": "Tu sesión anterior se recupera al salir." }
+      "1": { "title": "Conoce los controles", "description": "Los iconos de la izquierda abren las opciones del cielo. Pulsa «Siguiente» para conocerlas." },
+      "2": { "title": "Prueba con tranquilidad", "description": "Puedes cambiar los ajustes del ejemplo. Al salir, recuperarás la sesión que tenías antes de la guía." }
     },
-    "note": "Puedes saltar la guía y volver a abrirla desde la interrogación."
+    "note": "Avanza o vuelve atrás a tu ritmo. Puedes salir con «Saltar todo» y abrir la guía de nuevo desde el icono de interrogación."
   },
   "time": {
     "title": "Tiempo del cielo",
-    "summary": "Este reloj orienta el cielo; no cambia la fecha de las imágenes.",
+    "summary": "El cielo cambia de posición con las horas. Este reloj elige el momento desde el que lo miras, sin cambiar cuándo se tomó cada imagen.",
     "actions": {
-      "1": { "title": "Prueba el reloj", "description": "Alterna entre «Volver al tiempo actual» y «Pausar tiempo»." },
-      "2": { "title": "Elige otra fecha", "description": "Introduce una fecha UTC y pulsa «Aplicar fecha»." }
+      "1": { "title": "Mira el cielo de ahora", "description": "Pulsa «Volver al tiempo actual». Usa «Pausar tiempo» para mantener fijo ese momento." },
+      "2": { "title": "Viaja a otro momento", "description": "Elige una fecha y una hora, y pulsa «Aplicar fecha» para ver cómo queda el cielo." }
     },
-    "note": "El tutorial inicia el reloj pausado; puedes cambiarlo."
+    "note": "Las horas usan UTC, una referencia mundial que puede diferir de tu hora local. El ejemplo empieza con el reloj pausado."
   },
   "location": {
     "title": "Ubicación del observador",
-    "summary": "La ubicación permite colocar las observaciones en el cielo local.",
+    "summary": "Elige desde qué lugar de la Tierra miras el cielo. Así Astrea puede colocar las estrellas y las imágenes en la dirección correspondiente.",
     "actions": {
-      "1": { "title": "Revisa la referencia", "description": "El tutorial usa Greenwich, no tu ubicación real." },
-      "2": { "title": "Prueba otra ubicación", "description": "Introduce latitud y longitud o usa la ubicación del dispositivo." }
+      "1": { "title": "Ubica el punto de partida", "description": "Este ejemplo empieza en Greenwich, Reino Unido. No significa que hayamos detectado tu ubicación." },
+      "2": { "title": "Prueba otro lugar", "description": "Usa la ubicación del dispositivo, o escribe latitud y longitud y pulsa «Aplicar ubicación manual»." }
     },
-    "note": "Estos cambios solo afectan al tutorial."
+    "note": "Latitud y longitud indican un lugar en la Tierra. Si prefieres no cambiarlas, puedes seguir con Greenwich."
   },
   "search": {
-    "title": "Busca el campo de Barnard",
-    "summary": "Carga la observación desde el formulario de Preparación.",
+    "title": "Busca la zona de Barnard",
+    "summary": "Preparación permite elegir qué zona del cielo ver. RA y Dec son su dirección en el cielo; ya dejamos lista la de Barnard.",
     "actions": {
-      "1": { "title": "Conserva los valores preparados", "description": "Deja las coordenadas indicadas y el tamaño en 7 minutos de arco." },
-      "2": { "title": "Busca la observación", "description": "Pulsa «Buscar coordenadas» para abrir el FITS en el inspector." }
+      "1": { "title": "Empieza con este ejemplo", "description": "Conserva RA, Dec y el tamaño de 7 minutos de arco: ese tamaño indica cuánto cielo cubre la imagen." },
+      "2": { "title": "Abre la imagen", "description": "Pulsa «Buscar coordenadas». Verás la imagen sobre el cielo y sus opciones en el panel derecho." }
     },
-    "note": "Si avanzas sin buscar, la guía cargará el archivo automáticamente."
+    "note": "La guía carga este ejemplo si avanzas sin buscar. Fuera de ella, también puedes elegir una zona pulsando el cielo."
   },
   "sky": {
     "title": "Aspecto del cielo",
-    "summary": "Controla las estrellas y la superficie de referencia.",
+    "summary": "Estas opciones cambian el entorno del cielo, donde se sitúan las imágenes que vas explorando.",
     "actions": {
-      "1": { "title": "Comprueba el catálogo", "description": "Revisa el estado de carga de las estrellas." },
-      "2": { "title": "Prueba la superficie", "description": "Activa o desactiva «Mostrar superficie central»." }
+      "1": { "title": "Prueba una ayuda para orientarte", "description": "Activa «Mostrar superficie central»: la cuadrícula sirve de referencia horizontal bajo tus pies." },
+      "2": { "title": "Elige el fondo que prefieres", "description": "Activa o desactiva «Fondo difuso» para ver el cielo con o sin ese efecto visual." }
     },
-    "note": "El siguiente paso abre Datos en el inspector derecho."
+    "note": "El fondo difuso es una ilustración. Las imágenes del telescopio son datos reales y se consultan en el panel derecho."
   },
   "data": {
     "title": "Datos",
-    "summary": "La pestaña resaltada muestra las propiedades de la observación.",
+    "summary": "Cada observación es una imagen tomada por el telescopio en un momento concreto. Datos te ayuda a saber cuál estás viendo.",
     "actions": {
-      "1": { "title": "Consulta la imagen", "description": "Revisa la fecha, el detector D3 y las dimensiones." },
-      "2": { "title": "Recupera el encuadre", "description": "Pulsa «Centrar imagen» para ver el recorte completo." }
+      "1": { "title": "Mira cuándo se tomó", "description": "Revisa la fecha. D3 identifica el detector que la tomó; cada detector observa una parte del infrarrojo." },
+      "2": { "title": "Vuelve a encontrar la imagen", "description": "Pulsa «Centrar imagen» para llevarla al centro de la vista y verla completa." }
     },
-    "note": "«Abrir FITS original» sigue disponible al final del panel."
+    "note": "No necesitas entender los datos técnicos para explorar. «Abrir FITS original» da acceso al archivo científico de la imagen."
   },
   "appearance": {
     "title": "Apariencia",
-    "summary": "La pestaña resaltada permite ajustar cómo se muestra la imagen.",
+    "summary": "Ajusta la imagen para distinguir mejor sus detalles. Puedes probar estos controles sin modificar el archivo original del telescopio.",
     "actions": {
-      "1": { "title": "Prueba el aspecto", "description": "Cambia la paleta, el brillo o la opacidad." },
-      "2": { "title": "Vuelve al aspecto inicial", "description": "Pulsa «Restaurar apariencia» para recuperar los ajustes visuales." }
+      "1": { "title": "Busca un aspecto que te ayude", "description": "Prueba otra paleta o ajusta el brillo. Baja la opacidad para ver también el cielo detrás de la imagen." },
+      "2": { "title": "Empieza de nuevo si lo necesitas", "description": "Pulsa «Restaurar apariencia» para volver a los ajustes iniciales." }
     },
-    "note": "Los filtros científicos utilizan los planos del FITS real."
+    "note": "Los colores muestran cuánto brilla cada zona; no son sus colores reales. Puedes dejar las opciones de Procesamiento para más adelante."
   },
   "compare": {
     "title": "Comparar",
-    "summary": "La pestaña resaltada permite alternar entre dos observaciones reales.",
+    "summary": "Mira la misma zona en distintos momentos. Al alternar las imágenes, es más fácil notar posibles diferencias.",
     "actions": {
-      "1": { "title": "Elige las fechas", "description": "Mantén 2025 y el mismo detector D3." },
-      "2": { "title": "Añade otra observación", "description": "Pulsa «Añadir» en la fecha disponible." },
-      "3": { "title": "Reproduce la secuencia", "description": "Pulsa «Reproducir» y ajusta el tiempo por imagen." }
+      "1": { "title": "Busca otra fecha de esta zona", "description": "Mantén el año 2025 y el mismo detector D3. La imagen que ya abriste será la referencia A." },
+      "2": { "title": "Añade la segunda imagen", "description": "Pulsa «Añadir» junto a la otra observación disponible. Fuera de la guía puedes seguir añadiendo más." },
+      "3": { "title": "Recorre las imágenes", "description": "Arrastra el recorrido o pulsa «Reproducir» para alternarlas. «Tiempo por imagen» controla la velocidad." }
     },
-    "note": "Las fechas están separadas 6,6 horas; no se garantiza movimiento visible."
+    "note": "Estas dos imágenes se tomaron con 6,6 horas de diferencia. Puede que no veas movimiento; una diferencia visual tampoco lo confirma por sí sola."
+  },
+  "spectrum": {
+    "title": "Espectro",
+    "summary": "Espectro muestra cuánto brilla un punto del cielo en distintas longitudes de onda: distintas partes de la luz infrarroja.",
+    "actions": {
+      "1": { "title": "Carga las mediciones de ejemplo", "description": "Deja «Ajuste de PSF», el método inicial para medir estrellas, y pulsa D3 dentro de Espectro." },
+      "2": { "title": "Lee la gráfica", "description": "De izquierda a derecha cambia la longitud de onda. Cuanto más alto está un punto, mayor es el brillo medido." },
+      "3": { "title": "Conoce cada medición", "description": "Señala un punto para ver su fecha, brillo y margen de error. Cada punto procede de una observación." }
+    },
+    "note": "El ejemplo mide un punto cercano a Barnard en dos imágenes de D3. Fuera de la guía puedes activar otros detectores; la carga puede tardar."
   }
 }

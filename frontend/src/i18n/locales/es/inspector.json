@@ -3,7 +3,8 @@
   "tabs": {
     "data": "Datos",
     "appearance": "Apariencia",
-    "compare": "Comparar"
+    "compare": "Comparar",
+    "spectrum": "Espectro"
   },
   "observation": "Fecha de observación",
   "detector": "Detector D{{detector}}",

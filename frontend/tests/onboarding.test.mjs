@@ -27,9 +27,9 @@ test('blocked or missing storage never prevents the tour from working', () => {
 
 test('tour has no scene anchors and explicitly disables automatic scrolling', () => {
   assert.equal(tourOptions.scrollTo, false)
-  assert.deepEqual(tourSteps.map(({ id }) => id), ['welcome', 'time', 'location', 'search', 'sky', 'data', 'appearance', 'compare'])
+  assert.deepEqual(tourSteps.map(({ id }) => id), ['welcome', 'time', 'location', 'search', 'sky', 'data', 'appearance', 'compare', 'spectrum'])
   assert.ok(tourSteps.every(({ target }) => target === '.context-rail' || target.startsWith('[data-tour-panel=') || target === '.image-inspector'))
-  assert.deepEqual(tourSteps.filter(({ tab }) => tab).map(({ tab }) => tab), ['data', 'appearance', 'compare'])
+  assert.deepEqual(tourSteps.filter(({ tab }) => tab).map(({ tab }) => tab), ['data', 'appearance', 'compare', 'spectrum'])
 })
 
 test('tour card fits desktop, narrow and short viewports including missing anchors', () => {

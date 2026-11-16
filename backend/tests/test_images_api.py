@@ -86,16 +86,6 @@ def search_one(app, **overrides):
     return response.json()["images"][0]
 
 
-def post(app, path, body):
-    async def request():
-        async with httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=app), base_url="http://test"
-        ) as client:
-            return await client.post(path, json=body)
-
-    return asyncio.run(request())
-
-
 def test_zoom_recrop_keeps_the_observation_and_downloads_a_new_window(backend):
     app, archive = backend
     item = search_one(app)
@@ -291,15 +281,19 @@ def test_openapi_describes_routes_and_binary_response(backend):
         "/api/v1/images/{image_id}/planes/{plane}",
         "/api/v1/images/{image_id}/planes/{plane}/pixels",
         "/api/v1/images/search", "/api/v1/images/search-box", "/api/v1/images/load/{image_id}",
-        "/api/v1/images/{image_id}/projection",
+        "/api/v1/images/{image_id}/projection", "/api/v1/images/{image_id}/recrop",
+        "/api/v1/images/onboarding", "/api/v1/images/onboarding/{image_id}/fits",
         "/api/v1/stars", "/api/v1/star-catalog", "/api/v1/sky", "/api/v1/targets",
-        "/api/v1/health",
+        "/api/v1/health", "/api/v1/spectrum",
     }
     content = paths["/api/v1/images/{image_id}/pixels"]["get"]["responses"]["200"]["content"]
     assert content["application/octet-stream"]["schema"]["format"] == "binary"
 
 
-def post(app, path, **kwargs):
+def post(app, path, body=None, **kwargs):
+    if body is not None:
+        kwargs["json"] = body
+
     async def request():
         async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
             return await client.post(path, **kwargs)

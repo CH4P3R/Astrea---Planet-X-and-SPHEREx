@@ -384,6 +384,25 @@ class IrsaClient:
             return align_plane(self._service_cutout(source_url, ra_deg, dec_deg, size_deg, deadline), extension, grid)
         return self._logged(f"plane {extension}", label, run)
 
+    def photometry_stamp(self, source_url: str, ra_deg: float, dec_deg: float, half: int, psf: bool = False):
+        """Windows of one exposure around a position (see irsa_ranges.Stamp); `psf` adds its PSF model.
+
+        None when the position is too near the detector edge. There is no
+        cutout-service fallback: it would cost megabytes per exposure.
+        """
+        source_url, _ = _image_url(source_url)
+        _coordinates(ra_deg, dec_deg)
+        try:
+            return self.ranges.read_stamp(source_url, ra_deg, dec_deg, half, self._deadline(), psf=psf)
+        except irsa_ranges.OutsideExposure:
+            return None
+        except requests.Timeout as exc:
+            raise ArchiveTimeout("IRSA download timed out. Please try again.") from exc
+        except requests.RequestException as exc:
+            raise ArchiveError("IRSA download is temporarily unavailable.") from exc
+        except (irsa_ranges.PartialReadError, OSError, ValueError, TypeError, KeyError, IndexError) as exc:
+            raise ArchiveError("This exposure cannot be read for photometry.") from exc
+
     @staticmethod
     def _partial(read):
         """Run a byte-range read; None means "use the cutout service instead"."""

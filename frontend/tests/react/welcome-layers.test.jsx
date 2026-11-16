@@ -93,9 +93,10 @@ it('keeps about out of the welcome dialog', () => {
   expect(document.querySelector('.about-modal')).toBeNull()
 })
 
-it('opens a dedicated about dialog from the HUD utility row with GitHub links', () => {
+it.each([false, true])('opens a dedicated about dialog from the HUD utility row with GitHub links, StrictMode=%s', (strict) => {
   window.localStorage.setItem(welcomeStorageKey, 'seen')
-  render(<I18nProvider><AppViewport /></I18nProvider>)
+  const app = <I18nProvider><AppViewport /></I18nProvider>
+  render(strict ? <StrictMode>{app}</StrictMode> : app)
   const hud = document.querySelector('.ui-layer')
   const trigger = within(hud).getByRole('button', { name: 'About Astrea' })
   const language = within(hud).getByRole('combobox')
@@ -123,7 +124,7 @@ it('opens a dedicated about dialog from the HUD utility row with GitHub links', 
     expect(row.querySelector('img').getAttribute('src')).toBe(member.photo)
     expect(row.querySelector('[lang="en"]').textContent).toBe(member.role)
   }
-  const repository = within(about).getByRole('link', { name: 'View the project on GitHub (opens in a new tab)' })
+  const repository = within(about).getByRole('link', { name: 'View the project on GitHub' })
   expect(repository.getAttribute('href')).toBe(projectRepository)
   expect(repository.querySelectorAll('svg').length).toBe(2)
   const close = within(dialog).getByRole('button', { name: 'Close' })
@@ -136,5 +137,6 @@ it('opens a dedicated about dialog from the HUD utility row with GitHub links', 
   fireEvent(document.querySelector('.about-modal'), new Event('cancel', { cancelable: true }))
   act(() => vi.advanceTimersByTime(1000))
   expect(document.querySelector('.about-modal')).toBeNull()
+  expect(document.activeElement).toBe(document.querySelector('.app-viewport'))
   expect(window.localStorage.getItem(welcomeStorageKey)).toBe('seen')
 })
