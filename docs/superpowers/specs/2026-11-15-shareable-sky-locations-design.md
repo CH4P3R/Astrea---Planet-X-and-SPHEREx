@@ -1,6 +1,7 @@
 # Shareable sky locations — design
 
-Status: Draft, awaiting user approval.
+Status: Approved. Implementation plan:
+`docs/superpowers/plans/2026-11-15-shareable-sky-locations.md`.
 
 ## Intent and agreed scope
 
@@ -250,5 +251,5 @@ correctness. No load benchmark or scientific suitability claim is required.
 - [x] Present approaches and obtain selection.
 - [x] Write draft design.
 - [x] Fresh builder check; reviewer reported "nothing important left".
-- [ ] Obtain user approval of this design.
-- [ ] Write the phased implementation plan (no product implementation yet).
+- [x] Obtain user approval of this design.
+- [x] Write the phased implementation plan (no product implementation yet).
