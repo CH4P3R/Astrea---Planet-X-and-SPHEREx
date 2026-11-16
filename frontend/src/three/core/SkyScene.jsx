@@ -9,9 +9,10 @@ import FitsImage from '../elements/FitsImage.jsx'
 import Stars from '../elements/Stars.jsx'
 import HorizonSurface from '../elements/HorizonSurface.jsx'
 import ImageLoadingMarker from '../elements/ImageLoadingMarker.jsx'
+import CompassTracking from './CompassTracking.jsx'
 
 export default function SkyScene({ observer, fits, stars, surfaceVisible, timestamp, onSkyClick,
-  frameImages, viewport, focusVersion, layers, appearance, frameId, onImageZoom, searchDirection }) {
+  frameImages, viewport, focusVersion, layers, appearance, frameId, onImageZoom, searchDirection, compassMarkerRef }) {
   const { gl } = useThree()
   const { setTextureLimit } = fits
   useEffect(() => {
@@ -22,6 +23,7 @@ export default function SkyScene({ observer, fits, stars, surfaceVisible, timest
       <SkyCameraRig onSkyClick={onSkyClick} onImageZoom={onImageZoom} images={frameImages} viewport={viewport} focusVersion={focusVersion}
         previewActive={Boolean(fits.active)} selectionPending={['searching', 'loading', 'results'].includes(fits.status)}
         focusRequest={fits.focus} timestamp={timestamp} selectionDirection={searchDirection} />
+      <CompassTracking markerRef={compassMarkerRef} />
       {stars.snapshot && <Stars snapshot={stars.snapshot} timestamp={timestamp} />}
       <ImageLoadingMarker direction={searchDirection} status={fits.status} />
       {layers.map(({ image, pixels, ready }) => image && pixels && <FitsImage key={image.metadata.id}

@@ -1,5 +1,9 @@
 {
   "title": "Aspecto del cielo",
+  "compass": {
+    "label": "Brújula de navegación; el punto rojo indica la dirección de la vista.",
+    "bearing": "Dirección de la vista: {{degrees}}° desde el norte. Indicada por el punto rojo."
+  },
   "status": {
     "idle": "Define tu ubicación para cargar las estrellas.",
     "loading": "Cargando estrellas de Hipparcos…",

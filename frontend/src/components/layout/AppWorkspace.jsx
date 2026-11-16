@@ -25,6 +25,7 @@ import ConfirmRegionModal from '../common/ConfirmRegionModal.jsx'
 export default function AppWorkspace({ tutorial = false, suspended = false, onStartTour, onFinishTour }) {
   const { t, language } = useTranslation()
   const rootRef = useRef(null)
+  const compassMarkerRef = useRef(null)
   const [tourIndex, setTourIndex] = useState(0)
   const tourActive = tutorial
   const location = useObserver({ initialObserver: tutorial ? tutorialObserver : null, automatic: !tutorial })
@@ -127,13 +128,14 @@ export default function AppWorkspace({ tutorial = false, suspended = false, onSt
             timestamp={clock.timestamp} onSkyClick={onSkyClick} frameImages={frameImages} viewport={viewport} focusVersion={focusVersion}
             layers={layers} appearance={appearance} frameId={playback.frameId}
             onImageZoom={tab === 'compare' ? undefined : fits.refine}
-            searchDirection={searchDirection} />
+            searchDirection={searchDirection} compassMarkerRef={compassMarkerRef} />
         </Canvas>
       </div>
       <div className="ui-layer">
         <ContextToolbar clock={clock} location={location} fits={fits} menu={tourMenu}
           stars={stars} surfaceVisible={surfaceVisible} setSurfaceVisible={setSurfaceVisible}
-          idPrefix={tutorial ? 'tutorial-' : ''} initialCoordinates={tutorial ? barnardQuery : undefined} />
+          idPrefix={tutorial ? 'tutorial-' : ''} initialCoordinates={tutorial ? barnardQuery : undefined}
+          compassMarkerRef={compassMarkerRef} />
         <LanguageSelect suspended={suspended} onStartTour={onStartTour ? () => { playback.pause(); onStartTour() } : undefined} />
         <ImageInspector open={inspectorOpen} tab={tab} fits={fits} displayed={displayed} appearance={appearance}
           comparison={comparison} playback={playback} reason={t(reason)} primaryProjection={primaryProjection} frames={frames} projections={projections}

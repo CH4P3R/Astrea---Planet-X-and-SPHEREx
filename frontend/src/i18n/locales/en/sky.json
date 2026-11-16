@@ -1,5 +1,9 @@
 {
   "title": "Sky appearance",
+  "compass": {
+    "label": "Navigation compass; the red dot indicates the viewing direction.",
+    "bearing": "Viewing direction: {{degrees}}° from north. Indicated by the red dot."
+  },
   "status": {
     "idle": "Set your location to load the stars.",
     "loading": "Loading Hipparcos stars…",
