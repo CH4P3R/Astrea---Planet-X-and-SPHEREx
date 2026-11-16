@@ -17,6 +17,25 @@
   pointer-events: none;
 }
 .tour-spotlight.is-unanchored { inset: 50%; }
+.onboarding-tour[data-ready='false'] { visibility: hidden; }
+.onboarding-tour[data-ready='true'] .tour-spotlight {
+  animation: tour-backdrop-enter var(--motion-duration) var(--motion-ease) both;
+}
+.onboarding-tour[data-ready='true'] .tour-card {
+  animation: tour-card-enter var(--motion-duration) var(--motion-spring) both;
+}
+@keyframes tour-backdrop-enter {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes tour-card-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-tour[data-ready='true'] .tour-spotlight,
+  .onboarding-tour[data-ready='true'] .tour-card { animation: none; }
+}
 .tour-card {
   position: absolute;
   padding: 20px;

@@ -70,6 +70,7 @@ export default function OnboardingTour({ index, scopeRef, onChange, onFinish, im
     { left: target.right, right: 0, top: target.top, height: target.bottom - target.top },
   ] : [{ inset: 0 }]
   return createPortal(<div ref={rootRef} className="onboarding-tour" role="dialog" data-inspector-step={Boolean(step.tab)}
+    data-ready={Boolean(geometry)}
     aria-labelledby="tour-heading" aria-describedby="tour-description" style={geometry ? {
       left: geometry.offset.left, top: geometry.offset.top, width: geometry.viewport.width, height: geometry.viewport.height,
     } : undefined}>
