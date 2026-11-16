@@ -1,10 +1,13 @@
 import { useCallback, useState } from 'react'
 import AppWorkspace from './AppWorkspace.jsx'
-import { saveTourStatus, shouldStartTour } from '../onboarding/tourState.js'
+import { saveTourStatus } from '../onboarding/tourState.js'
+import { initialTourOpen } from '../../share/startup.js'
 
 export default function AppViewport() {
   const [tourOpen, setTourOpen] = useState(() => {
-    try { return shouldStartTour(window.localStorage) } catch { return true }
+    let storage
+    try { storage = window.localStorage } catch { /* Keep shared-link precedence when storage is blocked. */ }
+    return initialTourOpen(window.location.href, storage)
   })
   const startTour = useCallback(() => setTourOpen(true), [])
   const finishTour = useCallback((status) => {

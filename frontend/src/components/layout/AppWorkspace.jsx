@@ -20,6 +20,7 @@ import useProjectedImage from '../../hooks/useProjectedImage.js'
 import OnboardingTour from '../onboarding/OnboardingTour.jsx'
 import { tourSteps } from '../onboarding/tourState.js'
 import { barnardQuery, tutorialObserver, tutorialTimestamp } from '../../config/onboarding.js'
+import useSkyUrl from '../../share/useSkyUrl.js'
 
 export default function AppWorkspace({ tutorial = false, suspended = false, onStartTour, onFinishTour }) {
   const { t, language } = useTranslation()
@@ -28,13 +29,22 @@ export default function AppWorkspace({ tutorial = false, suspended = false, onSt
   const tourActive = tutorial
   const location = useObserver({ initialObserver: tutorial ? tutorialObserver : null, automatic: !tutorial })
   const clock = useSkyClock(tutorial ? tutorialTimestamp : null)
-  const fits = useFitsImage(location.observer, clock.context, tutorial ? 'onboarding' : 'archive', {
-    initialCoordinates: tutorial ? { ra: barnardQuery.ra_deg, dec: barnardQuery.dec_deg } : null,
+  const applyUrlRef = useRef(null)
+  const onRestore = useCallback((state) => applyUrlRef.current?.(state), [])
+  const skyUrl = useSkyUrl({ enabled: !tutorial, onRestore })
+  const fits = useFitsImage(location.observer, clock.context, tutorial ? 'onboarding' : 'archive', tutorial ? {
+    initialCoordinates: { ra: barnardQuery.ra_deg, dec: barnardQuery.dec_deg },
+  } : {
+    initialSearch: skyUrl.initialSearch,
+    onCommittedChange: skyUrl.sync,
   })
+  useEffect(() => { applyUrlRef.current = fits.applyUrl }, [fits.applyUrl])
   const stars = useStars(location.observer, clock.context, clock.timestamp)
   const starsNotice = useMemo(() => stars.status === 'loading' && !stars.snapshot
     ? { status: 'loading', message: 'sky.status.loadingNotice', icon: 'star' } : null,
   [stars.status, stars.snapshot])
+  const historyNotice = useMemo(() => skyUrl.warning === 'share.notices.history'
+    ? { status: 'error', message: skyUrl.warning } : null, [skyUrl.warning])
   const [surfaceVisible, setSurfaceVisible] = useState(true)
   const [notice, setNotice] = useState(null)
   const [tab, setTab] = useState('data')
@@ -78,6 +88,9 @@ export default function AppWorkspace({ tutorial = false, suspended = false, onSt
   const tourMenu = tourActive ? { ...menu, active: tourSteps[tourIndex].panel ?? null, hint: null,
     keepOpen: () => {}, preview: () => {}, leave: () => {}, cancelPreview: () => {}, open: () => {} } : menu
   useEffect(() => { if (activeId) open(null) }, [activeId, open])
+  useEffect(() => {
+    if (skyUrl.warning === 'share.notices.invalid') open('search')
+  }, [skyUrl.warning, open])
   const onSkyClick = useCallback((direction, point) => {
     if (activeId || tutorial) return
     const reason = !observer ? 'location' : cutoutSizeError(size) ? 'size' : null
@@ -111,7 +124,7 @@ export default function AppWorkspace({ tutorial = false, suspended = false, onSt
         </Canvas>
       </div>
       <div className="ui-layer">
-        <ContextToolbar clock={clock} location={location} fits={fits} menu={tourMenu}
+        <ContextToolbar clock={clock} location={location} fits={fits} menu={tourMenu} warning={skyUrl.warning}
           stars={stars} surfaceVisible={surfaceVisible} setSurfaceVisible={setSurfaceVisible}
           idPrefix={tutorial ? 'tutorial-' : ''} />
         <LanguageSelect onStartTour={onStartTour ? () => { playback.pause(); onStartTour() } : undefined} />
@@ -123,7 +136,7 @@ export default function AppWorkspace({ tutorial = false, suspended = false, onSt
             requestAnimationFrame(() => rootRef.current?.focus({ preventScroll: true })) }}
           onCenter={() => { fits.refine(1); setFocusVersion((value) => value + 1) }} />
         <div className="status-region">
-          <StatusNotice notice={starsNotice ?? fits.notice} />
+          <StatusNotice notice={historyNotice ?? starsNotice ?? fits.notice} />
         </div>
         {notice && <Tooltip key={notice.id} point={notice.point} message={t(noticeMessage)} open
           tone={notice.reason === 'location' && locating ? 'info' : 'error'} />}

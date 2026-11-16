@@ -5,7 +5,7 @@ import InputField from '../common/InputField.jsx'
 import { coordinateError, cutoutSizeError } from '../../config/search.js'
 import useTranslation from '../../i18n/useTranslation.js'
 
-export default function FitsControls({ fits, observer }) {
+export default function FitsControls({ fits, observer, warning }) {
   const { t } = useTranslation()
   const formId = useId()
   const { ra, dec } = fits.coordinates
@@ -47,7 +47,7 @@ export default function FitsControls({ fits, observer }) {
         : fits.preparing ? <button type="button" onClick={() => { fits.cancelPreparation(); setValidation('') }}>
           {t('search.actions.cancelPreparation')}
         </button>
-          : (fits.status !== 'idle' || fits.active || hasResults) && <button type="button" onClick={fits.reset}>
+          : (fits.status !== 'idle' || fits.active || hasResults || warning === 'share.notices.invalid') && <button type="button" onClick={fits.reset}>
             {t('search.actions.clear')}
           </button>}
     </>}>
@@ -62,6 +62,7 @@ export default function FitsControls({ fits, observer }) {
         onChange={(event) => edit('dec', event.target.value)} />
       {validation && <p role="alert">{t(validation)}</p>}
     </form>
+    {warning === 'share.notices.invalid' && <p role="status">{t(warning)}</p>}
     {!fits.active && fits.error && <p role="alert">{t(fits.error)}</p>}
     {!busy && !fits.preparing && !fits.active && fits.status === 'results' && !hasResults && <p role="status">{t('search.results.empty')}</p>}
     {!busy && !fits.preparing && hasResults && !fits.active && <Tooltip message={projectionReason} tone="error">
