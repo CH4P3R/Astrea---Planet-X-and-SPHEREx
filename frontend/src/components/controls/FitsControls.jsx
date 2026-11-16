@@ -5,11 +5,10 @@ import InputField from '../common/InputField.jsx'
 import { coordinateError, cutoutSizeError } from '../../config/search.js'
 import useTranslation from '../../i18n/useTranslation.js'
 
-export default function FitsControls({ fits, observer, initialCoordinates }) {
+export default function FitsControls({ fits, observer }) {
   const { t } = useTranslation()
   const formId = useId()
-  const [ra, setRa] = useState(initialCoordinates ? String(initialCoordinates.ra_deg) : '')
-  const [dec, setDec] = useState(initialCoordinates ? String(initialCoordinates.dec_deg) : '')
+  const { ra, dec } = fits.coordinates
   const [validation, setValidation] = useState('')
   const busy = fits.status === 'searching' || fits.status === 'loading'
   const hasResults = fits.images.length > 0
@@ -26,10 +25,9 @@ export default function FitsControls({ fits, observer, initialCoordinates }) {
     if (!error) fits.searchByCoordinates(Number(ra), Number(dec))
   }
 
-  function edit(setValue, value) {
-    setValue(value)
+  function edit(field, value) {
+    fits.setCoordinate(field, value)
     setValidation('')
-    fits.beginPreparation()
   }
 
   return <PanelContent title={t('search.title')}
@@ -57,11 +55,11 @@ export default function FitsControls({ fits, observer, initialCoordinates }) {
       <InputField label={t('search.fields.ra.label')} name="ra" type="number" min="0" max="360" step="any" required
         value={ra} disabled={busy} placeholder={t('search.fields.ra.placeholder')}
         help={t('search.fields.ra.help')}
-        onChange={(event) => edit(setRa, event.target.value)} />
+        onChange={(event) => edit('ra', event.target.value)} />
       <InputField label={t('search.fields.dec.label')} name="dec" type="number" min="-90" max="90" step="any" required
         value={dec} disabled={busy} placeholder={t('search.fields.dec.placeholder')}
         help={t('search.fields.dec.help')}
-        onChange={(event) => edit(setDec, event.target.value)} />
+        onChange={(event) => edit('dec', event.target.value)} />
       {validation && <p role="alert">{t(validation)}</p>}
     </form>
     {!fits.active && fits.error && <p role="alert">{t(fits.error)}</p>}

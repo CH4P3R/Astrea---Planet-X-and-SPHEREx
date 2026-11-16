@@ -28,7 +28,9 @@ export default function AppWorkspace({ tutorial = false, suspended = false, onSt
   const tourActive = tutorial
   const location = useObserver({ initialObserver: tutorial ? tutorialObserver : null, automatic: !tutorial })
   const clock = useSkyClock(tutorial ? tutorialTimestamp : null)
-  const fits = useFitsImage(location.observer, clock.context, tutorial ? 'onboarding' : 'archive')
+  const fits = useFitsImage(location.observer, clock.context, tutorial ? 'onboarding' : 'archive', {
+    initialCoordinates: tutorial ? { ra: barnardQuery.ra_deg, dec: barnardQuery.dec_deg } : null,
+  })
   const stars = useStars(location.observer, clock.context, clock.timestamp)
   const starsNotice = useMemo(() => stars.status === 'loading' && !stars.snapshot
     ? { status: 'loading', message: 'sky.status.loadingNotice', icon: 'star' } : null,
@@ -111,7 +113,7 @@ export default function AppWorkspace({ tutorial = false, suspended = false, onSt
       <div className="ui-layer">
         <ContextToolbar clock={clock} location={location} fits={fits} menu={tourMenu}
           stars={stars} surfaceVisible={surfaceVisible} setSurfaceVisible={setSurfaceVisible}
-          idPrefix={tutorial ? 'tutorial-' : ''} initialCoordinates={tutorial ? barnardQuery : undefined} />
+          idPrefix={tutorial ? 'tutorial-' : ''} />
         <LanguageSelect onStartTour={onStartTour ? () => { playback.pause(); onStartTour() } : undefined} />
         <ImageInspector open={inspectorOpen} tab={tab} fits={fits} displayed={displayed} appearance={appearance}
           comparison={comparison} playback={playback} reason={t(reason)} primaryProjection={primaryProjection} frames={frames} projections={projections}
