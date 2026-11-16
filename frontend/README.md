@@ -15,8 +15,8 @@ guarda `completed` y Saltar todo o Escape guarda `skipped` en `localStorage`, ba
 `astrea.onboarding.v1`; estos estados nunca deshabilitan el botón de ayuda.
 
 El recorrido reutiliza el espacio de trabajo y el inspector reales, incluidos Datos,
-Apariencia y Comparar. Los FITS originales de Barnard están en `backend/data/onboarding/`,
-con su procedencia y SHA-256. No hay datos ni controles simulados. La sesión previa se
+Apariencia, Comparar y Espectro. Los FITS originales del campo de Barnard están en `backend/data/onboarding/`,
+con su procedencia y SHA-256. Las imágenes son reales y los controles son los de la aplicación. La sesión previa se
 mantiene montada y se recupera al salir; el tutorial tiene su propio observador y reloj.
 
 El backend debe estar disponible. La práctica consulta `/api/v1/images/onboarding` y las
@@ -25,6 +25,11 @@ Solo incluye dos observaciones D3, con recortes de 7 minutos de arco; para Compa
 seleccionar 2025 y añadir la otra observación. Su separación de 6,6 horas sirve para
 enseñar el blink, no para garantizar movimiento visible.
 
+El paso Espectro utiliza un ejemplo D3 precalculado mediante PSF y apertura sobre
+una fuente medible del campo local, no sobre Barnard saturada. Su procedencia se
+incluye en `src/components/onboarding/data/spectrum.json`; se regenera mediante
+`backend/scripts/generate_onboarding_spectrum.py`. No consulta el espectro remoto.
+
 `AppViewport` controla la apertura y conserva la sesión; `AppWorkspace` compone la UI
 real en ambas sesiones. `OnboardingTour` utiliza un portal de React DOM y `box-shadow`;
 `scrollTo: false` y foco con `preventScroll` evitan desplazar el lienzo. Los textos son
@@ -32,9 +37,9 @@ ES/EN y no se añaden dependencias. El aviso de carga de estrellas y las mejoras
 inspector, los detectores y la cámara de los merges se mantienen.
 
 Las instrucciones se distribuyen en una frase de propósito, acciones numeradas y una
-nota breve. En Datos, Apariencia y Comparar se resalta la pestaña real en el panel
-derecho; pulsar otra pestaña actualiza el paso de la guía. No se añaden enlaces al
-encabezado del inspector: «Abrir FITS original» permanece dentro de Datos.
+nota breve. En Datos, Apariencia, Comparar y Espectro se resalta la pestaña real en el panel
+derecho; pulsar otra pestaña actualiza el paso de la guía. El encabezado ofrece
+copiar el enlace y descargar el GIF; «Abrir FITS original» permanece dentro de Datos.
 
 ## Espacio de trabajo 3D
 
@@ -65,12 +70,19 @@ astronómica de `EquatorialFrame` se aplica al fondo, no a la cámara ni al suel
 ### Ubicación y direcciones
 
 La ubicación se solicita automáticamente al abrir la vista cuando el navegador lo permite.
-Si no se obtiene, se puede seguir navegando o buscar por RA/Dec. La opción
-**Ubicación**, en la barra izquierda, permite solicitarla al navegador
-(HTTPS o localhost) o introducir latitud y longitud en grados decimales. Las acciones
-permanecen en el pie del panel y el formulario no utiliza plegables. Una selección manual tiene prioridad
-sobre respuestas automáticas pendientes. Sin ubicación, la esfera y las direcciones
-siguen disponibles como referencias de la escena, sin asignar una ubicación ficticia.
+Si el permiso se rechaza, la geolocalización falla o pasan **12 segundos sin respuesta**,
+se asigna **Greenwich (51,4779°, 0°)** como ubicación predeterminada para visualizar
+el cielo. Se abre **Ubicación** con esas coordenadas y aparece un aviso arriba a la
+izquierda, debajo del reloj. Se identifica como referencia, no como ubicación real
+del usuario. Si la bienvenida o el tutorial ocultan la sesión, el aviso espera a su regreso.
+
+La opción **Ubicación**, en la barra izquierda, permite volver a solicitarla al
+navegador (HTTPS o localhost) o introducir latitud y longitud en grados decimales.
+Las acciones permanecen en el pie del panel y el formulario no utiliza plegables.
+Una selección manual tiene prioridad sobre respuestas automáticas pendientes; las
+respuestas tardías no sustituyen una ubicación ya aplicada. Un reintento fallido
+conserva el observador existente. El tutorial y los enlaces compartidos mantienen
+su observador de referencia sin activar esta solicitud automática.
 
 Las etiquetas Norte, Este, Sur y Oeste son sprites dentro de la escena, anclados
 al horizonte geométrico local: +X este, +Y cenit y −Z norte geográfico. No utilizan
@@ -180,7 +192,7 @@ ausencia de observaciones. Error y ausencia de resultados comparten el icono
 El panel conserva el diagnóstico detallado cuando falla una petición.
 
 `components/common/StatusNotice.jsx` recibe un objeto estable `notice` con `status`
-(`loading`, `success`, `error`, `cancelled` o `empty`) y `message`; `null` inicia la salida.
+(`loading`, `success`, `error`, `cancelled`, `empty` o `warning`) y `message`; `null` inicia la salida.
 Los mensajes son claves o descriptores de los catálogos ES/EN. La propiedad `duration`
 permite ajustar la permanencia del resultado. `useFitsImage` actualiza el aviso junto
 con el estado de cada petición y descarta respuestas canceladas. Su función `cancel`
@@ -198,7 +210,7 @@ antes de solicitar los píxeles. No se reduce ni amplía la matriz espacialmente
 `decodePixels`, en `three/core/imageDataUtils.js`, interpreta float32/float64
 little-endian mediante `DataView`, conserva los valores nativos y prepara una copia
 float32 normalizada. `displayRange` y `normalizePixels` calculan y aplican percentiles
-1 y 99,5 sobre hasta 65536 muestras. En A/B usan un intervalo compartido, conservando
+1 y 99,5 sobre hasta 65536 muestras. Las observaciones seleccionadas usan un intervalo compartido, conservando
 los valores originales para recalcularlo al cambiar la selección.
 
 `FitsImage` utiliza `DataTexture`, `BufferGeometry` y `ShaderMaterial` de Three.js
@@ -215,23 +227,45 @@ memoria considerable incluso cuando la GPU admite las dimensiones del recorte.
 
 La primera imagen cargada abre el inspector y cierra Preparación. Su encabezado
 concentra la fecha UTC, el detector y la publicación de la observación visible.
-Cerrar conserva el trabajo y ofrece **Abrir inspector**. **Buscar otra región** vuelve
-a Preparación; los clics incidentales sobre una imagen inspeccionada no reemplazan la región.
+Cerrar pausa la reproducción y limpia la sesión de imagen. Pulsar otra región
+durante una inspección pide confirmación antes de iniciar la nueva búsqueda.
 
 - **Datos:** datos básicos (dimensiones, tamaño solicitado y píxeles finitos) y datos
   técnicos (RA/Dec, centro real, unidad, precisión, extremos e identificador). La cabecera
   WCS tiene una vista interna; el FITS original se abre desde su enlace de procedencia.
 - **Apariencia:** paleta, brillo, opacidad y restauración visual; procesamiento opcional
-  consistente para A/B. Los originales se conservan si falla el procesamiento.
-- **Comparar:** otra fecha del mismo detector o de cualquiera, hasta 50 candidatas,
-  carga independiente de B, Mostrar A/B, reproducción y velocidad de 0,5 a 3 segundos.
-  La reproducción requiere unidades compatibles, procesamiento listo y ambas proyecciones
-  vigentes. La lista limitada no representa toda la historia del archivo.
+  consistente para la secuencia seleccionada. Los originales se conservan si falla el procesamiento.
+- **Comparar:** consulta anual desde 2025 hasta el año UTC actual, con el mismo
+  detector o cualquiera y hasta 100 candidatas. Permite añadir varias observaciones,
+  recorrerlas en una línea temporal cronológica, quitar observaciones y reproducir
+  la secuencia con intervalos de 0,1 a 3 segundos. Las flechas SVG anterior/siguiente
+  cambian la imagen visible. La reproducción requiere unidades compatibles,
+  procesamiento listo y proyecciones vigentes. `has_more` avisa de observaciones
+  fuera de la lista; no hay paginación.
+- **Espectro:** mide la posición ICRS de la imagen por detector, mediante ajuste PSF
+  o fotometría de apertura, usando `GET /api/v1/spectrum`. Muestra flujo frente a
+  longitud de onda, incertidumbres y calidad; permite ocultar series y reintentar
+  errores o resultados incompletos. La cobertura depende de las exposiciones
+  disponibles: no garantiza 102 bandas ni una observación simultánea.
+
+El encabezado permite **Copiar enlace** con RA, Dec, tamaño del recorte y detector,
+sin compartir la ubicación terrestre ni el reloj del observador. Abrir un enlace
+válido utiliza Greenwich como referencia y restaura la búsqueda.
+
+A su izquierda, **Descargar GIF** se habilita en Comparar cuando la secuencia está
+preparada. Exporta hasta 20 observaciones cargadas, en orden cronológico, con el
+intervalo vigente y repetición continua. Utiliza las mallas WCS para mantener la
+alineación y toma el zoom, orientación y densidad física de píxeles del renderizado:
+no limita la resolución a 320 px. Conserva la normalización compartida, el
+procesamiento, brillo y paleta; usa 64 colores y compresión LZW. No captura el HUD,
+fondo ni mezcla de opacidad. El archivo puede ser grande al ampliar o utilizar
+pantallas de alta densidad. Consulte [Comparación y exportación](docs/COMPARISON.md).
 
 `ImageInspector` compone las vistas mediante `PanelContent`, `Tabs`, `MetadataList`,
 `Select`, `RangeField`, `HelpButton` y `Tooltip`. Los hooks de búsqueda, proyección,
 apariencia, comparación y reproducción mantienen responsabilidades independientes.
-Los textos y ayudas proceden de `inspector.json` en ES/EN.
+Los textos y ayudas proceden de los catálogos ES/EN, incluidos `inspector.json`,
+`spectrum.json`, `share.json` y `location.json`.
 
 `useImageViewport` mide los obstáculos del HUD con `ResizeObserver` y obtiene el área
 libre mediante `availableImageRect`. `imageFrame` calcula orientación y límites a partir
@@ -261,6 +295,9 @@ Su base ecuatorial es dextrógira: +X RA 18 h, +Y polo norte celeste, −Z RA 0 
 
 - `src/components/layout/`: contenedor de pantalla completa y capa de escena.
 - `src/components/controls/` y `src/hooks/`: ubicación automática/manual.
+- `src/components/spectrum/`: gráfico y controles de espectro.
+- `src/export/`: generación del GIF alineado y control de descarga.
+- `src/share/`: lectura, actualización y copia de enlaces de búsqueda.
 - `src/three/core/`: escena, cámara y transformaciones de coordenadas.
 - `src/three/elements/`: esfera celeste, estrellas, superficie central, imágenes, direcciones y cuadrícula RA/Dec (oculta).
 - `src/config/`: parámetros de la vista.
@@ -269,6 +306,10 @@ Su base ecuatorial es dextrógira: +X RA 18 h, +Y polo norte celeste, −Z RA 0 
 ### Ejecución
 
 Desde `frontend/`:
+
+Se recomienda Node.js 24 LTS. La API debe ejecutarse en otra terminal con
+`python -m uvicorn app.main:app --reload` desde `backend/`, tras instalar sus
+dependencias; véase [la preparación del backend](../backend/environment.md).
 
 ```powershell
 npm ci
@@ -282,20 +323,3 @@ npm run lint
 npm run build
 npm test
 ```
-
-## Referencia de la plantilla React + Vite
-
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
-
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
