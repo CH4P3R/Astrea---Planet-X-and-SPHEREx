@@ -38,6 +38,8 @@
   .language-region { left: max(16px, env(safe-area-inset-left)); bottom: max(16px, env(safe-area-inset-bottom)); }
 }
 
+.workspace-notices { display: contents; }
+
 .status-region {
   --status-notice-top: max(var(--ui-edge-y), env(safe-area-inset-top));
   position: absolute;
@@ -48,10 +50,41 @@
   pointer-events: none;
 }
 
+.status-region--location {
+  --status-notice-top: max(112px, calc(env(safe-area-inset-top) + 88px));
+  left: max(var(--ui-edge-x), env(safe-area-inset-left));
+  right: auto;
+}
+
 @media (max-width: 760px) {
   .status-region {
     --status-notice-top: max(104px, calc(env(safe-area-inset-top) + 80px));
     right: max(16px, env(safe-area-inset-right));
     width: min(430px, calc(100% - 32px - env(safe-area-inset-right)));
   }
+  .status-region--location {
+    --status-notice-top: max(112px, calc(env(safe-area-inset-top) + 88px));
+    left: max(16px, env(safe-area-inset-left));
+    right: auto;
+    width: min(430px, calc(100% - 32px - env(safe-area-inset-left) - env(safe-area-inset-right)));
+  }
+  .workspace-notices:has(.status-region--location .status-notice-surface[data-visible='true']) {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: absolute;
+    top: max(112px, calc(env(safe-area-inset-top) + 88px));
+    left: max(16px, env(safe-area-inset-left));
+    right: max(16px, env(safe-area-inset-right));
+    z-index: var(--z-status);
+    pointer-events: none;
+  }
+  .workspace-notices:has(.status-region--location .status-notice-surface[data-visible='true']) > .status-region {
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    width: 100%;
+  }
+  .workspace-notices .status-region--location { order: -1; }
 }

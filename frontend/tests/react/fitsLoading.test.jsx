@@ -116,24 +116,23 @@ describe('FITS search and loading lifecycle', () => {
     expect(loadMetadata).toHaveBeenCalledTimes(1)
   })
 
-  it('recovers from denied geolocation through real manual location and loads once', async () => {
+  it('loads using the default after denied geolocation and accepts manual correction without reloading', async () => {
     vi.stubGlobal('isSecureContext', true)
     vi.stubGlobal('navigator', {
       geolocation: { getCurrentPosition: (_success, fail) => fail({ code: 1 }) },
     })
     render(<LocationProbe />)
-    await waitFor(() => expect(state().locationError).toBe('location.errors.denied'))
+    await waitFor(() => expect(state().source).toBe('default'))
     click('A')
-    await status('results')
-    expect(state().images).toEqual([{ id: 'A' }])
-    expect(loadMetadata).not.toHaveBeenCalled()
+    await status('ready')
+    expect(loadMetadata).toHaveBeenCalledTimes(1)
+    expect(loadProjection.mock.lastCall[1].observer).toEqual({
+      latitude_deg: 51.4779, longitude_deg: 0, elevation_m: 0,
+    })
     click('manual location')
     await status('ready')
     expect(state().source).toBe('manual')
     expect(loadMetadata).toHaveBeenCalledTimes(1)
-    expect(loadProjection.mock.lastCall[1].observer).toEqual({
-      latitude_deg: 19.43, longitude_deg: -99.13, elevation_m: 0,
-    })
   })
 
   it.each(['cancel', 'clear', 'invalid'])('%s discards an observer-delayed auto-load', async (action) => {

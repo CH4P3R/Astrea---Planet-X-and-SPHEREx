@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { DEFAULT_OBSERVER, LOCATION_TIMEOUT_MS } from '../config/location.js'
 
 export default function useObserver({ initialObserver = null, automatic = true } = {}) {
   const [observer, setObserver] = useState(initialObserver)
   const [status, setStatus] = useState(initialObserver ? 'ready' : 'loading')
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState(null)
+  const currentObserver = useRef(initialObserver)
   const request = useRef(0)
   const timer = useRef(null)
 
@@ -11,41 +14,61 @@ export default function useObserver({ initialObserver = null, automatic = true }
     const id = ++request.current
     window.clearTimeout(timer.current)
     setError('')
-    if (!navigator.geolocation || !window.isSecureContext) {
-      setStatus('error')
-      setError('location.errors.unsupported')
-      return
-    }
-    setStatus('loading')
     const fail = (message) => {
       if (request.current !== id) return
       request.current += 1
       window.clearTimeout(timer.current)
-      setStatus('error')
-      setError(message)
+      if (automatic && !currentObserver.current) {
+        currentObserver.current = DEFAULT_OBSERVER
+        setObserver(DEFAULT_OBSERVER)
+        setStatus('ready')
+        setError('')
+        setNotice({ status: 'warning', message: 'location.notices.defaultAssigned' })
+      } else {
+        setStatus('error')
+        setError(message)
+      }
     }
-    timer.current = window.setTimeout(() => fail('location.errors.timeout'), 12000)
-    navigator.geolocation.getCurrentPosition(({ coords }) => {
+    if (!navigator.geolocation || !window.isSecureContext) {
+      fail('location.errors.unsupported')
+      return
+    }
+    setStatus('loading')
+    timer.current = window.setTimeout(() => fail('location.errors.timeout'), LOCATION_TIMEOUT_MS)
+    const success = ({ coords }) => {
       if (request.current !== id) return
       request.current += 1
       window.clearTimeout(timer.current)
-      setObserver({ latitude: coords.latitude, longitude: coords.longitude, source: 'device' })
+      const next = { latitude: coords.latitude, longitude: coords.longitude, source: 'device' }
+      currentObserver.current = next
+      setObserver(next)
       setStatus('ready')
       setError('')
-    }, ({ code }) => {
+      setNotice(null)
+    }
+    const failure = ({ code }) => {
       fail(code === 1 ? 'location.errors.denied'
         : code === 3 ? 'location.errors.timeout' : 'location.errors.unavailable')
-    }, { enableHighAccuracy: false, maximumAge: 60000, timeout: 12000 })
-  }, [])
+    }
+    try {
+      navigator.geolocation.getCurrentPosition(success, failure,
+        { enableHighAccuracy: false, maximumAge: 60000, timeout: LOCATION_TIMEOUT_MS })
+    } catch {
+      fail('location.errors.unavailable')
+    }
+  }, [automatic])
 
   const applyManualLocation = useCallback((latitude, longitude) => {
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)
       || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return false
     request.current += 1
     window.clearTimeout(timer.current)
-    setObserver({ latitude, longitude, source: 'manual' })
+    const next = { latitude, longitude, source: 'manual' }
+    currentObserver.current = next
+    setObserver(next)
     setStatus('ready')
     setError('')
+    setNotice(null)
     return true
   }, [])
 
@@ -61,5 +84,5 @@ export default function useObserver({ initialObserver = null, automatic = true }
     }
   }, [locate, automatic])
 
-  return { observer, status, error, locate, applyManualLocation }
+  return { observer, status, error, notice, locate, applyManualLocation }
 }

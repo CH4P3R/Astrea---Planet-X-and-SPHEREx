@@ -6,7 +6,7 @@ import AppViewport from '../../src/components/layout/AppViewport.jsx'
 import I18nProvider from '../../src/i18n/I18nProvider.jsx'
 import { loadMetadata, loadPixels, loadProjection, searchCoordinates, searchImages } from '../../src/services/images.js'
 
-const scene = vi.hoisted(() => ({ fits: null, normalMounts: 0, observerAvailable: true }))
+const scene = vi.hoisted(() => ({ fits: null, normalMounts: 0, observerAvailable: true, locationNotice: null }))
 vi.mock('@react-three/fiber', () => ({ Canvas: ({ children }) => <>{children}</> }))
 vi.mock('../../src/three/core/GifRenderSnapshot.jsx', () => ({ default: () => null }))
 vi.mock('../../src/three/core/SkyScene.jsx', () => ({
@@ -20,7 +20,7 @@ vi.mock('../../src/three/core/SkyScene.jsx', () => ({
 vi.mock('../../src/hooks/useObserver.js', () => {
   const observer = { latitude: 51, longitude: 0, source: 'manual' }
   return { default: ({ initialObserver } = {}) => ({ observer: scene.observerAvailable ? observer : initialObserver,
-    status: scene.observerAvailable || initialObserver ? 'ready' : 'error', error: '', locate() {}, applyManualLocation() {} }) }
+    status: scene.observerAvailable || initialObserver ? 'ready' : 'error', error: '', notice: scene.locationNotice, locate() {}, applyManualLocation() {} }) }
 })
 vi.mock('../../src/hooks/useSkyClock.js', () => {
   const clock = { context: { mode: 'paused', at: '2026-11-15T00:00:00Z' }, timestamp: Date.parse('2026-11-15T00:00:00Z'),
@@ -91,6 +91,7 @@ beforeEach(() => {
   scene.fits = null
   scene.normalMounts = 0
   scene.observerAvailable = true
+  scene.locationNotice = null
   searchCoordinates.mockImplementation(async (ra, dec) => result(ra, dec))
   searchImages.mockResolvedValue(result(30, 40))
   loadMetadata.mockResolvedValue(metadata)
@@ -119,6 +120,20 @@ it('hides only the HUD while the welcome covers the active workspace', () => {
   expect(root.dataset.revealing).toBe('true')
   expect(hud.hasAttribute('data-hidden')).toBe(false)
   expect(hud.hasAttribute('inert')).toBe(false)
+})
+
+it('opens Location and announces the assigned default only after the workspace becomes visible', () => {
+  scene.locationNotice = { status: 'warning', message: 'location.notices.defaultAssigned' }
+  const { rerender } = mount(<AppWorkspace covered />)
+  expect(document.querySelector('.status-region--location')).toBeNull()
+  rerender(<I18nProvider><AppWorkspace /></I18nProvider>)
+  expect(document.querySelector('#context-trigger-location').getAttribute('aria-expanded')).toBe('true')
+  expect(document.querySelector('.status-region--location [role="status"]').textContent)
+    .toBe('Your location was not recorded. Greenwich was assigned as the default location. You can change it in Location.')
+  fireEvent.click(document.querySelector('#context-trigger-time'))
+  expect(document.querySelector('#context-trigger-time').getAttribute('aria-expanded')).toBe('true')
+  rerender(<I18nProvider><AppWorkspace /></I18nProvider>)
+  expect(document.querySelector('#context-trigger-time').getAttribute('aria-expanded')).toBe('true')
 })
 
 it('loads a shared image and opens the inspector without a device observer', async () => {

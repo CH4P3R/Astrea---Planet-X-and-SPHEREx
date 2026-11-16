@@ -93,6 +93,13 @@ export default function AppWorkspace({ tutorial = false, suspended = false, cove
   [tab, comparisonFrames, baseProjection.ready, baseProjection.image])
   const { size, search, applyUrl } = fits
   const { open } = menu
+  const locationNotice = location.notice
+  const openedLocationNotice = useRef(null)
+  useEffect(() => {
+    if (!locationNotice || tutorial || covered || suspended || openedLocationNotice.current === locationNotice) return
+    openedLocationNotice.current = locationNotice
+    open('location')
+  }, [locationNotice, tutorial, covered, suspended, open])
   useEffect(() => {
     restoreUrlRef.current = (state) => {
       setPendingRegion(null)
@@ -197,8 +204,13 @@ export default function AppWorkspace({ tutorial = false, suspended = false, cove
           onClose={() => { playback.pause(); fits.reset(); setSearchDirection(null); setPendingRegion(null); setTab('data'); open(null)
             requestAnimationFrame(() => rootRef.current?.focus({ preventScroll: true })) }}
           onCenter={() => { fits.refine(1); setFocusVersion((value) => value + 1) }} />
-        <div className="status-region">
-          <StatusNotice notice={historyNotice ?? starsNotice ?? fits.notice} duration={historyNotice ? 0 : undefined} />
+        <div className="workspace-notices">
+          <div className="status-region">
+            <StatusNotice notice={historyNotice ?? starsNotice ?? fits.notice} duration={historyNotice ? 0 : undefined} />
+          </div>
+          {!tutorial && !covered && !suspended && locationNotice && <div className="status-region status-region--location">
+            <StatusNotice notice={locationNotice} duration={6400} />
+          </div>}
         </div>
         {notice && <Tooltip key={notice.id} point={notice.point} message={t(noticeMessage)} open
           tone={notice.reason === 'location' && locating ? 'info' : 'error'} />}

@@ -8,6 +8,7 @@ const statusIcons = {
   error: NoResultsOutlineBold,
   cancelled: Cancel,
   empty: NoResultsOutlineBold,
+  warning: NoResultsOutlineBold,
 }
 
 export default function StatusNotice({ notice, duration = 3200 }) {

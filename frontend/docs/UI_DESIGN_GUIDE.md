@@ -192,12 +192,18 @@ La búsqueda mediante un punto del cielo utiliza `POST /api/v1/images/search` y 
 ### Ubicación automática y avisos sobre la escena
 
 - Solicitar la ubicación del dispositivo al iniciar, si el navegador y el contexto seguro lo permiten. Los permisos del navegador siguen siendo necesarios.
+- Si la solicitud inicial se rechaza, no está disponible o no responde en 12 segundos, `useObserver` asigna Greenwich (51,4779°, 0°) con `source: default` y estado listo. El navegador no permite distinguir de forma fiable entre una petición ignorada y una todavía pendiente; el temporizador independiente evita esperar indefinidamente al diálogo de permisos.
+- La ubicación predeterminada permite cargar el cielo y buscar imágenes sin otra acción. Se abre Ubicación y sus campos muestran las coordenadas asignadas, identificadas como referencia y no como ubicación real del usuario. Se conserva la solicitud explícita al dispositivo y la introducción manual.
+- El aviso de asignación reutiliza `StatusNotice` con estado `warning`, duración de 6400 ms y región superior izquierda, debajo del reloj. Mantiene animaciones, colores, anuncio accesible y movimiento reducido existentes. Los demás avisos conservan su posición; en pantallas estrechas se apilan para evitar superposición. Si la bienvenida o el tutorial ocultan la sesión, la apertura y el aviso esperan a que vuelva a estar visible.
+- Las respuestas recibidas después del vencimiento y las peticiones sustituidas se ignoran. Una ubicación manual o del dispositivo ya aplicada nunca se sustituye por el valor predeterminado al fallar un reintento. El tutorial y los enlaces compartidos conservan sus observadores iniciales y no activan esta asignación automática.
 - Mantener el reintento y la entrada de latitud/longitud en Ubicación. Una entrada manual tiene prioridad sobre respuestas automáticas pendientes.
 - Si se pulsa el cielo sin ubicación, anclar el tooltip al punto pulsado, no a un botón del panel. Durante la solicitud, mostrar información de espera; si falla, mostrar el motivo en rojo y cómo resolverlo.
 - Si la solicitud falla después de marcar el punto, actualizar el aviso en ese mismo punto. Al obtener ubicación, retirar el aviso; el siguiente clic inicia la consulta.
 - Aplicar el mismo aviso contextual cuando el tamaño del recorte no sea válido.
 - El aviso se descarta con Escape o con otro clic. El gesto de arrastre no debe iniciar una consulta.
 - Obtener la ubicación después de una búsqueda manual no debe borrar sus resultados.
+
+`src/config/location.js` define `DEFAULT_OBSERVER` y `LOCATION_TIMEOUT_MS`. `useObserver` usa estado, referencias y efectos de React; `getCurrentPosition`, `setTimeout` y `clearTimeout` son API del navegador. No se necesitan bibliotecas ni servicios nuevos. Las pruebas de `tests/react/observer.test.jsx`, `locationControls.test.jsx`, `workspace.test.jsx` y `fitsLoading.test.jsx` cubren el vencimiento, rechazo, corrección manual, reintento, respuestas tardías y presentación del aviso.
 
 ### Estrellas y superficie central
 

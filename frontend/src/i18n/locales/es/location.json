@@ -1,6 +1,6 @@
 {
   "title": "Ubicación",
-  "source": { "device": "Dispositivo", "manual": "Manual", "reference": "Referencia de Greenwich" },
+  "source": { "device": "Dispositivo", "manual": "Manual", "reference": "Referencia de Greenwich", "default": "Predeterminada: Greenwich" },
   "coordinates": "{{source}} · {{latitude}}°, {{longitude}}°",
   "intro": "Define desde dónde observas para buscar recortes al pulsar el cielo.",
   "actions": { "locating": "Buscando ubicación…", "device": "Usar ubicación del dispositivo", "apply": "Aplicar ubicación manual" },
@@ -14,6 +14,8 @@
   },
   "validation": "Introduce latitud de −90° a 90° y longitud de −180° a 180°.",
   "notices": {
+    "defaultAssigned": "No se registró tu ubicación. Se asignó Greenwich como ubicación predeterminada. Puedes cambiarla en Ubicación.",
+    "defaultReference": "Estas coordenadas son una referencia para visualizar el cielo, no tu ubicación real. Puedes introducir las tuyas o volver a solicitar la ubicación del dispositivo.",
     "locating": "Obteniendo tu ubicación. Cuando termine, vuelve a pulsar el punto del cielo.",
     "required": "Define latitud y longitud en Ubicación para buscar al pulsar el cielo."
   },

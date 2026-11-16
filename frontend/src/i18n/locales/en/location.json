@@ -1,6 +1,6 @@
 {
   "title": "Location",
-  "source": { "device": "Device", "manual": "Manual", "reference": "Greenwich reference" },
+  "source": { "device": "Device", "manual": "Manual", "reference": "Greenwich reference", "default": "Default: Greenwich" },
   "coordinates": "{{source}} · {{latitude}}°, {{longitude}}°",
   "intro": "Set your observing location to search for cutouts by clicking the sky.",
   "actions": { "locating": "Finding location…", "device": "Use device location", "apply": "Apply manual location" },
@@ -14,6 +14,8 @@
   },
   "validation": "Enter a latitude from −90° to 90° and a longitude from −180° to 180°.",
   "notices": {
+    "defaultAssigned": "Your location was not recorded. Greenwich was assigned as the default location. You can change it in Location.",
+    "defaultReference": "These coordinates are a reference for viewing the sky, not your actual location. Enter your coordinates or try the device location again.",
     "locating": "Getting your location. When it is ready, click the sky point again.",
     "required": "Set latitude and longitude in Location to search by clicking the sky."
   },
