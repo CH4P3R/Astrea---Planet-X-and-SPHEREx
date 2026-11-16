@@ -103,6 +103,23 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
+it('hides only the HUD while the welcome covers the active workspace', () => {
+  const { rerender } = mount(<AppWorkspace covered />)
+  const root = document.querySelector('.app-viewport')
+  const hud = root.querySelector('.ui-layer')
+  expect(root.classList.contains('workspace-suspended')).toBe(false)
+  expect(root.hasAttribute('inert')).toBe(true)
+  expect(root.querySelector('.scene-layer')).toBeTruthy()
+  expect(hud.dataset.hidden).toBe('true')
+  expect(hud.getAttribute('aria-hidden')).toBe('true')
+  expect(hud.hasAttribute('inert')).toBe(true)
+  rerender(<I18nProvider><AppWorkspace revealing /></I18nProvider>)
+  expect(root.hasAttribute('inert')).toBe(false)
+  expect(root.dataset.revealing).toBe('true')
+  expect(hud.hasAttribute('data-hidden')).toBe(false)
+  expect(hud.hasAttribute('inert')).toBe(false)
+})
+
 it('loads a shared image and opens the inspector without a device observer', async () => {
   scene.observerAvailable = false
   window.history.replaceState({}, '', '/?ra=10&dec=20&size=7&detector=3')

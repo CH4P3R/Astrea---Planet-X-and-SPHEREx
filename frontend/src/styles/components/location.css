@@ -1,4 +1,3 @@
-.ui-layer { position: absolute; inset: 0; pointer-events: none; }
 .location-control {
   position: absolute; top: 16px; right: 16px; width: min(290px, calc(100% - 32px));
   pointer-events: auto; color: var(--muted); font-size: 0.78rem;

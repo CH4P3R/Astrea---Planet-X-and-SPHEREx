@@ -18,6 +18,8 @@
   --hud-focus: #a9d9ff;
   --hud-error: #ffb4a9;
   --z-status: 3;
+  --z-scene: 0;
+  --z-hud: 1;
   --z-select: 25;
   --motion-duration: 360ms;
   --motion-exit: 180ms;

@@ -8,18 +8,57 @@ import { tourStorageKey } from '../../src/components/onboarding/tourState.js'
 
 const mounts = vi.hoisted(() => ({ normal: 0 }))
 vi.mock('../../src/components/onboarding/WelcomeModal.jsx', () => ({
-  default: () => <div>welcome modal</div>,
+  default: ({ onExplore, onTutorial, onExited, closing, visible }) => <div data-testid="welcome" data-closing={closing} data-visible={visible}>
+    welcome modal
+    <button onClick={onExplore}>explore</button>
+    <button onClick={onTutorial}>tutorial</button>
+    <button onClick={onExited}>exit complete</button>
+  </div>,
+}))
+vi.mock('../../src/components/onboarding/StartupSplash.jsx', () => ({
+  default: ({ onReveal, onFinish }) => <div data-testid="startup">
+    <button onClick={onReveal}>reveal welcome</button>
+    <button onClick={onFinish}>load complete</button>
+  </div>,
 }))
 vi.mock('../../src/components/layout/AppWorkspace.jsx', () => ({
-  default: function Workspace({ tutorial, suspended, onStartTour, onFinishTour }) {
+  default: function Workspace({ tutorial, suspended, covered, revealing, onStartTour, onFinishTour }) {
     useEffect(() => { if (!tutorial) mounts.normal += 1 }, [tutorial])
-    return tutorial ? <div>tutorial workspace<button onClick={() => onFinishTour('completed')}>finish</button></div>
-      : <main aria-hidden={suspended}><button onClick={onStartTour}>start tour</button></main>
+    return tutorial ? <div data-testid="tutorial" data-revealing={revealing}>tutorial workspace<button onClick={() => onFinishTour('completed')}>finish</button></div>
+      : <main aria-hidden={suspended} data-covered={covered} data-revealing={revealing}><button onClick={onStartTour}>start tour</button></main>
   },
 }))
 
 beforeEach(() => { window.localStorage.clear(); mounts.normal = 0 })
 afterEach(() => vi.restoreAllMocks())
+
+it.each(['explore', 'tutorial'])('keeps the scene active and HUD covered until welcome exit completes for %s', (destination) => {
+  window.history.replaceState({}, '', '/')
+  render(<I18nProvider><AppViewport /></I18nProvider>)
+  const normal = document.querySelector('main')
+  expect(normal.getAttribute('aria-hidden')).toBe('false')
+  expect(normal.dataset.covered).toBe('true')
+  const welcome = screen.getByTestId('welcome')
+  expect(welcome.dataset.visible).toBe('false')
+  fireEvent.click(screen.getByRole('button', { name: 'reveal welcome' }))
+  expect(screen.getByTestId('welcome')).toBe(welcome)
+  expect(welcome.dataset.visible).toBe('true')
+  expect(screen.getByTestId('startup')).toBeTruthy()
+  fireEvent.click(screen.getByRole('button', { name: 'load complete' }))
+  expect(screen.queryByTestId('startup')).toBeNull()
+  expect(screen.getByTestId('welcome')).toBe(welcome)
+  expect(welcome.dataset.visible).toBe('true')
+  fireEvent.click(screen.getByRole('button', { name: destination, exact: true }))
+  expect(screen.getByTestId('welcome').dataset.closing).toBe('true')
+  expect(normal.dataset.covered).toBe('true')
+  expect(screen.queryByText('tutorial workspace')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'exit complete' }))
+  expect(screen.queryByTestId('welcome')).toBeNull()
+  const destinationWorkspace = destination === 'explore' ? normal : screen.getByTestId('tutorial')
+  expect(destinationWorkspace.dataset.revealing).toBe('true')
+  if (destination === 'explore') expect(normal.dataset.covered).toBe('false')
+  expect(mounts.normal).toBe(1)
+})
 
 it('suppresses automatic onboarding for valid and invalid shared links without storing a status', () => {
   const values = new Map()

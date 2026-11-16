@@ -8,11 +8,16 @@
   height: 100dvh;
   overflow: hidden;
 }
-.scene-layer { position: absolute; inset: 0; }
-.app-viewport[data-revealing='true'] { animation: workspace-reveal var(--motion-duration) var(--motion-ease) both; }
-@keyframes workspace-reveal {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.scene-layer { position: absolute; inset: 0; z-index: var(--z-scene); }
+.ui-layer { position: absolute; inset: 0; z-index: var(--z-hud); pointer-events: none; }
+.ui-layer[data-hidden='true'] { visibility: hidden; }
+.app-viewport[data-revealing='true'] > .ui-layer { animation: hud-enter var(--motion-duration) var(--motion-spring) both; }
+@keyframes hud-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-viewport[data-revealing='true'] > .ui-layer { animation: none; }
 }
 .scene-layer canvas { display: block; touch-action: none; }
 

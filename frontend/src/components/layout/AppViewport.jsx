@@ -12,10 +12,13 @@ export default function AppViewport() {
     try { return shouldShowWelcome(window.localStorage) } catch { return true }
   })
   const [loading, setLoading] = useState(welcomeOpen)
+  const [welcomeVisible, setWelcomeVisible] = useState(false)
   const [tourOpen, setTourOpen] = useState(false)
   const [destination, setDestination] = useState(null)
+  const [revealedDestination, setRevealedDestination] = useState(null)
   const destinationRef = useRef(null)
   const finishLoading = useCallback(() => setLoading(false), [])
+  const revealWelcome = useCallback(() => setWelcomeVisible(true), [])
   const finishWelcome = useCallback(() => {
     const next = destinationRef.current
     if (!next) return
@@ -23,6 +26,8 @@ export default function AppViewport() {
     try { saveWelcomeStatus(window.localStorage) } catch { /* Conserva la decision en memoria */ }
     setWelcomeOpen(false)
     setDestination(null)
+    setRevealedDestination(next)
+    if (next === 'tour') setTourOpen(true)
     if (next === 'explore') {
       requestAnimationFrame(() => document.querySelector('.app-viewport:not([data-tutorial])')?.focus({ preventScroll: true }))
     }
@@ -31,7 +36,6 @@ export default function AppViewport() {
     if (destinationRef.current) return
     destinationRef.current = next
     setDestination(next)
-    if (next === 'tour') setTourOpen(true)
   }, [])
   const startTour = useCallback(() => {
     if (welcomeOpen) leaveWelcome('tour')
@@ -45,12 +49,11 @@ export default function AppViewport() {
   }, [])
 
   return <>
-    <AppWorkspace suspended={tourOpen || loading || (welcomeOpen && !destination)}
-      revealing={destination === 'explore'} onStartTour={startTour} />
-    {loading && !welcomeOpen && <StartupSplash onFinish={finishLoading} />}
+    <AppWorkspace suspended={tourOpen} covered={welcomeOpen || loading}
+      revealing={revealedDestination === 'explore'} onStartTour={startTour} />
     {welcomeOpen && <WelcomeModal onTutorial={startTour} onExplore={explore} loading={loading}
-      closing={Boolean(destination)} onExited={finishWelcome}
-      overlay={loading ? <StartupSplash onFinish={finishLoading} /> : undefined} />}
-    {tourOpen && <AppWorkspace tutorial guideVisible={!welcomeOpen} revealing={destination === 'tour'} onFinishTour={finishTour} />}
+      visible={welcomeVisible} closing={Boolean(destination)} onExited={finishWelcome} />}
+    {loading && <StartupSplash onReveal={revealWelcome} onFinish={finishLoading} />}
+    {tourOpen && <AppWorkspace tutorial guideVisible={!welcomeOpen} revealing={revealedDestination === 'tour'} onFinishTour={finishTour} />}
   </>
 }

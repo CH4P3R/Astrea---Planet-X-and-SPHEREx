@@ -24,7 +24,7 @@ import ConfirmRegionModal from '../common/ConfirmRegionModal.jsx'
 import useSkyUrl from '../../share/useSkyUrl.js'
 import { sharedReferenceObserver } from '../../share/referenceObserver.js'
 
-export default function AppWorkspace({ tutorial = false, suspended = false, guideVisible = true, revealing = false, onStartTour, onFinishTour }) {
+export default function AppWorkspace({ tutorial = false, suspended = false, covered = false, guideVisible = true, revealing = false, onStartTour, onFinishTour }) {
   const { t, language } = useTranslation()
   const rootRef = useRef(null)
   const compassMarkerRef = useRef(null)
@@ -112,7 +112,7 @@ export default function AppWorkspace({ tutorial = false, suspended = false, guid
     if (skyUrl.warning === 'share.notices.invalid') open('search')
   }, [skyUrl.warning, open])
   const onSkyClick = useCallback((direction, point) => {
-    if (tutorial || suspended) return
+    if (tutorial || suspended || covered) return
     const reason = !observer ? 'location' : cutoutSizeError(size) ? 'size' : null
     if (reason) {
       setNotice((previous) => ({ id: (previous?.id ?? 0) + 1, point, reason }))
@@ -127,7 +127,7 @@ export default function AppWorkspace({ tutorial = false, suspended = false, guid
     open('search')
     search(direction)
     return true
-  }, [observer, size, search, open, activeId, tutorial, suspended, searchDirection, clock.context])
+  }, [observer, size, search, open, activeId, tutorial, suspended, covered, searchDirection, clock.context])
   const regionConfirmationOpen = pendingRegion && !tutorial && !suspended
     && pendingRegion.observer === observer && pendingRegion.context === clock.context
   const dismissRegion = () => {
@@ -151,7 +151,7 @@ export default function AppWorkspace({ tutorial = false, suspended = false, guid
     : notice?.reason === 'size' ? cutoutSizeError(size) : ''
 
   return (<>
-    <main ref={rootRef} inert={suspended} aria-hidden={suspended || undefined} tabIndex={-1}
+    <main ref={rootRef} inert={suspended || covered} aria-hidden={suspended || covered || undefined} tabIndex={-1}
       className={`app-viewport${tutorial ? ' tutorial-workspace' : ''}${suspended ? ' workspace-suspended' : ''}`}
       data-tutorial={tutorial || undefined} data-revealing={revealing || undefined}
       data-inspector-open={inspectorOpen} aria-label={t('common.viewport')}>
@@ -164,12 +164,12 @@ export default function AppWorkspace({ tutorial = false, suspended = false, guid
             searchDirection={searchDirection} compassMarkerRef={compassMarkerRef} />
         </Canvas>
       </div>
-      <div className="ui-layer">
+      <div className="ui-layer" data-hidden={covered || undefined} inert={covered} aria-hidden={covered || undefined}>
         <ContextToolbar clock={clock} location={location} fits={fits} menu={tourMenu} warning={skyUrl.warning} share={share}
           stars={stars} surfaceVisible={surfaceVisible} setSurfaceVisible={setSurfaceVisible}
           idPrefix={tutorial ? 'tutorial-' : ''}
           compassMarkerRef={compassMarkerRef} />
-        <LanguageSelect suspended={suspended} onStartTour={onStartTour ? () => { playback.pause(); onStartTour() } : undefined} />
+        <LanguageSelect suspended={suspended || covered} onStartTour={onStartTour ? () => { playback.pause(); onStartTour() } : undefined} />
         <ImageInspector open={inspectorOpen} tab={tab} fits={fits} displayed={displayed} appearance={appearance}
           comparison={comparison} playback={playback} reason={t(reason)} primaryProjection={primaryProjection} frames={frames} projections={projections}
           highlightedTab={tutorial ? tourSteps[tourIndex].tab : undefined} share={share}

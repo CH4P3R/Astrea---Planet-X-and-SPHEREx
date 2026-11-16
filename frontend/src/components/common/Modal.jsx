@@ -36,7 +36,8 @@ export default function Modal({ children, header, footer, size = 'small', classN
   return createPortal(<dialog ref={dialogRef} className={`modal ${className}`} data-size={size}
     data-closing={closing || undefined}
     onAnimationEnd={(event) => {
-      if (event.target === event.currentTarget && event.animationName === 'modal-exit') exitRef.current?.()
+      if (closing && event.target === event.currentTarget
+        && event.animationName.endsWith('-exit')) exitRef.current?.()
     }}
     aria-labelledby={labelledBy} aria-describedby={describedBy}
     onCancel={(event) => { event.preventDefault(); if (!blocked) closeRef.current?.() }}

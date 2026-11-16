@@ -23,7 +23,6 @@
 .modal[data-size='large'] { --modal-width: 720px; }
 .modal::backdrop { background: rgb(6 12 24 / 55%); }
 .modal__footer { margin-top: 24px; }
-.modal:has(.startup-splash) { animation: none; }
 .modal[data-closing='true'] { animation: modal-exit var(--motion-duration) var(--motion-ease) both; }
 .modal[data-closing='true']::backdrop { animation: modal-backdrop-exit var(--motion-duration) ease both; }
 @keyframes modal-exit {
