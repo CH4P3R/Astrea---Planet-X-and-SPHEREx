@@ -1,6 +1,7 @@
 {
   "actions": { "copy": "Copiar enlace" },
   "notices": {
+    "reference": "Vista desde Greenwich como referencia, no desde tu ubicación. Puedes cambiarla en Ubicación.",
     "copied": "Enlace copiado",
     "manual": "Copia este enlace manualmente.",
     "invalid": "Este enlace compartido tiene ajustes de búsqueda no válidos. Corrige las coordenadas o limpia la búsqueda.",

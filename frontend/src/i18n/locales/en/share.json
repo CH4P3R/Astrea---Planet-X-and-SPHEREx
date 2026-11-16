@@ -1,6 +1,7 @@
 {
   "actions": { "copy": "Copy link" },
   "notices": {
+    "reference": "Using Greenwich as a reference, not your location. You can change it in Location.",
     "copied": "Link copied",
     "manual": "Copy this link manually.",
     "invalid": "This shared link has invalid search settings. Correct the coordinates or clear the search.",

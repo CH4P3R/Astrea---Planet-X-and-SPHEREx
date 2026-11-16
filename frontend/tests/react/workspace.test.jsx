@@ -6,7 +6,7 @@ import AppViewport from '../../src/components/layout/AppViewport.jsx'
 import I18nProvider from '../../src/i18n/I18nProvider.jsx'
 import { loadMetadata, loadPixels, loadProjection, searchCoordinates, searchImages } from '../../src/services/images.js'
 
-const scene = vi.hoisted(() => ({ fits: null, normalMounts: 0 }))
+const scene = vi.hoisted(() => ({ fits: null, normalMounts: 0, observerAvailable: true }))
 vi.mock('@react-three/fiber', () => ({ Canvas: ({ children }) => <>{children}</> }))
 vi.mock('../../src/three/core/SkyScene.jsx', () => ({
   default: function Scene({ fits, onSkyClick }) {
@@ -18,7 +18,8 @@ vi.mock('../../src/three/core/SkyScene.jsx', () => ({
 }))
 vi.mock('../../src/hooks/useObserver.js', () => {
   const observer = { latitude: 51, longitude: 0, source: 'manual' }
-  return { default: () => ({ observer, status: 'ready', error: '', locate() {}, applyManualLocation() {} }) }
+  return { default: ({ initialObserver } = {}) => ({ observer: scene.observerAvailable ? observer : initialObserver,
+    status: scene.observerAvailable || initialObserver ? 'ready' : 'error', error: '', locate() {}, applyManualLocation() {} }) }
 })
 vi.mock('../../src/hooks/useSkyClock.js', () => {
   const clock = { context: { mode: 'paused', at: '2026-11-15T00:00:00Z' }, timestamp: Date.parse('2026-11-15T00:00:00Z'),
@@ -88,6 +89,7 @@ beforeEach(() => {
   window.localStorage.clear()
   scene.fits = null
   scene.normalMounts = 0
+  scene.observerAvailable = true
   searchCoordinates.mockImplementation(async (ra, dec) => result(ra, dec))
   searchImages.mockResolvedValue(result(30, 40))
   loadMetadata.mockResolvedValue(metadata)
@@ -99,6 +101,30 @@ afterEach(() => {
   else delete navigator.clipboard
   vi.restoreAllMocks()
   vi.useRealTimers()
+})
+
+it('loads a shared image and opens the inspector without a device observer', async () => {
+  scene.observerAvailable = false
+  window.history.replaceState({}, '', '/?ra=10&dec=20&size=7&detector=3')
+  searchCoordinates.mockResolvedValueOnce(result(10, 20, [{ id: metadata.id }]))
+  mount(<AppViewport />)
+  await waitFor(() => expect(document.querySelector('.image-inspector[data-open="true"]')).toBeTruthy())
+  expect(loadMetadata).toHaveBeenCalledWith(metadata.id, expect.any(AbortSignal))
+  expect(loadProjection).toHaveBeenCalledWith(metadata.id, expect.objectContaining({
+    observer: expect.objectContaining({ latitude_deg: 51.4779, longitude_deg: 0 }),
+  }), expect.any(AbortSignal))
+  expect(screen.getByText('Using Greenwich as a reference, not your location. You can change it in Location.')).toBeTruthy()
+  expect(screen.queryByText('Welcome to Astrea')).toBeNull()
+})
+
+it('shows shared-search failures instead of leaving the initial view unexplained', async () => {
+  scene.observerAvailable = false
+  window.history.replaceState({}, '', '/?ra=10&dec=20')
+  searchCoordinates.mockRejectedValueOnce(new Error('offline'))
+  mount()
+  await waitFor(() => expect(scene.fits.status).toBe('error'))
+  expect(document.querySelector('#context-search').dataset.visible).toBe('true')
+  expect(screen.queryByRole('complementary', { name: 'Image inspector' })).toBeNull()
 })
 
 it('places live committed links in the search footer and inspector summary without exposing drafts, metadata detector, or private URL fields', async () => {

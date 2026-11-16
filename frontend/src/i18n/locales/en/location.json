@@ -1,6 +1,6 @@
 {
   "title": "Location",
-  "source": { "device": "Device", "manual": "Manual" },
+  "source": { "device": "Device", "manual": "Manual", "reference": "Greenwich reference" },
   "coordinates": "{{source}} · {{latitude}}°, {{longitude}}°",
   "intro": "Set your observing location to search for cutouts by clicking the sky.",
   "actions": { "locating": "Finding location…", "device": "Use device location", "apply": "Apply manual location" },

@@ -1,6 +1,6 @@
 {
   "title": "Ubicación",
-  "source": { "device": "Dispositivo", "manual": "Manual" },
+  "source": { "device": "Dispositivo", "manual": "Manual", "reference": "Referencia de Greenwich" },
   "coordinates": "{{source}} · {{latitude}}°, {{longitude}}°",
   "intro": "Define desde dónde observas para buscar recortes al pulsar el cielo.",
   "actions": { "locating": "Buscando ubicación…", "device": "Usar ubicación del dispositivo", "apply": "Aplicar ubicación manual" },

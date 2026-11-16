@@ -22,6 +22,7 @@ import { tourSteps } from '../onboarding/tourState.js'
 import { barnardQuery, tutorialObserver, tutorialTimestamp } from '../../config/onboarding.js'
 import ConfirmRegionModal from '../common/ConfirmRegionModal.jsx'
 import useSkyUrl from '../../share/useSkyUrl.js'
+import { sharedReferenceObserver } from '../../share/referenceObserver.js'
 
 export default function AppWorkspace({ tutorial = false, suspended = false, guideVisible = true, revealing = false, onStartTour, onFinishTour }) {
   const { t, language } = useTranslation()
@@ -29,11 +30,13 @@ export default function AppWorkspace({ tutorial = false, suspended = false, guid
   const compassMarkerRef = useRef(null)
   const [tourIndex, setTourIndex] = useState(0)
   const tourActive = tutorial && guideVisible
-  const location = useObserver({ initialObserver: tutorial ? tutorialObserver : null, automatic: !tutorial })
-  const clock = useSkyClock(tutorial ? tutorialTimestamp : null)
   const restoreUrlRef = useRef(null)
   const onRestore = useCallback((state) => restoreUrlRef.current?.(state), [])
   const skyUrl = useSkyUrl({ enabled: !tutorial, onRestore })
+  const sharedStartup = Boolean(skyUrl.initialSearch)
+  const location = useObserver({ initialObserver: tutorial ? tutorialObserver : sharedStartup ? sharedReferenceObserver : null,
+    automatic: !tutorial && !sharedStartup })
+  const clock = useSkyClock(tutorial ? tutorialTimestamp : null)
   const fits = useFitsImage(location.observer, clock.context, tutorial ? 'onboarding' : 'archive', tutorial ? {
     initialCoordinates: { ra: barnardQuery.ra_deg, dec: barnardQuery.dec_deg },
   } : {
@@ -103,6 +106,9 @@ export default function AppWorkspace({ tutorial = false, suspended = false, guid
     keepOpen: () => {}, preview: () => {}, leave: () => {}, cancelPreview: () => {}, open: () => {} } : menu
   useEffect(() => { if (activeId) open(null) }, [activeId, open])
   useEffect(() => {
+    if (skyUrl.initialSearch) open('search')
+  }, [skyUrl.initialSearch, open])
+  useEffect(() => {
     if (skyUrl.warning === 'share.notices.invalid') open('search')
   }, [skyUrl.warning, open])
   const onSkyClick = useCallback((direction, point) => {
@@ -167,6 +173,7 @@ export default function AppWorkspace({ tutorial = false, suspended = false, guid
         <ImageInspector open={inspectorOpen} tab={tab} fits={fits} displayed={displayed} appearance={appearance}
           comparison={comparison} playback={playback} reason={t(reason)} primaryProjection={primaryProjection} frames={frames} projections={projections}
           highlightedTab={tutorial ? tourSteps[tourIndex].tab : undefined} share={share}
+          referenceObserver={observer?.source === 'reference'}
           onTabChange={(value) => {
             const nextStep = tourSteps.findIndex((step) => step.tab === value)
             if (tutorial && tourSteps[tourIndex].tab && nextStep >= 0) changeTourStep(nextStep)

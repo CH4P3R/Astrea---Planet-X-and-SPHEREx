@@ -11,7 +11,7 @@ import useTranslation from '../../i18n/useTranslation.js'
 import ShareLink from '../../share/ShareLink.jsx'
 
 export default function ImageInspector({ open, onClose, tab, onTabChange, fits, displayed,
-  appearance, comparison, playback, reason, primaryProjection, frames, projections, onCenter, share, highlightedTab }) {
+  appearance, comparison, playback, reason, primaryProjection, frames, projections, onCenter, share, highlightedTab, referenceObserver = false }) {
   const { t } = useTranslation()
   const id = useId()
   if (!fits.active || !open) return null
@@ -39,6 +39,7 @@ export default function ImageInspector({ open, onClose, tab, onTabChange, fits, 
               </span>
           </div>
           <DetectorSelector value={metadata.detector} onChange={(value) => { playback.show(fits.active.metadata.id); fits.setDetector(value) }} disabled={busy} />
+          {referenceObserver && <p className="context-note">{t('share.notices.reference')}</p>}
           {Object.values(appearance.appliedProcessing).some(Boolean) && <p className="context-note">
             {t(appearance.appliedProcessing.signal_to_noise ? 'inspector.appearance.dimensionless' : 'inspector.appearance.processed')}
           </p>}
