@@ -64,7 +64,93 @@ The existing image search endpoint accepts the annual date bounds; no other
 toolbar workflows change. The separate metadata availability endpoint remains
 available to API clients but is not used by this year-only selector.
 
+## Playback arrow icons
+
+`src/components/common/Arrow.jsx` contains the provided SVG with a 15 x 15
+viewBox and `currentColor`. `PlaybackControls` reuses it for both previous and
+next, replacing the text arrows. The previous icon rotates 180 degrees through
+`.comparison-arrow--previous` in `src/styles/components/comparison.css`;
+both render at 20 x 20 pixels. The buttons retain their translated accessible
+labels, tooltips, blocked states and existing `playback.previous()` and
+`playback.next()` callbacks from `useBlinkPlayback`. The SVG is decorative
+(`aria-hidden`) so assistive technology announces the button, not the drawing.
+No playback behavior or dependencies change.
+
+## Compact GIF download
+
+The inspector header places `DownloadRounded` immediately to the left of the
+copy-link icon. Export is enabled in Compare when at least two loaded
+observations, their processing and projections are ready. During export the
+button is disabled and an accessible status reports progress or failure.
+Copying the link remains independent.
+
+- Export takes the first 20 loaded observations in chronological playback order,
+  including A when it falls within that range. The limit applies only to the GIF,
+  not to observations retained in Compare.
+- Each frame uses the current playback interval. The GIF loops continuously.
+- Resolution matches the rendered image element at the instant of the click,
+  rather than a fixed 320-pixel preview or the FITS array dimensions. The current
+  orthographic camera zoom and actual drawing-buffer size determine pixels per
+  world unit, including the renderer's device pixel ratio. A common projected
+  bounding box contains every selected WCS mesh; the surrounding canvas and HUD
+  are not included. Zooming in or exporting on a higher-density display can
+  increase GIF dimensions and file size. The GIF format's 65535-pixel dimension
+  limit causes an error rather than silently downscaling. Direct encoder callers
+  without a render snapshot use native image dimensions as a fallback.
+- A shared 64-color palette and GIF LZW compression reduce file size. The exact
+  size depends on image content and frame count; no fixed byte limit is promised.
+- Frames use the current shared normalization, applied processing, exposure and
+  grayscale/color palette. Original FITS pixels are unchanged.
+- Every frame uses its current WCS projection mesh, sampled at one shared instant
+  and rasterized into the current rendered camera basis. UV coordinates
+  interpolate over each projected triangle and sample the original lower-left
+  pixel grid. This preserves relative rotations, mirrored axes and celestial
+  placement instead of exporting raw arrays with a universal row flip.
+- This is an aligned image-sequence export, not a screenshot of the sky: it does
+  not capture HUD controls, background or opacity blending. Camera zoom and
+  orientation are sampled once, so subsequent movement does not change the export.
+  Sources remain aligned according to the supplied WCS; this is not
+  additional scientific image registration. Missing or incompatible projection
+  windows cause an export error rather than an incorrectly oriented fallback.
+- Changing observations, appearance, interval or availability, or unmounting the
+  control, aborts the pending export and prevents a stale download.
+
+### Responsibilities and APIs
+
+| File | Responsibility |
+| --- | --- |
+| `src/export/comparisonGif.js` | `createComparisonGif` orders, rasterizes and LZW-encodes loaded frames into an `image/gif` Blob; `downloadGif` starts the download and releases its object URL |
+| `src/export/gifGeometry.js` | `gifGeometry` fixes a common instant, reference orientation and bounds; `rasterProjectedPixels` samples FITS pixels through projected WCS triangles and UV coordinates |
+| `src/three/core/GifRenderSnapshot.jsx` | Reads the active Three.js camera and physical drawing-buffer dimensions on click, without changing the renderer or enabling canvas preservation |
+| `src/export/DownloadComparison.jsx` | React control, translated tooltip/status, duplicate-click protection and cancellation |
+| `src/components/common/DownloadRounded.jsx` | Provided decorative download SVG |
+| `src/components/layout/ImageInspector.jsx` | Composes download and share controls and supplies current comparison state |
+| `src/styles/components/share.css`, `image-inspector.css` | Shared icon-button appearance and responsive header layout |
+
+`chronologicalFrames` comes from `src/config/comparison.js`. React supplies
+`useEffect`, `useRef` and `useState`. Geometry reuses `imageFrame` and
+`projectedVertices` from `src/three/core/imageFrameUtils.js`, and `Vector3`
+from the existing Three.js dependency. No additional library is required.
+The export snapshots the current `useProjectedImages` results on click rather
+than relying on the potentially outdated projection stored at initial download.
+`Blob`, `Uint8Array`, `AbortController`,
+`URL.createObjectURL`, `URL.revokeObjectURL`, DOM anchors and `setTimeout` are
+browser APIs; timers yield between frames and defer URL cleanup. GIF encoding
+is implemented locally, with no new library, upload or backend endpoint.
+Labels and messages use the existing ES/EN `share` catalogs.
+
 ## Verification
+
+`tests/comparisonGif.test.mjs` checks chronological order, pixel orientation,
+intervals, frame/resolution limits, LZW decoding and cancellation, plus regression
+cases for a 180-degree WCS rotation, mirrored axes and refreshed projections.
+`tests/react/downloadComparison.test.jsx` checks control availability, repeated
+clicks, success, failure and stale-export cancellation.
+`tests/react/playbackControls.test.jsx` checks the SVG arrows, their callbacks
+and blocked controls.
+
+Manually verify both arrow directions, keyboard labels, the adjacent download
+and copy-link buttons, and playback of the downloaded GIF in a browser.
 
 Run `npm test` and `npm run build` from the frontend directory. For hook and UI
 integration checks, run the Vite dev server and open

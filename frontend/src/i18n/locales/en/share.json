@@ -1,5 +1,12 @@
 {
   "actions": { "copy": "Copy link" },
+  "gif": {
+    "download": "Download comparison GIF (up to 20 observations)",
+    "unavailable": "Load at least two observations in Compare to download a GIF.",
+    "loading": "Creating compact GIF…",
+    "saved": "GIF download started",
+    "error": "Could not create the GIF. Try again."
+  },
   "notices": {
     "reference": "Using Greenwich as a reference, not your location. You can change it in Location.",
     "copied": "Link copied",

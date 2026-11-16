@@ -24,11 +24,17 @@ import { barnardQuery, tutorialObserver, tutorialTimestamp } from '../../config/
 import ConfirmRegionModal from '../common/ConfirmRegionModal.jsx'
 import useSkyUrl from '../../share/useSkyUrl.js'
 import { sharedReferenceObserver } from '../../share/referenceObserver.js'
+import GifRenderSnapshot from '../../three/core/GifRenderSnapshot.jsx'
 
 export default function AppWorkspace({ tutorial = false, suspended = false, covered = false, guideVisible = true, revealing = false, onStartTour, onOpenAbout, onFinishTour }) {
   const { t, language } = useTranslation()
   const rootRef = useRef(null)
   const compassMarkerRef = useRef(null)
+  const gifSnapshotRef = useRef(null)
+  const getGifRenderSnapshot = useCallback(() => {
+    if (!gifSnapshotRef.current) throw new Error('GIF renderer is not ready')
+    return gifSnapshotRef.current()
+  }, [])
   const [tourIndex, setTourIndex] = useState(0)
   const tourActive = tutorial && guideVisible
   const restoreUrlRef = useRef(null)
@@ -159,6 +165,7 @@ export default function AppWorkspace({ tutorial = false, suspended = false, cove
       data-inspector-open={inspectorOpen} aria-label={t('common.viewport')}>
       <div className="scene-layer" aria-label={t('common.scene')}>
         <Canvas frameloop={suspended ? 'never' : 'always'} orthographic camera={{ position: [0, 0, 0], near: 0.01, far: 250 }}>
+          <GifRenderSnapshot snapshotRef={gifSnapshotRef} />
           <SkyScene observer={observer} fits={fits} stars={stars} surfaceVisible={surfaceVisible} dustVisible={dustVisible}
             timestamp={clock.timestamp} onSkyClick={onSkyClick} frameImages={frameImages} viewport={viewport} focusVersion={focusVersion}
             layers={layers} appearance={appearance} frameId={playback.frameId}
@@ -177,7 +184,7 @@ export default function AppWorkspace({ tutorial = false, suspended = false, cove
         <ImageInspector open={inspectorOpen} tab={tab} fits={fits} displayed={displayed} appearance={appearance}
           comparison={comparison} playback={playback} reason={t(reason)} primaryProjection={primaryProjection} frames={frames} projections={projections}
           highlightedTab={tutorial ? tourSteps[tourIndex].tab : undefined} share={share}
-          referenceObserver={observer?.source === 'reference'}
+          referenceObserver={observer?.source === 'reference'} getGifRenderSnapshot={getGifRenderSnapshot}
           onTabChange={(value) => {
             const nextStep = tourSteps.findIndex((step) => step.tab === value)
             if (tutorial && tourSteps[tourIndex].tab && nextStep >= 0) changeTourStep(nextStep)

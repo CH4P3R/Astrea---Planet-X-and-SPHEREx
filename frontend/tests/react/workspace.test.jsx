@@ -8,6 +8,7 @@ import { loadMetadata, loadPixels, loadProjection, searchCoordinates, searchImag
 
 const scene = vi.hoisted(() => ({ fits: null, normalMounts: 0, observerAvailable: true }))
 vi.mock('@react-three/fiber', () => ({ Canvas: ({ children }) => <>{children}</> }))
+vi.mock('../../src/three/core/GifRenderSnapshot.jsx', () => ({ default: () => null }))
 vi.mock('../../src/three/core/SkyScene.jsx', () => ({
   default: function Scene({ fits, onSkyClick }) {
     scene.fits = fits

@@ -34,7 +34,7 @@
 @media (prefers-reduced-motion: reduce) {
   .share-icon-button::before { transition: none; transform: none !important; }
 }
-.share-link .share-announcement { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.share-announcement { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .share-link input {
   box-sizing: border-box; min-width: 0; width: 100%; padding: 12px;
   border: 0; border-radius: 10px; background: var(--hud-field); color: var(--hud-text);

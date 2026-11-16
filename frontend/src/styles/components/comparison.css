@@ -43,6 +43,9 @@
 .comparison-playback-buttons > .tooltip-anchor { display: flex; }
 .comparison-playback-buttons > .tooltip-anchor:last-child { flex: 1; }
 .comparison-playback-buttons button { min-height: 40px; min-width: 38px; }
+.comparison-playback-buttons button:has(.comparison-arrow) { display: grid; place-items: center; }
+.comparison-arrow { display: block; width: 20px; height: 20px; flex-shrink: 0; }
+.comparison-arrow--previous { transform: rotate(180deg); }
 .comparison-playback-buttons .comparison-play-button { flex: 1; min-width: 0; }
 .comparison-playback .range-field { margin-bottom: 0; }
 .comparison-playback .input-field { margin-top: 8px; }

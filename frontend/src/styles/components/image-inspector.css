@@ -38,9 +38,11 @@
 .panel-tabs svg, .inspector-close svg { width: 21px; height: 21px; flex-shrink: 0; }
 .inspector-surface { display: flex; flex-direction: column; flex: 1; min-height: 0; background: var(--hud-surface); border-radius: var(--inspector-corner-radius); box-shadow: 0 16px 48px rgb(0 0 0 / 26%); overflow: hidden; }
 .inspector-summary { padding: 20px 24px 8px; flex: 0 0 auto; }
-.inspector-observation-heading > .share-link { flex: 0 0 44px; width: 44px; }
+.inspector-export-actions { display: flex; align-items: flex-start; gap: 8px; margin-left: auto; flex: 0 0 auto; }
+.inspector-export-actions > .share-link { width: 44px; }
 .inspector-observation-heading:has(.share-link label) { flex-wrap: wrap; }
-.inspector-observation-heading > .share-link:has(label) { flex-basis: 100%; width: 100%; }
+.inspector-export-actions:has(.share-link label) { flex-basis: 100%; min-width: 0; }
+.inspector-export-actions > .share-link:has(label) { width: 100%; }
 .inspector-observation-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .inspector-observation-heading > div { min-width: 0; }
 .inspector-observation-heading strong { display: block; margin-top: 4px; font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }

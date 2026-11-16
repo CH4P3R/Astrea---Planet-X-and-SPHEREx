@@ -9,9 +9,10 @@ import ImageAppearancePanel from '../controls/ImageAppearancePanel.jsx'
 import ImageComparisonPanel from '../blink-hud/ImageComparisonPanel.jsx'
 import useTranslation from '../../i18n/useTranslation.js'
 import ShareLink from '../../share/ShareLink.jsx'
+import DownloadComparison from '../../export/DownloadComparison.jsx'
 
 export default function ImageInspector({ open, onClose, tab, onTabChange, fits, displayed,
-  appearance, comparison, playback, reason, primaryProjection, frames, projections, onCenter, share, highlightedTab, referenceObserver = false }) {
+  appearance, comparison, playback, reason, primaryProjection, frames, projections, onCenter, share, highlightedTab, referenceObserver = false, getGifRenderSnapshot }) {
   const { t } = useTranslation()
   const id = useId()
   if (!fits.active || !open) return null
@@ -31,7 +32,12 @@ export default function ImageInspector({ open, onClose, tab, onTabChange, fits, 
           <div className="inspector-observation-heading">
             <div><span className="context-note">{t('inspector.observation')}{comparison.observations.length ? ` · ${playback.frame}` : ''}</span>
               <strong><ObservationDate value={metadata.observation.start_utc} /></strong></div>
-            {share && <ShareLink {...share} iconOnly />}
+            <div className="inspector-export-actions">
+              <DownloadComparison images={comparison.images} appearance={appearance} interval={playback.interval} projections={projections}
+                getRenderSnapshot={getGifRenderSnapshot}
+                disabled={tab !== 'compare' || Boolean(reason) || busy || Boolean(share?.disabled)} />
+              {share && <ShareLink {...share} iconOnly />}
+            </div>
           </div>
           <div className="inspector-identity">
             <span>{t('inspector.detector', { detector: metadata.detector ?? '—' })}</span>
