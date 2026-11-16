@@ -14,6 +14,7 @@ Aspecto del cielo muestra el estado del catálogo estelar y permite ocultar la s
 - La barra principal es vertical, a la izquierda. Orden: Tiempo, Ubicación, Preparación y Aspecto del cielo.
 - Cada opción se representa con un icono; su nombre aparece en un tooltip. El panel asociado se abre a la derecha de la barra.
 - La hora y la fecha local permanecen visibles arriba a la izquierda, independientemente del panel abierto.
+- La brújula ocupa primero la esquina superior izquierda, seguida a su derecha por la hora y la fecha. Su borde izquierdo se alinea con la barra del menú y su tamaño cuadrado utiliza el mismo `--rail-width`, incluidos los ajustes responsivos. Mantiene norte arriba, este a la derecha y un punto rojo sobre el rumbo horizontal de la cámara; las iniciales se traducen (O/ES, W/EN). Al mirar al cenit o nadir conserva el último rumbo definido. El conjunto reserva espacio para el encuadre y los selectores sin interceptar la navegación de la escena.
 - El selector de idioma permanece abajo a la izquierda con el icono `GlobalLine` y el código ES/EN. La barra conserva espacio inferior para este control y permite scroll cuando la altura es reducida.
 - Encima del idioma, el botón `Question2Fill` permite volver a ver el tutorial. La barra reserva espacio para ambos controles con `--utility-controls-height`.
 - Los avisos de actividad aparecen arriba a la derecha, independientes del panel abierto. En ventanas estrechas se sitúan debajo de la franja del reloj para evitar superposiciones.
