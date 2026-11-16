@@ -139,7 +139,7 @@ export default function AppWorkspace({ tutorial = false, suspended = false, onSt
           comparison={comparison} playback={playback} reason={t(reason)} primaryProjection={primaryProjection} frames={frames} projections={projections}
           tutorial={tutorial}
           onTabChange={(value) => { playback.pause(); setTab(value) }}
-          onClose={() => { playback.pause(); fits.reset(); setTab('data'); open(null)
+          onClose={() => { playback.pause(); fits.reset(); setSearchDirection(null); setPendingRegion(null); setTab('data'); open(null)
             requestAnimationFrame(() => rootRef.current?.focus({ preventScroll: true })) }}
           onCenter={() => { fits.refine(1); setFocusVersion((value) => value + 1) }} />
         <div className="status-region">
