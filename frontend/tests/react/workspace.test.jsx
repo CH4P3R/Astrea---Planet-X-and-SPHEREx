@@ -90,7 +90,7 @@ beforeEach(() => {
   loadPixels.mockResolvedValue(new ArrayBuffer(4))
   loadProjection.mockResolvedValue({})
 })
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers() })
 
 it('hydrates a shared URL atomically and does not overwrite it with defaults, including StrictMode', async () => {
   window.history.replaceState({}, '', '/?ra=83.63&dec=-5.39&size=12&detector=3&foo=1#frag')
@@ -206,6 +206,63 @@ it('removes supported URL fields when the loaded inspector closes', async () => 
   expect(scene.fits.committed).toBeNull()
   expect(window.location.search).toBe('?foo=1')
   expect(window.location.hash).toBe('#frag')
+})
+
+it('reopens the warning panel for every invalid popstate even after the previous panel was manually closed', async () => {
+  mount()
+  const replace = vi.spyOn(window.history, 'replaceState')
+  for (const malformed of ['ra=bad', 'dec=bad', 'ra=still-bad']) {
+    navigate(`/?${malformed}&foo=1#frag`)
+    expect(document.querySelector('#context-search').getAttribute('aria-hidden')).toBe('false')
+    expect(screen.getByText(invalid).closest('[aria-hidden="true"]')).toBeNull()
+    expect(window.location.search).toBe(`?${malformed}&foo=1`)
+    expect(window.location.hash).toBe('#frag')
+    click('Time')
+    expect(document.querySelector('#context-search').getAttribute('aria-hidden')).toBe('true')
+  }
+  await flush()
+  expect(searchCoordinates).not.toHaveBeenCalled()
+  expect(searchImages).not.toHaveBeenCalled()
+  expect(replace).not.toHaveBeenCalled()
+})
+
+it('keeps history warnings announced across delayed failed inspector Close attempts and restores normal dismissal after recovery', async () => {
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  window.history.replaceState({}, '', '/?ra=bad')
+  mount()
+  const announcement = () => document.querySelector('.status-region [role="status"]').textContent
+  const surface = () => document.querySelector('.status-region .status-notice-surface')
+  const replace = vi.spyOn(window.history, 'replaceState').mockImplementation(() => { throw new Error('blocked') })
+  searchCoordinates.mockImplementation(async (ra, dec) => result(ra, dec, [{ id: metadata.id }]))
+  for (let attempt = 0; attempt < 2; attempt++) {
+    openSearch()
+    edit(10 + attempt, 20)
+    submit()
+    await flush()
+    expect(screen.getByRole('button', { name: 'Close inspector' })).toBeTruthy()
+    expect(scene.fits.committed.ra).toBe(10 + attempt)
+    await act(async () => { vi.advanceTimersByTime(4000) })
+    expect(announcement()).toBe(historyWarning)
+    expect(surface().getAttribute('data-visible')).toBe('true')
+    click('Close inspector')
+    expect(document.querySelector('#context-search').getAttribute('aria-hidden')).toBe('true')
+    expect(scene.fits.committed).toBeNull()
+    expect(announcement()).toBe(historyWarning)
+    await act(async () => { vi.advanceTimersByTime(4000) })
+    expect(announcement()).toBe(historyWarning)
+  }
+  expect(replace).toHaveBeenCalledTimes(4)
+  replace.mockRestore()
+  openSearch()
+  edit(30, 40)
+  submit()
+  await flush()
+  expect(window.location.search).toBe('?ra=30&dec=40&size=7&detector=0')
+  expect(announcement()).toBe('Image loaded')
+  expect(surface().getAttribute('data-visible')).toBe('true')
+  await act(async () => { vi.advanceTimersByTime(4000) })
+  expect(announcement()).toBe('')
+  expect(surface().getAttribute('data-visible')).toBe('false')
 })
 
 it('shows history failures globally without discarding the search commit, including Close with the panel closed', async () => {

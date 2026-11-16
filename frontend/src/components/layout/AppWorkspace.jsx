@@ -29,8 +29,8 @@ export default function AppWorkspace({ tutorial = false, suspended = false, onSt
   const tourActive = tutorial
   const location = useObserver({ initialObserver: tutorial ? tutorialObserver : null, automatic: !tutorial })
   const clock = useSkyClock(tutorial ? tutorialTimestamp : null)
-  const applyUrlRef = useRef(null)
-  const onRestore = useCallback((state) => applyUrlRef.current?.(state), [])
+  const restoreUrlRef = useRef(null)
+  const onRestore = useCallback((state) => restoreUrlRef.current?.(state), [])
   const skyUrl = useSkyUrl({ enabled: !tutorial, onRestore })
   const fits = useFitsImage(location.observer, clock.context, tutorial ? 'onboarding' : 'archive', tutorial ? {
     initialCoordinates: { ra: barnardQuery.ra_deg, dec: barnardQuery.dec_deg },
@@ -38,7 +38,6 @@ export default function AppWorkspace({ tutorial = false, suspended = false, onSt
     initialSearch: skyUrl.initialSearch,
     onCommittedChange: skyUrl.sync,
   })
-  useEffect(() => { applyUrlRef.current = fits.applyUrl }, [fits.applyUrl])
   const stars = useStars(location.observer, clock.context, clock.timestamp)
   const starsNotice = useMemo(() => stars.status === 'loading' && !stars.snapshot
     ? { status: 'loading', message: 'sky.status.loadingNotice', icon: 'star' } : null,
@@ -71,8 +70,14 @@ export default function AppWorkspace({ tutorial = false, suspended = false, onSt
   const frameImages = useMemo(() => tab === 'compare' ? comparisonFrames
     : baseProjection.ready ? [baseProjection.image] : [],
   [tab, comparisonFrames, baseProjection.ready, baseProjection.image])
-  const { size, search } = fits
+  const { size, search, applyUrl } = fits
   const { open } = menu
+  useEffect(() => {
+    restoreUrlRef.current = (state) => {
+      applyUrl(state)
+      if (state.status === 'invalid') open('search')
+    }
+  }, [applyUrl, open])
   const finishTour = useCallback((status) => {
     playback.pause()
     onFinishTour(status)
@@ -136,7 +141,7 @@ export default function AppWorkspace({ tutorial = false, suspended = false, onSt
             requestAnimationFrame(() => rootRef.current?.focus({ preventScroll: true })) }}
           onCenter={() => { fits.refine(1); setFocusVersion((value) => value + 1) }} />
         <div className="status-region">
-          <StatusNotice notice={historyNotice ?? starsNotice ?? fits.notice} />
+          <StatusNotice notice={historyNotice ?? starsNotice ?? fits.notice} duration={historyNotice ? 0 : undefined} />
         </div>
         {notice && <Tooltip key={notice.id} point={notice.point} message={t(noticeMessage)} open
           tone={notice.reason === 'location' && locating ? 'info' : 'error'} />}
