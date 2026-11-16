@@ -11,6 +11,7 @@ export default function Select({ id, name, label, ariaLabel, value, onChange, op
   const listId = `${selectId}-list`
   const anchorRef = useRef(null)
   const listRef = useRef(null)
+  const [portalTarget, setPortalTarget] = useState(document.body)
   const typeahead = useRef({ text: '', time: 0 })
   const [open, setOpen] = useState(false)
   const [activeValue, setActiveValue] = useState(value)
@@ -21,6 +22,10 @@ export default function Select({ id, name, label, ariaLabel, value, onChange, op
   const activeIndex = options.indexOf(active)
 
   useSelectPosition(anchorRef, listRef, open, { placement, avoidSelector, boundaryRef, options })
+
+  useLayoutEffect(() => {
+    setPortalTarget(anchorRef.current?.closest('dialog') ?? document.body)
+  }, [])
 
   useEffect(() => {
     if (!open) return
@@ -124,6 +129,6 @@ export default function Select({ id, name, label, ariaLabel, value, onChange, op
           <path fill="currentColor" d="m9 16.17-4.17-4.17L3.41 13.41 9 19l12-12-1.41-1.41z" />
         </svg>
       </div>) : <div className="select-empty" role="option" aria-disabled="true" aria-selected="false">{t('common.select.empty')}</div>}
-    </div>, document.body)}
+    </div>, portalTarget)}
   </div>
 }

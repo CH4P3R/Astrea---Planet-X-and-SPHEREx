@@ -29,6 +29,7 @@
 }
 .welcome-modal[open] { display: flex; flex-direction: column; }
 .welcome-modal .modal__header { flex: 0 0 auto; overflow: visible; }
+.welcome-language { display: flex; justify-content: flex-end; margin-bottom: 8px; }
 .welcome-modal .modal__content {
   min-height: 0;
   overflow-x: hidden;

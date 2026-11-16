@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, within } from '@testing-library/react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import AppViewport from '../../src/components/layout/AppViewport.jsx'
 import I18nProvider from '../../src/i18n/I18nProvider.jsx'
+import { languageStorageKey } from '../../src/i18n/core.js'
 import { projectRepository, teamMembers } from '../../src/config/team.js'
 import { welcomeStorageKey } from '../../src/components/onboarding/welcomeState.js'
 import LanguageSelect from '../../src/components/controls/LanguageSelect.jsx'
@@ -60,6 +61,29 @@ it.each([false, true])('reveals the same welcome once under an independent start
   expect(welcome.querySelector('.modal__content').hasAttribute('inert')).toBe(false)
   expect(document.querySelector('main')).toBe(workspace)
   expect(workspace.dataset.covered).toBe('true')
+})
+
+it('changes welcome language using the shared selector inside the native dialog layer', () => {
+  render(<I18nProvider><AppViewport /></I18nProvider>)
+  const welcome = document.querySelector('.welcome-modal')
+  const selector = within(welcome).getByRole('combobox', { hidden: true })
+  expect(selector.disabled).toBe(true)
+  act(() => vi.advanceTimersByTime(1900))
+  expect(selector.disabled).toBe(false)
+  const list = document.getElementById(selector.getAttribute('aria-controls'))
+  expect(list.parentElement).toBe(welcome)
+  for (const option of list.querySelectorAll('[role="option"]')) option.scrollIntoView = vi.fn()
+  fireEvent.click(selector)
+  fireEvent.click(within(list).getByRole('option', { name: 'Español' }))
+  expect(within(welcome).getByRole('heading', { level: 1 }).textContent).toBe('Bienvenido a Astrea')
+  expect(within(welcome).getByRole('button', { name: 'Empezar a explorar' })).toBeTruthy()
+  expect(window.localStorage.getItem(languageStorageKey)).toBe('es')
+  expect(document.querySelector('.welcome-modal')).toBe(welcome)
+  expect(selector.getAttribute('aria-expanded')).toBe('false')
+  fireEvent.click(selector)
+  fireEvent.keyDown(selector, { key: 'Escape' })
+  expect(selector.getAttribute('aria-expanded')).toBe('false')
+  expect(welcome.hasAttribute('data-closing')).toBe(false)
 })
 
 it('keeps about out of the welcome dialog', () => {
